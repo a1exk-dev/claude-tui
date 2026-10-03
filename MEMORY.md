@@ -67,6 +67,18 @@ Guidance: Claude Code docks a pane only under the fullscreen renderer at 110+ te
 
 Reason: #9 verified all of this live on 2.1.288, except ctrl+x x, which raised no `ui.close` under tmux. The human wants the Sidebar permanent, with nothing drawn when it can't dock. This reverses #8's choice to let the person close the pane.
 
+## The `mcp` Sidebar plugin reads live tools and the disabled list; it never probes
+
+Applies when: working on the `mcp` Sidebar plugin or anything that reads MCP server status.
+
+Guidance:
+- Every 1 s, group `$.tool.list()` entries with `mcp: true` by the second `__` segment of the name. Read `projects[<git root>].disabledMcpServers` from `~/.claude.json` (the key is the git root found by walking up from the cwd for `.git`, else the cwd) when the file's `$.fs.stat` mtime changes. Match a disabled name to a segment with `name.replace(/[^A-Za-z0-9_-]/g, '_')`.
+- List only servers seen with tools this session plus disabled ones. Rows: `●` success `N tools` (`1 tool`); `!` warning `needs auth` when the only tools are `authenticate`/`complete_authentication`; `◐` warning `connecting` for a listed server that lost its tools or left the disabled list, for `MCP_TIMEOUT` ms (`$.env.get`, default 30000) from that moment; then `✕` error `down`; `○` inactive `off` when disabled. Header `n/m` counts `●` rows over listed rows. Keep first-seen order with `off` rows last.
+- Label a row with its `/mcp` name minus a `claude.ai ` or `plugin:<plugin>:` prefix, taken from the disabled list or `tool.describe`'s `provider.plugin` (`mcp:<name>`). Without one, use the segment minus `claude_ai_` or `plugin_<plugin>_`.
+- Run no shadow `claude -p` probe and no `claude mcp list`.
+
+Reason: The human chose this in #11 to keep the mod free of child processes and network calls. The spike (`prototypes/research-11/`, 2.1.288) showed the tool list follows `/mcp disable|enable` within 250 ms, and every scope's disable lands in that one list under its `/mcp` name. The auth pseudo-tools appear only at startup, so a re-enabled server needing auth reads `connecting`, then `down`. `tool.describe` fires only for tools sent to the model, so it can't be the only source of names.
+
 ## Agent and shell events go to toasts, the live list goes to the sidebar
 
 Applies when: working on the `agents` sidebar plugin or on toasts.
