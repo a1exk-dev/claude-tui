@@ -1,0 +1,30 @@
+name: auto-merge
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable:
+    # Only the owner's own, non-draft pull requests from this repo.
+    if: >-
+      github.event.pull_request.user.login == 'a1exk-dev' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge once every required check passes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          type="${TITLE%%[:(!]*}"
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --auto --merge \
+            --subject "$type: merge $HEAD_REF into develop (#$PR)" --body ""
