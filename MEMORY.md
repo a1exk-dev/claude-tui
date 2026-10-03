@@ -36,9 +36,21 @@ Reason: `claude plugin validate` rejects dynamic `import()`, non-literal event n
 
 Applies when: drawing the Sidebar pane, sizing it, or handling its scroll and fold state.
 
-Guidance: The dock sits beside the transcript and stops above the prompt rows. Claude Code draws its `│` rule (dim, default foreground), a `✕` over the body's top-right cell, and one row below the body; no prop, theme key or mod drawing changes them, and the person may close the pane. Draw the body with padding top/bottom 1, left/right 2 and a root Box `height` of `scroll.bodyRows`, read each render: `git` header, sections window, flexible space, `versions` footer on the last row. Request `columns` 42 below 160 terminal columns and 53 from 160. Terminal width is `e.viewport.columns + bodyColumns + 1` (`viewport.columns` is the transcript's width); on a change, re-call `$.ui.open({ id, columns })` from `$.clock.after(0, …)`, never from the render itself. Cap each long list at 4 rows plus `▸ N more` / `▾ show less`. Scroll the sections yourself: slice rows to the free height (each row `height 1`, `flexShrink 0`; `overflow:"hidden"` shrinks rows instead of clipping), draw `↑ more` / `↓ more`, and answer `ui.scroll` for the pane with `{}` without `next`. Keep folds, expanded lists and the offset in `$.state`; a new session starts from `<id>_folded`.
+Guidance: The dock sits beside the transcript and stops above the prompt rows. Claude Code draws its `│` rule (dim, default foreground), a `✕` over the body's top-right cell, and one row below the body; no prop, theme key or mod drawing changes them. Draw the body with padding top/bottom 1, left/right 2 and a root Box `height` of `scroll.bodyRows`, read each render: `git` header, sections window, flexible space, `versions` footer on the last row. Request `columns` 42 below 160 terminal columns and 53 from 160. Terminal width is `e.viewport.columns + bodyColumns + 1` (`viewport.columns` is the transcript's width); on a change, re-call `$.ui.open({ id, columns })` from `$.clock.after(0, …)`, never from the render itself. Cap each long list at 4 rows plus `▸ N more` / `▾ show less`. Scroll the sections yourself: slice rows to the free height (each row `height 1`, `flexShrink 0`; `overflow:"hidden"` shrinks rows instead of clipping), draw `↑ more` / `↓ more`, and answer `ui.scroll` for the pane with `{}` without `next`. Keep folds, expanded lists and the offset in `$.state`; a new session starts from `<id>_folded`.
 
 Reason: #8 verified the chrome, the viewport width and the overflow shrink live on 2.1.288. The human chose to accept the chrome, opencode's padding, the 42/53 width, render 2's caps, and the mod-owned scroll after trying it live.
+
+## The Sidebar shows only when docked, and the person can't close it
+
+Applies when: opening, closing or placing the Sidebar pane, or handling `ui.close` for it.
+
+Guidance: Claude Code docks a pane only under the fullscreen renderer at 110+ terminal columns; otherwise it seats it inline above the prompt (the main screen at any width, fullscreen below 110). It places a pane the mod opens unasked only from 144 columns, or 110 once the person has asked for that id and not closed it by hand. So:
+- Never open at `session.start`, which carries no viewport. Watch an always-drawn render site (`SessionMode`, observe only, `return next(e)`): when the pane isn't placed, read `e.viewport` (`isFullscreen === true` and `columns >= 110`, the terminal's width while nothing is docked) and open from `$.clock.after(0, …)`.
+- If that open waits (`isPlaced: false`), open again from the person's next `prompt.submit`. An open from their prompt counts as asked, so it docks at 110+ and lowers the floor to 110 for later sessions.
+- When the `Pane` render gets `placement: 'inline'`, return an empty Box and `$.ui.close` the pane from `$.clock.after(0, …)`. A plugin close keeps the 110 floor, and the watcher reopens the pane once the terminal is 110+ again.
+- Answer `ui.close` for the pane with `{ deny: reason }` when `origin.kind` is `person`. A bare `return` or `{}` is skipped as the wrong shape, and the pane closes. The engine still draws the `✕`, and it never shows the reason. Pass `plugin` closes through with `next(e)`.
+
+Reason: #9 verified all of this live on 2.1.288, except ctrl+x x, which raised no `ui.close` under tmux. The human wants the Sidebar permanent, with nothing drawn when it can't dock. This reverses #8's choice to let the person close the pane.
 
 ## Agent and shell events go to toasts, the live list goes to the sidebar
 
