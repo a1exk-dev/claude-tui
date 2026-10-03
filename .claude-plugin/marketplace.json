@@ -1,0 +1,14 @@
+{
+  "name": "claude-tui",
+  "description": "The ctui plugin: a skin for the Claude Code TUI.",
+  "owner": {
+    "name": "Aliaksandr Katkou"
+  },
+  "plugins": [
+    {
+      "name": "ctui",
+      "source": "./ctui",
+      "description": "A skin for the Claude Code TUI: a docked sidebar with git, context, limits, MCP, todo and agent sections, plus agent and shell toasts."
+    }
+  ]
+}

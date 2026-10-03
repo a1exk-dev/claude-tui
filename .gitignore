@@ -7,3 +7,4 @@ AGENTS.override.md
 CLAUDE.local.md
 skills-lock.json
 prototypes/
+node_modules/

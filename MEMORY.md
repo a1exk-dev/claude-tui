@@ -4,9 +4,9 @@
 
 Applies when: naming the plugin, its commands, or install instructions.
 
-Guidance: Set `name` to `ctui` and `displayName` to `claude-tui` in `ctui/.claude-plugin/plugin.json`. Commands come from `ctui/commands/**/*.md` (subfolders add segments, as in `/ctui:plugins:enable`) as `/ctui:<command>`, and the mod handles them in `command.run`. If interception doesn't work, fall back to a mod-registered `/ctui-<command>`. The marketplace is named `claude-tui`, so users install `ctui@claude-tui`.
+Guidance: Set `name` to `ctui` in `ctui/.claude-plugin/plugin.json`. Commands come from `ctui/commands/**/*.md` (subfolders add segments, as in `/ctui:plugins:enable`) as `/ctui:<command>`. `register.tsx` answers each with one literal `on('command.run', { command: 'ctui:<command>' }, ...)` hook that never calls `next`, so the markdown body never reaches the model. Keep each body a harmless "the ctui mod is not loaded" fallback. The marketplace is named `claude-tui`, so users install `ctui@claude-tui`.
 
-Reason: `claude plugin validate` rejects plugin names that start with `claude-`. Commands a mod registers can't contain `:`. The human chose the short colon form.
+Reason: `claude plugin validate` rejects plugin names that start with `claude-`. Commands a mod registers can't contain `:`. The human chose the short colon form, and #5 confirmed `command.run` catches it.
 
 ## Plugin settings are flat `userConfig` keys
 
@@ -28,15 +28,15 @@ Reason: Theme keys follow the user's `/theme`. Claude Code scans `themes/` as CL
 
 Applies when: adding or changing a sidebar plugin, a data loader, or a hook.
 
-Guidance: Each sidebar plugin lives in `ctui/plugins/<id>/index.tsx`. It exports `{ id, title, needs, view(data, ui, cfg) }` and never receives `$`. List every plugin by static import in `ctui/plugins/index.ts`. Data loaders that call `$` are top-level functions in `ctui/hooks/register.tsx`. Enablement: the effective state is the `$.store` override `enabled.<id>` (set by `/ctui:plugins:enable|disable`), falling back to the `<id>_enable` option. Keep folders, registry imports and `<id>_enable` keys identical.
+Guidance: Each sidebar plugin lives in `ctui/plugins/<id>/index.tsx`. It exports a `SidebarPlugin` (`ctui/plugins/plugin.ts`): `{ id, title, needs, view(data, ui, cfg) }`, and never receives `$`. `ui` is the `ElementTable` from `$.ui.resolve(e)`, resolved once per render in `register.tsx`; write views as `view: (data, { Box, Text }, cfg) => ...`. List every plugin by static import in `ctui/plugins/index.ts`. Data loaders that call `$` are top-level functions in `ctui/hooks/register.tsx`. Enablement is the `<id>_enable` option alone: `/ctui:plugins:enable|disable` writes it with `$.config.set({ key: 'ctui.<id>_enable', value })` as its last action, and every change reloads the mod with new `options`. `$.config.set` throws under `claude -p`. Keep folders, registry imports and `<id>_enable` keys identical (`scripts/check.sh` checks).
 
-Reason: `claude plugin validate` rejects dynamic `import()`, non-literal event names, and passing `$` to an imported function. The human asked for sidebar sections as plugins in `plugins/`, toggled by config or command.
+Reason: `claude plugin validate` rejects dynamic `import()`, non-literal event names, and passing `$` or `$.ui` to an imported function, but accepts the resolved table (#7). It misses an unbound tag in an imported view, so only `tsc` catches that. #6 showed the mod can write its own `/config` row. The human asked for sidebar sections as plugins in `plugins/`, toggled by config or command.
 
 ## Agent and shell events go to toasts, the live list goes to the sidebar
 
 Applies when: working on the `agents` sidebar plugin or on toasts.
 
-Guidance: `register.tsx` raises one-line toasts for subagent and background-shell start, finish and failure (`◆ … started`, `$ … started in background`, `✓ … done · … · 42s`, `✗ … failed: …`), gated by `agents_toasts`. The `agents` sidebar plugin ("Agents & shells", between Todo and the versions footer) shows the live tree, gated by `agents_enable`. Agent starts come from `agent.spawn`. Agent ends come from polling `$.agent.list()` every 1 s, because it has no change event and no timestamps, and `completed` is not final. Shell starts come from a Bash `tool.call` result with `backgroundTaskId`. Shell ends come from `session.append` task-notification rows; only TaskStop kills are silent. Elapsed time comes from `$.clock.now()`. Never open the sidebar with `holdToasts`. Details: `docs/agents/research/toasts-agents-shells.md`.
+Guidance: `register.tsx` raises one-line toasts for subagent and background-shell start, finish and failure (`◆ … started`, `$ … started in background`, `✓ … done · … · 42s`, `✗ … failed: …`), gated by `agents_toasts`. The `agents` sidebar plugin ("Agents & shells", between Todo and the versions footer) shows the live tree, gated by `agents_enable`. Agent starts come from `agent.spawn`. Agent status comes from polling `$.agent.list()` every 1 s, because it has no change event and no timestamps, and `completed` is not final. Shell starts come from a Bash `tool.call` result with `backgroundTaskId`. Shell and agent ends come from `prompt.submit` with origin kind `task-notification` (observe only, `return next(e)`); only TaskStop kills are silent. One pure, guarded `parseTaskNotification(text)` is the only code that reads that XML: it requires `<task-id>` and `<status>`, matches only ids already held, and returns `undefined` otherwise (#15). An agent's failure reason comes from `classic.StopFailure` (`agent_id`, `error` word), then the notification summary, then the status word (#13); `classic.SubagentStop` never fires for a failed agent. Elapsed time comes from `$.clock.now()`. Never open the sidebar with `holdToasts`. Details: `docs/agents/research/toasts-agents-shells.md`.
 
 Toasts are queued, not stacked, and titled with the plugin `name`. The live prototype showed bursts making later toasts stale, so keep the queue short: shorter `timeoutMs` for start toasts, and drop a start toast once its finish toast is queued. The human chose one toast per event (variant a) on 2026-10-03.
 
@@ -72,3 +72,11 @@ Applies when: working on the `versions` sidebar plugin or anything that would fe
 Guidance: The footer shows the installed version from `$.session.version()`. It shows an update icon only when Claude Code itself announces an update, observed through render sites such as `PromptHint` `hint` or `InfoNotice` `text`. Never fetch release data from the mod. Whether and where the native notice can be observed is **unverified**. The probe is in `prototypes/toasts-mod` (it logs `native hint →` and `native notice →` lines).
 
 Reason: The human asked for "the same way we receive native claude info about update". Staying network-free avoids the directory's disclosure, opt-out and privacy-policy requirements.
+
+## `tsc` runs against vendored engine types
+
+Applies when: running or fixing `tsc`, changing `tsconfig.json`, or moving to a new Claude Code version.
+
+Guidance: The root `tsconfig.json` type-checks `ctui/` against `vendor/claude-code-types/{claude-code,claude-code-tools}`, copied from the `ctui/.claude-plugin/types/` the engine writes when it loads `claude --plugin-dir ./ctui`. On a Claude Code version bump, load the plugin once, copy those two folders into `vendor/`, and update the tested version in `ctui/README.md`. Leave `claude-code-mcp` out: it lists the MCP tools of the session that loaded it. `ctui/tsconfig.json` is the engine-written editor config and is not used by `scripts/check.sh`.
+
+Reason: CI has no Claude Code session to generate the types, and the generated folder is gitignored by the engine.
