@@ -22,7 +22,9 @@ Applies when: choosing colors in the mod or adding a theme.
 
 Guidance: Use Claude Code theme keys (`claude`, `success`, `error`, `warning`, `suggestion`, `inactive`, ...) as the default palette. A file in `ctui/themes/<slug>.json` uses Claude Code's `{ name, base, overrides }` shape. The sidebar resolves each color as `overrides[key] ?? key`. The Sidebar paints no background: the dock's color is the undocumented key `composerSidebarBackground`, so a Theme sets it there; recheck that key on each Claude Code version bump. Put nothing of another shape in `themes/`. Leave CSS and SCSS in `prototypes/` only.
 
-Reason: Theme keys follow the user's `/theme`. Claude Code scans `themes/` as CLI themes. CSS can't reach the mod runtime. Details are in `docs/agents/research/claude-code-plugin-mods-structure.md` §3.4 and §6a.
+v0.1 ships no Theme file: the `theme` setting and `/ctui:theme` stay, with options `[inherit]`, so a later Theme drops in without manifest changes. Custom colors go in a CLI theme the person saves as `~/.claude/themes/<slug>.json` and picks in `/theme`. `docs/configuration` holds an example that sets every theme key the Sidebar reads plus `composerSidebarBackground`; keep its key list equal to the keys the code uses.
+
+Reason: The human chose `inherit` with no shipped Theme, kept the setting and command, and wants themes documented in `docs/configuration` (#12). Theme keys follow the user's `/theme` live. Claude Code scans `themes/` as CLI themes and lists each in `/theme` as `<name> · from <plugin>` (stored as `custom:<plugin>:<slug>`). Only the person's `/theme` pick paints the dock: `$.config.set({ key: 'theme' })` accepts only the built-in themes (#12, 2.1.288). CSS can't reach the mod runtime. Details are in `docs/agents/research/claude-code-plugin-mods-structure.md` §3.4 and §6a.
 
 ## Sidebar plugins are pure; only `register.tsx` touches `$`
 
