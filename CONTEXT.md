@@ -2,7 +2,7 @@
 
 ## Sidebar
 
-The docked pane the mod draws beside the transcript, specified by the renders in `docs/design/`. It is a mod `Pane`, not a native Claude Code panel: the Sidebar is the pane's body, and the frame around it (rule, `✕`, background) is Claude Code's. It shows the enabled **Sidebar plugins** in registry order.
+The docked pane the mod draws beside the transcript, specified by the renders in `docs/design/`. It is a mod `Pane`, not a native Claude Code panel: the Sidebar is the pane's body, and the frame around it (rule, `✕`, background) is Claude Code's. It shows the enabled **Sidebar plugins** in registry order. It exists only docked: where Claude Code would seat it inline above the prompt, the Sidebar is hidden.
 
 ## Sidebar plugin
 
