@@ -1,0 +1,78 @@
+{
+  "name": "ctui",
+  "displayName": "ctui",
+  "version": "0.0.0",
+  "description": "A skin for the Claude Code TUI: a docked sidebar with git, context, limits, MCP, todo and agent sections, plus agent and shell toasts.",
+  "author": {
+    "name": "Aliaksandr Katkou"
+  },
+  "homepage": "https://github.com/a1exk-dev/claude-tui",
+  "repository": "https://github.com/a1exk-dev/claude-tui",
+  "license": "MIT",
+  "keywords": [
+    "tui",
+    "sidebar",
+    "skin",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "git_enable": {
+      "type": "boolean",
+      "title": "Git header",
+      "description": "Show the git header (path, branch, ahead/behind, file status, lines changed) in the sidebar",
+      "default": true
+    },
+    "context_enable": {
+      "type": "boolean",
+      "title": "Context section",
+      "description": "Show the context-window section in the sidebar",
+      "default": true
+    },
+    "limits_enable": {
+      "type": "boolean",
+      "title": "Limits section",
+      "description": "Show the usage-limits section in the sidebar",
+      "default": true
+    },
+    "mcp_enable": {
+      "type": "boolean",
+      "title": "MCP section",
+      "description": "Show the MCP servers section in the sidebar",
+      "default": true
+    },
+    "todo_enable": {
+      "type": "boolean",
+      "title": "Todo section",
+      "description": "Show the todo list section in the sidebar",
+      "default": true
+    },
+    "agents_enable": {
+      "type": "boolean",
+      "title": "Agents & shells section",
+      "description": "Show running subagents and background shells in the sidebar",
+      "default": true
+    },
+    "agents_toasts": {
+      "type": "boolean",
+      "title": "Agent and shell toasts",
+      "description": "Show a toast when a subagent or background shell starts, finishes or fails",
+      "default": true
+    },
+    "versions_enable": {
+      "type": "boolean",
+      "title": "Versions footer",
+      "description": "Show the Claude Code version footer in the sidebar",
+      "default": true
+    },
+    "theme": {
+      "type": "string",
+      "title": "Sidebar theme",
+      "description": "Theme for the sidebar: inherit follows your Claude Code theme, or pick a ctui theme",
+      "options": [
+        "inherit"
+      ],
+      "default": "inherit"
+    }
+  }
+}

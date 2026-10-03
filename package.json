@@ -1,0 +1,8 @@
+{
+  "name": "claude-tui-dev",
+  "private": true,
+  "description": "Dev tooling for the ctui plugin. Not published; the plugin's own manifest is ctui/package.json.",
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
