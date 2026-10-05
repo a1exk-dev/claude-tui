@@ -2,13 +2,16 @@ import { expect, test } from 'claude-code/testing'
 
 import { plugins } from '../plugins'
 
-// Mounts every Sidebar plugin's view in a Pane, as register.tsx will, with no
-// data loaded yet: each view must draw on the terminal surface.
+// Mounts every Sidebar plugin's view in a Pane, as the Sidebar does, with no
+// data loaded yet: each view's rows must draw on the terminal surface.
 test('every Sidebar plugin view draws with empty data', async ($, on) => {
   let current = plugins[0]
+  let rows = 0
   on('ui.render', { component: 'Pane' }, async ($, e) => {
     const ui = $.ui.resolve(e)
-    return <ui.Box>{current?.view({}, ui, {})}</ui.Box>
+    const view = current?.view({}, ui, { enable: true }) ?? []
+    rows = view.length
+    return <ui.Box flexDirection="column">{view}</ui.Box>
   })
   for (const plugin of plugins) {
     current = plugin
@@ -26,7 +29,8 @@ test('every Sidebar plugin view draws with empty data', async ($, on) => {
         view: {},
       },
     })
-    expect(await pane.find({ type: 'Text' }), plugin.id).toBeDefined()
+    const drawn = (await pane.drawn()) as { children?: unknown[] }
+    expect(drawn.children ?? [], plugin.id).toHaveLength(rows)
     await pane.unmount()
   }
 })
