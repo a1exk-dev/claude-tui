@@ -1,12 +1,13 @@
 import type { SidebarPlugin } from '../plugin'
 
-const title = 'MCP'
-
+// Rows come in a later slice of docs/spec/v0.1.md.
 const plugin: SidebarPlugin = {
   id: 'mcp',
-  title,
+  title: 'MCP',
+  slot: 'section',
   needs: [],
-  view: (_data, { Text }) => <Text dimColor>{title}</Text>,
+  list: true,
+  view: () => [],
 }
 
 export default plugin
