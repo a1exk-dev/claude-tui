@@ -145,6 +145,18 @@ Guidance: The footer shows the installed version from `$.session.version()` and 
 
 Reason: The #17 spike (`prototypes/research-17/`, 2.1.288 with 2.1.289 out) showed that native notice reaches no mod hook: no render site (`PromptHint`, `SessionMode`, `AbovePrompt`, `InfoNotice`), no event, and no `http.fetch` op. No engine-written file names the latest version either. The human then chose no icon over an opt-in fetch or an `npm view` child process. Staying network-free avoids the directory's disclosure, opt-out and privacy-policy requirements.
 
+## `UserMessage` rewrites draw the person's own prompts only
+
+Applies when: rewriting the `UserMessage` render site (the `┃` bar and panel).
+
+Guidance:
+- Choose rows by `origin.kind`, never by `isExpanded`. Draw the bar and panel for `composer`, `bridge` and `sdk` in both states. Pass every other row (task notifications, peers, channels, teammates) to `next(e)`, so the engine keeps its one-liners, sender framing and `(ctrl+o to expand)`.
+- Draw a row Box with `marginTop: 1`, `paddingLeft: 1` and `overflow: 'hidden'`. Inside it, put an absolute Box (`top: 0, bottom: 0, left: 0, width: 1`) holding a tall `┃` Text, then the body Box (`backgroundColor: 'userMessageBackground'`, `paddingX: 2`, `paddingY: 1`). The outer `overflow: 'hidden'` is what clips the `┃` column to the row.
+- Draw `text` with `<pasted_content …>` tags and leading and trailing newlines removed, as the engine does. Build new values: `e.props` is frozen, and assigning to it throws, which skips the hook.
+- The fullscreen sticky header (the prompt pinned at the top while scrolling) is the engine's and ignores the rewrite.
+
+Reason: The human chose this in #19 after a live spike (`prototypes/research-19/`, 2.1.288, fullscreen and main screen). `isExpanded` is false on every row in the normal view, the person's prompts included, and true only under ctrl+o. A returned tree draws in both states. Without the outer clip, the `┃` column painted over column 0 of every later row. A computed `┃` count drifts with word wrap, and a width-1 background strip is a solid block, heavier than the thin bar in `docs/design/`.
+
 ## `tsc` runs against vendored engine types
 
 Applies when: running or fixing `tsc`, changing `tsconfig.json`, or moving to a new Claude Code version.
