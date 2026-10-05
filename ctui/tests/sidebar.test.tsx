@@ -56,6 +56,7 @@ async function draw(
     const drawn = sidebar({
       ui: $.ui.resolve(e),
       bodyRows: 30,
+      bodyColumns: 42,
       plugins: [header, list('mcp', 3), footer],
       data: {},
       config: readConfig({}),

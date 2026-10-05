@@ -1,14 +1,15 @@
 import type { ElementTable, RenderNode } from 'claude-code'
 
 import type { SectionConfig } from '../hooks/config'
-import type { GitSnapshot, Versions } from '../types'
+import type { GitSnapshot, Usage, Versions } from '../types'
 
 export type SidebarId = 'git' | 'context' | 'limits' | 'mcp' | 'todo' | 'agents' | 'versions'
 
 // What register.tsx loads for the enabled plugins' `needs`.
-export type SidebarData = { git?: GitSnapshot; versions?: Versions }
+export type SidebarData = { git?: GitSnapshot; usage?: Usage; now?: number; versions?: Versions }
 
-type Draw<T> = (data: SidebarData, ui: ElementTable, cfg: SectionConfig) => T
+// `width` is the row's width in cells.
+type Draw<T> = (data: SidebarData, ui: ElementTable, cfg: SectionConfig, width: number) => T
 
 // A Sidebar plugin: pure, never receives `$`. register.tsx loads the data
 // each plugin `needs` and passes the element table from `$.ui.resolve(e)`.

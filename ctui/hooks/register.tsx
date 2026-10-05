@@ -1,8 +1,9 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import { plugins } from '../plugins'
-import type { GitSnapshot } from '../types'
+import type { GitSnapshot, Usage } from '../types'
 import { readConfig } from './config'
+import { formatReset } from './format'
 import { parseGit, tildify } from './git'
 import { sidebar } from './sidebar'
 
@@ -12,6 +13,8 @@ const EXPANDED = { plugin: 'ctui', key: 'expanded' } as const
 const SCROLL = { plugin: 'ctui', key: 'scroll' } as const
 const GIT = { plugin: 'ctui', key: 'git' } as const
 const VERSIONS = { plugin: 'ctui', key: 'versions' } as const
+const USAGE = { plugin: 'ctui', key: 'usage' } as const
+const NOW = { plugin: 'ctui', key: 'now' } as const
 
 // The dock docks from 110 terminal columns; the Sidebar asks 42, or 53 from 160.
 const DOCK_COLUMNS = 110
@@ -63,6 +66,35 @@ async function loadVersions($: EngineInterface) {
   if (JSON.stringify(value) !== JSON.stringify(versions)) await $.state.set(VERSIONS, versions)
 }
 
+// The context and limits figures, from `$.session.usage()` or a `session.measure`.
+async function setUsage($: EngineInterface, { context, rateLimits, cost }: Usage) {
+  const usage: Usage = { context, rateLimits, ...(cost && { cost }) }
+  const { value } = await $.state.get(USAGE)
+  if (JSON.stringify(value) !== JSON.stringify(usage)) await $.state.set(USAGE, usage)
+}
+
+async function loadUsage($: EngineInterface) {
+  await setUsage($, await $.session.usage())
+}
+
+// `/clear` and `/resume` empty `$.state` with no `session.start`: the tick refills it.
+async function refillUsage($: EngineInterface) {
+  const { value } = await $.state.get(USAGE)
+  if (!value) await loadUsage($)
+}
+
+// `now` moves when a reset time shown would read differently.
+async function setNow($: EngineInterface) {
+  const usage = await $.state.get(USAGE)
+  const resets = usage.value?.rateLimits.flatMap((limit) => (limit.resetsAt ? [limit.resetsAt] : [])) ?? []
+  if (!resets.length) return
+  const now = await $.clock.now()
+  const { value } = await $.state.get(NOW)
+  if (value === undefined || resets.some((at) => formatReset(at, now) !== formatReset(at, value))) {
+    await $.state.set(NOW, now)
+  }
+}
+
 async function openSidebar($: EngineInterface, columns: number) {
   requested = columns
   const opened = await $.ui.open({ id: SIDEBAR, title: 'Sidebar', columns })
@@ -77,12 +109,21 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     if (needs.has('git')) void refreshGit($)
     if (needs.has('versions')) void loadVersions($)
+    if (needs.has('usage')) void loadUsage($).then(() => (needs.has('now') ? setNow($) : undefined))
     let ticks = 0
     tick?.cancel()
     tick = $.clock.every(1000, () => {
       ticks++
       if (ticks % 5 === 0 && needs.has('git')) void refreshGit($)
+      if (needs.has('usage')) void refillUsage($)
+      if (needs.has('now')) void setNow($)
     })
+    return next(e)
+  })
+
+  on('session.measure', async ($, e, next) => {
+    if (needs.has('usage')) await setUsage($, e)
+    if (needs.has('now')) await setNow($)
     return next(e)
   })
 
@@ -135,18 +176,21 @@ export const register: Register = (on, options) => {
         $.clock.after(0, () => void openSidebar($, columns))
       }
     }
-    const [folded, expanded, scroll, git, versions] = await Promise.all([
+    const [folded, expanded, scroll, git, usage, now, versions] = await Promise.all([
       $.state.get(FOLDED),
       $.state.get(EXPANDED),
       $.state.get(SCROLL),
       $.state.get(GIT),
+      $.state.get(USAGE),
+      $.state.get(NOW),
       $.state.get(VERSIONS),
     ])
     const drawn = sidebar({
       ui,
       bodyRows: e.props.scroll.bodyRows,
+      bodyColumns: e.props.bodyColumns,
       plugins: enabled,
-      data: { git: git.value, versions: versions.value },
+      data: { git: git.value, usage: usage.value, now: now.value, versions: versions.value },
       config,
       folded: folded.value ?? {},
       expanded: expanded.value ?? {},

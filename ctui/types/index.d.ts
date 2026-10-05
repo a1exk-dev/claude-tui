@@ -19,13 +19,23 @@ export type GitSnapshot = { path: string; repo?: GitRepo }
 
 export type Versions = { ctui: string; claude: string }
 
+// `$.session.usage()`'s figures, as `session.measure` pushes them. The
+// contract is self-contained, so the engine's types are restated here.
+export type Usage = {
+  context: { tokens?: number; window: number; percent?: number } // tokens and percent absent before the first response
+  rateLimits: { kind: string; percentUsed: number; resetsAt?: string }[] // empty off a subscription
+  cost?: { usd: number }
+}
+
 declare module 'claude-code' {
   interface PluginState {
     ctui: {
       folded: Record<string, boolean> // per Sidebar plugin; unset reads <id>_folded
       expanded: Record<string, boolean> // list caps
       scroll: number // Sidebar section offset, in rows
+      now?: number // written by the tick while a timer shows
       git?: GitSnapshot
+      usage?: Usage
       versions?: Versions
     }
   }
