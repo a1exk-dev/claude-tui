@@ -35,7 +35,7 @@ Applies when: choosing colors in the mod or adding a theme.
 
 Guidance: Use Claude Code theme keys (`claude`, `success`, `error`, `warning`, `suggestion`, `inactive`, ...) as the default palette. A file in `ctui/themes/<slug>.json` uses Claude Code's `{ name, base, overrides }` shape. The sidebar resolves each color as `overrides[key] ?? key`. The Sidebar paints no background: the dock's color is the undocumented key `composerSidebarBackground`, so a Theme sets it there; recheck that key on each Claude Code version bump. Put nothing of another shape in `themes/`. Leave CSS and SCSS in `prototypes/` only.
 
-v0.1 ships no Theme file: the `theme` setting and `/ctui:theme` stay, with options `[inherit]`, so a later Theme drops in without manifest changes. Custom colors go in a CLI theme the person saves as `~/.claude/themes/<slug>.json` and picks in `/theme`. `docs/configuration` holds an example that sets every theme key the Sidebar reads plus `composerSidebarBackground`; keep its key list equal to the keys the code uses.
+v0.1 ships no Theme file: the `theme` setting and `/ctui:theme` stay, with options `[inherit]`, so a later Theme drops in without manifest changes. Custom colors go in a CLI theme the person saves as `~/.claude/themes/<slug>.json` and picks in `/theme`. `docs/configuration` holds an example that sets every theme key the Sidebar reads plus `composerSidebarBackground` and `promptBorder`; keep its key list equal to the keys the code uses plus those two.
 
 Reason: The human chose `inherit` with no shipped Theme, kept the setting and command, and wants themes documented in `docs/configuration` (#12). Theme keys follow the user's `/theme` live. Claude Code scans `themes/` as CLI themes and lists each in `/theme` as `<name> · from <plugin>` (stored as `custom:<plugin>:<slug>`). Only the person's `/theme` pick paints the dock: `$.config.set({ key: 'theme' })` accepts only the built-in themes (#12, 2.1.288). CSS can't reach the mod runtime. Details are in `docs/agents/research/claude-code-plugin-mods-structure.md` §3.4 and §6a.
 
@@ -156,6 +156,18 @@ Guidance:
 - The fullscreen sticky header (the prompt pinned at the top while scrolling) is the engine's and ignores the rewrite.
 
 Reason: The human chose this in #19 after a live spike (`prototypes/research-19/`, 2.1.288, fullscreen and main screen). `isExpanded` is false on every row in the normal view, the person's prompts included, and true only under ctrl+o. A returned tree draws in both states. Without the outer clip, the `┃` column painted over column 0 of every later row. A computed `┃` count drifts with word wrap, and a width-1 background strip is a solid block, heavier than the thin bar in `docs/design/`.
+
+## The prompt box and main background stay Claude Code's
+
+Applies when: specifying or building the main-column skin, or writing `docs/configuration`.
+
+Guidance:
+- ctui draws nothing for the prompt box or the main background. The build spec lists both as known differences from the renders in `docs/design/`: Claude Code's prompt is a `─` rule above and below a `❯` line, with no round box and no "Ask anything", and the transcript shows the terminal's own background.
+- The example CLI theme in `docs/configuration` sets `promptBorder`, the color of the prompt's rules.
+- `docs/configuration` has a "Main background" section: Claude Code shows the terminal's background behind the transcript, so set it to `#0a0a0a` to match the renders. Give a config example for each common terminal (Ghostty, Kitty, Alacritty, WezTerm, foot, iTerm2, Windows Terminal).
+- Don't fake the box in the `AbovePrompt` band, and don't paint ctui's rows with a background.
+
+Reason: The human chose this in #20. On 2.1.288 the prompt input is not a render site, and no setting changes its shape or placeholder (the placeholder is Claude Code's own `Try "…"`). The theme key list has no main-background key: the `background` key colors text such as "running" (binary check). An `AbovePrompt` box can't join the input, keeps its text while the person types, and is shared with other mods. Row backgrounds leave stripes between the engine's rows.
 
 ## `tsc` runs against vendored engine types
 
