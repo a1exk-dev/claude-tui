@@ -10,5 +10,5 @@ import versions from './versions'
 
 // Static registry in Sidebar order: validation rejects dynamic import().
 // Keep folders, these imports and the `<id>_enable` keys in plugin.json equal
-// (scripts/check.sh checks).
+// (scripts/check.ts checks).
 export const plugins: readonly SidebarPlugin[] = [git, context, limits, mcp, todo, agents, versions]
