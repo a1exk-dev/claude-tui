@@ -134,7 +134,8 @@ Guidance: Keep every structural choice compatible with both channels: Anthropic'
 - `ctui/` must contain its own README (at least 40 words, stating the tested Claude Code version and disclosing that the mod watches Bash and agent events in every session) and its own LICENSE. The repo-root files don't count.
 - `ctui/package.json` has no dependencies, no scripts, no lockfile, and a `files` whitelist. The dev `package.json` and lockfile stay at the repo root.
 - The npm name `ctui` is taken. Use the scoped `@a1exk-dev/ctui` unless the human decides otherwise.
-- Releases: bump both version fields on `release/x.y.z`, merge to `main` (the default branch, which the directory follows), tag `vX.Y.Z`. A tag workflow runs the checks, publishes to npm with provenance, and creates the GitHub release.
+- Releases: bump both version fields on `release/x.y.z`, add its row to `ctui/COMPATIBILITY.md`, merge to `main` (the default branch, which the directory follows), tag `vX.Y.Z`. A tag workflow runs the checks, publishes to npm with provenance, and creates the GitHub release.
+- Versions: each 0.x is a real release (`release/0.y.0` into `main`, tagged) for initial development, with no npm publish and no directory listing. 1.0.0 is the stable release that gets listed; the publishing map sets the listing up. The human chose this in #42, following SemVer's 0.y.z rule.
 - Any network call needs disclosure, an opt-out, and a privacy policy URL.
 
 Details: `docs/agents/research/publishing-catalog-npm.md`.
@@ -220,10 +221,27 @@ Guidance:
 
 Reason: The human chose this in #36 after a live spike (`prototypes/research-36/`, 2.1.288, fullscreen and main screen). The props carry only `word` and `durationMs`; `requestId` is the transcript's `turn_duration` uuid, stable across `--continue`, but no event names it before the render. `turn.complete` fires just before the render with an identical `durationMs`. Old lines redraw on scroll, reload and `--continue`, never on shift+tab or `/model`. With `showTurnDuration: false` the engine hides only its own drawing, so a mod tree would still draw, and an own tree drops every engine extra.
 
-## `tsc` runs against vendored engine types
+## One pinned Claude Code version: devDependency, vendored types, tested-versions table
 
-Applies when: running or fixing `tsc`, changing `tsconfig.json`, or moving to a new Claude Code version.
+Applies when: running or fixing `tsc` or the checks, changing `tsconfig.json` or CI, or moving to a new Claude Code version.
 
-Guidance: The root `tsconfig.json` type-checks `ctui/` against `vendor/claude-code-types/{claude-code,claude-code-tools}`, copied from the `ctui/.claude-plugin/types/` the engine writes when it loads `claude --plugin-dir ./ctui`. On a Claude Code version bump, load the plugin once, copy those two folders into `vendor/`, and update the tested version in `ctui/README.md`. Leave `claude-code-mcp` out: it lists the MCP tools of the session that loaded it. `ctui/tsconfig.json` is the engine-written editor config and is not used by `scripts/check.sh`.
+Guidance:
+- Pin Claude Code as an exact root devDependency (`"@anthropic-ai/claude-code": "2.1.288"`). `npm ci` installs it locally and in CI. The checks run `node_modules/.bin/claude plugin validate ctui --strict`, `validate . --strict` and `plugin test ctui`, and fail when it is missing.
+- The root `tsconfig.json` type-checks `ctui/` against `vendor/claude-code-types/{claude-code,claude-code-tools}`, copied from the `ctui/.claude-plugin/types/` the engine writes when it loads `claude --plugin-dir ./ctui`. Leave `claude-code-mcp` out: it lists the MCP tools of the session that loaded it. `ctui/tsconfig.json` is the engine-written editor config, unused by the checks.
+- `ctui/COMPATIBILITY.md` is a `ctui | Claude Code | Date` table of released ctui versions only, newest first, in the npm `files` whitelist. `ctui/README.md` reads `Tested with Claude Code <pin> ([all tested versions](COMPATIBILITY.md)).` The checks assert the README version equals the pin and, once the table has rows, that its top row equals `plugin.json`'s version and the pin. Before 0.1.0 it holds only the header.
+- A version bump is one PR into `develop`, with no release: `npm i -D -E @anthropic-ai/claude-code@<ver>`, load the plugin once and copy the two type folders into `vendor/`, update the README line, add a row for the latest released ctui version, and run the full live checklist. It reaches `main` with the next release.
 
-Reason: CI has no Claude Code session to generate the types, and the generated folder is gitignored by the engine.
+Reason: The human chose this in #42. CI has no Claude Code session to generate the types, and the generated folder is gitignored by the engine. `claude plugin test` and `validate` need no session, sign-in or network; the npm package brings each platform's binary as an optional dependency. A row is a tested pair, so a bump changes no version and starts no release; only a `plugin.json` bump forces a new row.
+
+## Tests cover real usage: unit tests per module, scenario tests through hooks, live checks for the rest
+
+Applies when: writing or reviewing ctui tests, the check runner, `CONTRIBUTING.md` or the PR template.
+
+Guidance:
+- Test what real usage reaches, and only that: a failure case earns a test when a production input, dependency or path can produce it (`claude -p` with no `ctui.theme` row, `TaskList` absent on the model). Skip shapes a 2.1.288 session never sends.
+- `claude plugin test ctui` runs `ctui/tests/*.test.ts(x)` in two layers. Unit tests for most modules: each Sidebar plugin view mounted with sample data, `parseTaskNotification`, the toast queue, the formatters, and the `/ctui:*` outcome logic. Scenario tests drive the hooks through real-usage flows and assert what the person sees: Sidebar rows, toasts, command replies, rewritten rows.
+- Build events with the `claude-code/testing` drivers (`$.tool.call`, `$.agent.spawn`, `$.classic.<Event>`, `$.ui.mount`, `mock.clock`), so the engine shapes them as a session does. Hand-write a payload only where no driver makes one (task-notification XML, the `queued_command` row, `~/.claude.json`), copied from what a spike recorded.
+- `scripts/check.ts` replaces `scripts/check.sh` in the build (AGENTS.md, docs and `check.yml` move with it): `tsc`, `validate --strict`, `plugin test`, the consistency checks, `typos`.
+- Behaviour mocks can't reach is a live check in `docs/testing/live-checks.md` (setup, action, expected), by section: Sidebar docking, Sidebar layout and scroll, toasts, render-site rewrites, commands and pickers, `claude -p`. A root `CONTRIBUTING.md` explains it; `.github/pull_request_template.md` asks which sections ran on the pin. A `ctui/` PR runs the sections it touches, releases and pin bumps run the full list, and a docs-only PR answers N/A. Auto-merge doesn't wait on it.
+
+Reason: The human chose this in #42. `claude plugin test` loads tests from inside the mod folder, `validate --strict` passes with `tests/` there, and npm's `files` whitelist leaves it out (checked on 2.1.288). Docking, engine chrome, toast drawing and the fullscreen and main-screen looks need a signed-in terminal, so they stay manual.
