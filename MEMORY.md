@@ -194,6 +194,19 @@ Guidance:
 
 Reason: The human chose this in #20. On 2.1.288 the prompt input is not a render site, and no setting changes its shape or placeholder (the placeholder is Claude Code's own `Try "…"`). The theme key list has no main-background key: the `background` key colors text such as "running" (binary check). An `AbovePrompt` box can't join the input, keeps its text while the person types, and is shared with other mods. Row backgrounds leave stripes between the engine's rows.
 
+## The line under the prompt: `model · effort` is a `SessionMode` label
+
+Applies when: drawing the line under the prompt (`PromptHint`, `SessionMode`), or reading the session's model or effort.
+
+Guidance:
+- Pass `PromptHint` through with `next(e)` and keep its `hint` text in a module variable. Claude Code's mode pill (`⏵⏵ accept edits on`) sits left of it, follows shift+tab live, and is the only permission-mode display: ctui draws none.
+- The one `SessionMode` hook (shared with the Sidebar's viewport watcher) builds the label `<model> · <effort> effort`, or `<model>` alone with no effort. When `2 + 24 + 1 + hint.length + 2 + label.length <= e.viewport.columns` (24 is the widest pill, `⏵⏵ bypass permissions on`), append the label to `modes`. Otherwise return `Box({ width: '100%' })` holding a dim `truncate-end` Text of the label: Claude Code gives it its own row, left-aligned. When `hint` changes, call `$.ui.invalidate('ui.render')` from `$.clock.after(0, …)`. Unverified: whether `SessionMode`'s `viewport.columns` shrinks while the Sidebar is docked; check it during the build.
+- Model: `$.session.model()` (the id, as the renders show it), read on the 1 s poll. It follows `/model` within a tick.
+- Effort, kept in `$.state`: seed it from `$.settings.read()` `modelSettings[<model>].effortLevel ?? effortLevel`. Then take the latest of: main-loop `turn.step` `effort` (no `agentId`; absent means the model takes none, so clear it); `command.run` `effort` whose `args` is a level (observe, `return next(e)`); and a change in `modelSettings[<current model>].effortLevel` between polls (the saved `/effort` picker). After `/model`, keep the effort: the session's level carries over, and the new model's saved default is only for new sessions. `turn.step` streams, so its hook is `async function* ($, e, next) { …; return yield* next(e) }`.
+- Known differences from the renders: the mode stays Claude Code's pill on the left, not `▸▸ accept edits` on the right. With a status line, the label sits at the right of the status-line row. On the main screen, it stacks under Claude Code's notices (`Update available!`).
+
+Reason: The human chose this in #35 after a live spike (`prototypes/research-35/`, 2.1.288, fullscreen and main screen, 80 to 180 columns). Shift+tab raises no event, and classic hooks carry `permission_mode` only when they fire. No call returns the effort: a session-only `/effort` pick (`s`) and `--effort` show only at the next request. `tail` can't reach the right edge, because Claude Code collapses leading spaces and no-break spaces. A growing tree wraps Claude Code's ` · ` separator onto a stray row, and an engine ref under a Box with `width` is refused.
+
 ## `tsc` runs against vendored engine types
 
 Applies when: running or fixing `tsc`, changing `tsconfig.json`, or moving to a new Claude Code version.
