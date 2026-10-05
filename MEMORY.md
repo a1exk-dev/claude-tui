@@ -207,6 +207,19 @@ Guidance:
 
 Reason: The human chose this in #35 after a live spike (`prototypes/research-35/`, 2.1.288, fullscreen and main screen, 80 to 180 columns). Shift+tab raises no event, and classic hooks carry `permission_mode` only when they fire. No call returns the effort: a session-only `/effort` pick (`s`) and `--effort` show only at the next request. `tail` can't reach the right edge, because Claude Code collapses leading spaces and no-break spaces. A growing tree wraps Claude Code's ` · ` separator onto a stray row, and an engine ref under a Box with `width` is refused.
 
+## The turn footer: prefix the turn's mode and model to Claude Code's `word`
+
+Applies when: rewriting the `TurnDuration` render site, or reading a finished turn's mode or model.
+
+Guidance:
+- Return `next({ ...e, props: { ...e.props, word: '<mode> · <model> · <word>' } })`, giving `✻ accept edits · claude-opus-5-5 · Baked for 12s · done 8:57 PM`. Claude Code keeps drawing the glyph, `for <duration>`, the done time (`timeFormat`), the `showTurnDuration` gate, and its extras (`Waiting for N background agents to finish`, token budget, `N messages hidden`, `· N shell still running`). Draw no tree of your own.
+- Values are the turn's own. Mode: the latest `permission_mode` from a `classic.*` event without `agent_id` (`UserPromptSubmit` at the start, `Stop` at the end; `StopFailure` has none). Model: the last main-loop `turn.step` `model` (a fallback model when one took over). On main-loop `turn.complete`, unless `reason` is `aborted` (no line is drawn then), store `{ durationMs, mode, model }` in `$.state`. The render reads the newest record whose `durationMs` equals `e.props.durationMs`; render hooks never write `$.state`.
+- Mode labels follow Claude Code's pill: `default` → `manual mode`, `acceptEdits` → `accept edits`, `plan` → `plan mode`, `bypassPermissions` → `bypass permissions`, `auto` → `auto mode`, `dontAsk` → `don't ask`.
+- With no record (lines from an earlier process after `--continue` or `/resume`, or before ctui loaded), return `next(e)`: Claude Code's plain line. Persist nothing in `$.store`.
+- Known differences from the renders: Claude Code's `✻` glyph and verb (`Baked for 12s`) replace `⊡` and `12.3s`.
+
+Reason: The human chose this in #36 after a live spike (`prototypes/research-36/`, 2.1.288, fullscreen and main screen). The props carry only `word` and `durationMs`; `requestId` is the transcript's `turn_duration` uuid, stable across `--continue`, but no event names it before the render. `turn.complete` fires just before the render with an identical `durationMs`. Old lines redraw on scroll, reload and `--continue`, never on shift+tab or `/model`. With `showTurnDuration: false` the engine hides only its own drawing, so a mod tree would still draw, and an own tree drops every engine extra.
+
 ## `tsc` runs against vendored engine types
 
 Applies when: running or fixing `tsc`, changing `tsconfig.json`, or moving to a new Claude Code version.
