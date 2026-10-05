@@ -8,6 +8,7 @@ export const CAP = 4
 export type SidebarInput = {
   ui: ElementTable
   bodyRows: number // the Pane's `scroll.bodyRows`
+  bodyColumns: number // the Pane's `bodyColumns`
   plugins: readonly SidebarPlugin[] // enabled, in registry order
   data: SidebarData
   config: Config
@@ -23,6 +24,8 @@ export type SidebarInput = {
 // on the last row. `maxScroll` is the window's last offset, 0 when it fits.
 export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: number } {
   const { ui, plugins, data, config } = input
+  // Padding takes 2 columns each side; section rows indent 2 more.
+  const width = input.bodyColumns - 4
   const { Box, Text, Button } = ui
   const row = (node: RenderNode, indent = 0) => (
     <Box height={1} flexShrink={0} paddingLeft={indent}>
@@ -30,7 +33,7 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     </Box>
   )
   const rowsOf = (slot: SidebarPlugin['slot']) =>
-    plugins.filter((p) => p.slot === slot).flatMap((p) => p.view(data, ui, config[p.id]))
+    plugins.filter((p) => p.slot === slot).flatMap((p) => p.view(data, ui, config[p.id], width))
 
   const sections: RenderElement[] = []
   let gap = false
@@ -38,7 +41,7 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     const cfg = config[plugin.id]
     const folded = input.folded[plugin.id] ?? cfg.folded ?? false
     if (gap) sections.push(row(''))
-    const right = (folded ? plugin.summary : plugin.count)?.(data, ui, cfg)
+    const right = (folded ? plugin.summary : plugin.count)?.(data, ui, cfg, width)
     sections.push(
       <Box height={1} flexShrink={0}>
         <Button
@@ -65,7 +68,7 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     )
     gap = !folded
     if (folded) continue
-    const body = plugin.view(data, ui, cfg)
+    const body = plugin.view(data, ui, cfg, width - 2)
     const expanded = input.expanded[plugin.id] ?? false
     const capped = plugin.list && body.length > CAP
     sections.push(...(capped && !expanded ? body.slice(0, CAP) : body).map((node) => row(node, 2)))

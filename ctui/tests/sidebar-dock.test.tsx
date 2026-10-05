@@ -157,12 +157,13 @@ const STATUS = [
   '? new',
 ].join('\n')
 
-// Answers the git runs, the cwd, HOME, the manifest read and the version beneath the plugin.
+// Answers the git runs, the cwd, HOME, the manifest read, the version and the usage beneath the plugin.
 function host(on: On, git: { runs: string[][]; status: string; exitCode?: number; slow?: () => Promise<void> }) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/home/a/Projects/x' }))
   on('env.get', () => ({ value: '/home/a' }))
   on('session.version', () => ({ value: { version: '2.1.288' } }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
   on('process.run', async ($, e) => {
     git.runs.push([...e.argv])

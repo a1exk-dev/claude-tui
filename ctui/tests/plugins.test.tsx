@@ -9,7 +9,8 @@ test('every Sidebar plugin view draws with empty data', async ($, on) => {
   let rows = 0
   on('ui.render', { component: 'Pane' }, async ($, e) => {
     const ui = $.ui.resolve(e)
-    const view = current?.view({}, ui, { enable: true }) ?? []
+    // 38: a header row's width at 42 columns.
+    const view = current?.view({}, ui, { enable: true }, 38) ?? []
     rows = view.length
     return <ui.Box flexDirection="column">{view}</ui.Box>
   })
