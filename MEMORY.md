@@ -169,6 +169,19 @@ Guidance:
 
 Reason: The human chose this in #19 after a live spike (`prototypes/research-19/`, 2.1.288, fullscreen and main screen). `isExpanded` is false on every row in the normal view, the person's prompts included, and true only under ctrl+o. A returned tree draws in both states. Without the outer clip, the `┃` column painted over column 0 of every later row. A computed `┃` count drifts with word wrap, and a width-1 background strip is a solid block, heavier than the thin bar in `docs/design/`.
 
+## Tool rows: glyph rows for Read, Edit, Write and Bash; results stay Claude Code's
+
+Applies when: rewriting the `ToolUse`, `ToolGroup` or `ToolResult` render sites.
+
+Guidance:
+- `ToolUse` for `Read` (`→`), `Edit` and `Write` (`←`), `Bash` (`$`): one row, `Box paddingLeft 2`: `<glyph> <tool>  <subject>`, then ` · <summary>` dim, the row `truncate-end`. Pass every other tool to `next(e)`.
+- Subject: the path relative to `$.session.cwd()` (read it in the hook: on `--continue` the transcript renders before `session.start`), or the command's first line plus ` …` when it has more.
+- Summary on success: Read `N lines` (`output.file.numLines`); Edit and Write `+a -d` counted from `output.structuredPatch`, or `+N` content lines when `output.type` is `create`; Bash `N lines` of stdout plus stderr, else `no output`. While `isRunning`: `running`. `isInterrupted`: `interrupted` in `warning` (Esc and a refused permission look the same). `isErrored`: the output's first line, glyph, tool name and summary in `error`. No summary while waiting for permission (no `output`).
+- `ToolGroup`: return `next({ ...e, props: { ...e.props, isExpanded: true } })` so each call is its own `ToolUse` row.
+- `ToolResult`: always `next(e)`, Edit diff included. Its `⎿ Added N lines, removed M lines` line stays.
+
+Reason: The human chose this in #34 after a live spike (`prototypes/research-34/`, 2.1.288, fullscreen and main screen). 2.1.288 has no `Grep` or `Glob` tool: searches run as Bash, so the render's `* Grep` row is a known difference. Read and every Bash call fold into `ToolGroup`, whose folded line hides errors; Edit and Write are standalone with a `ToolResult`. Keeping the engine's results keeps ctrl+o's full output and the `diffAdded`/`diffRemoved` theme keys; a mod `Code` diff drew identical rows, so it bought only the dropped header line. `ToolResult` can't tell ctrl+o from the normal view. Under main-screen ctrl+o, unfolded calls show only ctui's row (the engine's inline output belongs to the row it replaces); fullscreen ctrl+o shows each call with its full result.
+
 ## The prompt box and main background stay Claude Code's
 
 Applies when: specifying or building the main-column skin, or writing `docs/configuration`.
