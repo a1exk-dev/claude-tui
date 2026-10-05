@@ -32,11 +32,11 @@ Three corrections to the current notes:
   - The text is a plain string. An unpaired surrogate half becomes U+FFFD (DTS L2255-2256). There is no styling, so `◆ ✓ ✗ $` are just characters.
   - Whether the name shown is `name` (`ctui`) or `displayName` is **unverified**.
 - **Interaction.** "A click takes it off, the pointer over it holds it" (DTS L2251).
-- **Stacking.** The DTS calls it a stack (L2249). Ordering, the stack's maximum depth, and how overflow is handled are **not documented**.
-- **Without fullscreen.** "Where the transcript is printed into scrollback (nothing to float over) it is one line on the notification bar" (DTS L2252-2253). Our toasts are one line, so they work in both renderers.
+- **Stacking.** The DTS calls it a stack (L2249). The #41 spike (`prototypes/research-41/`) found that shown toasts stack newest-below, keep at most 50, and each leaves after its own `timeoutMs`. The box is 40 text columns wide and wraps to 3 rows, then cuts with `…`; a `\n` draws as `�`.
+- **Without fullscreen.** The DTS says "one line on the notification bar" (L2252-2253), but on 2.1.288 the main screen draws the same top-right stack as fullscreen (#41).
 - **`holdToasts`.** While a pane opened with `holdToasts: true` is on screen, the surface holds "the plugin toast stack, the notification line" and shows them once the pane closes. Pinned warnings still show (DTS L6970-6976; CC:interface L319).
   - The ctui sidebar must **not** set `holdToasts`, or every agent toast waits until the sidebar closes.
-- **Rate limits.** None are documented for toasts. The Limits table lists only the 4 s default (CC:reference L236-256). Redraw throttling (10/s) applies to `ui.render`, not to toasts. Coalescing a burst, such as five agents started in one message, is our job.
+- **Rate limits.** The docs list none, but the hooks host drops a plugin's toast that comes less than 2000 ms after its last shown one, with only a debug-log line: no queue, no retry (binary, verified live in #41). Spacing a burst is our job.
 - **Where it shows.** Hooks run under `-p`, the SDK and VS Code, but nothing is drawn there (CC:overview L186-198).
   - The DTS describes no Desktop-specific toast behaviour, and `ui.toast` takes no `surface`. So does a toast appear in the Desktop Code tab? **Unverified.** The overview says the Code tab draws "panes, bands, and replaced rows" (L188) and does not mention toasts.
 - **Testing.** `on('ui.toast', ($, e) => …)` in `claude plugin test` captures `e.text` (CC:test L169, L235-236). The spike test does exactly this (§5.4).
@@ -230,8 +230,8 @@ type Task = {
 Reported by the human after running `/ctui-proto-toasts demo` with variant a:
 
 - **Toasts draw** at the top right.
-- **They are queued, not stacked.** They appeared one after another. With 7 toasts in about 6 s of events, the queue fell behind: the `✗ … failed: context limit` toast arrived before the 4th `◆ started` toast had shown. Each toast keeps its 4 s default, so a burst makes later toasts stale.
+- **They appeared one after another.** With 7 toasts in about 6 s of events, the `✗ … failed: context limit` toast seemed to arrive before the 4th `◆ started` toast. #41 showed why: the engine's 2 s gate dropped the toasts sent too close together, so they were lost, not queued.
 - **The title is the plugin `name`** (`ctui-proto-toasts`), not `displayName`. For ctui both are `ctui`.
 - **Decision: variant a, one toast per event.**
-- **Follow-up for the implementation:** keep a toast queue short when events come in bursts. Candidates are a shorter `timeoutMs` for `◆`/`$` start toasts, and dropping a queued start toast once its finish toast is queued. Measure in the real mod.
+- **Follow-up, settled in #41:** ctui paces its own queue, one toast at most every 2.1 s, ends ahead of starts. See MEMORY.md.
 - **Update-notice probe:** only `InfoNotice` "1 more notice hidden" was observed. The "Auto mode is now the default" announcement did not pass through `InfoNotice` or `PromptHint`, so announcements may be invisible to mods. #17 later confirmed that the update notice is invisible to mods too (`prototypes/research-17/notes.md`).
