@@ -83,7 +83,7 @@ Reason: The human chose this in #11 to keep the mod free of child processes and 
 
 Applies when: working on the `agents` sidebar plugin or on toasts.
 
-Guidance: `register.tsx` raises one-line toasts for subagent and background-shell start, finish and failure (`◆ … started`, `$ … started in background`, `✓ … done · … · 42s`, `✗ … failed: …`), gated by `agents_toasts`. The `agents` sidebar plugin ("Agents & shells", between Todo and the versions footer) shows the live tree, gated by `agents_enable`. Agent starts come from `agent.spawn`. Agent status comes from polling `$.agent.list()` every 1 s, because it has no change event and no timestamps, and `completed` is not final. Shell starts come from a Bash `tool.call` result with `backgroundTaskId`. Shell and agent ends, kills and the `/clear` carry-over follow the next entry. One pure, guarded `parseTaskNotification(text)` is the only code that reads that XML: it requires `<task-id>` and `<status>`, matches only ids already held, and returns `undefined` otherwise (#15). An agent's failure reason comes from `classic.StopFailure` (`agent_id`, `error` word), then the notification summary, then the status word (#13); `classic.SubagentStop` never fires for a failed agent. Elapsed time comes from `$.clock.now()`. Never open the sidebar with `holdToasts`. Details: `docs/agents/research/toasts-agents-shells.md`.
+Guidance: `register.tsx` raises one-line toasts for subagent and background-shell start, finish and failure (`◆ … started`, `$ … started in background`, `✓ … done · … · 42s`, `✗ … failed: …`), gated by `agents_toasts`. The `agents` sidebar plugin ("Agents & shells", between Todo and the versions footer) shows the live tree, gated by `agents_enable`. Agent starts come from `agent.spawn`. Agent status comes from polling `$.agent.list()` every 1 s, because it has no change event and no timestamps, and `completed` is not final. Shell starts come from a Bash `tool.call` result with `backgroundTaskId`, when its `agentId` is absent or held; other shells follow the Workflow entry. Shell and agent ends, kills and the `/clear` carry-over follow the next entry. One pure, guarded `parseTaskNotification(text)` is the only code that reads that XML: it requires `<task-id>` and `<status>`, matches only ids already held, and returns `undefined` otherwise (#15). An agent's failure reason comes from `classic.StopFailure` (`agent_id`, `error` word), then the notification summary, then the status word (#13); `classic.SubagentStop` never fires for a failed agent. Elapsed time comes from `$.clock.now()`. Never open the sidebar with `holdToasts`. Details: `docs/agents/research/toasts-agents-shells.md`.
 
 Toasts are queued, not stacked, and titled with the plugin `name`. The live prototype showed bursts making later toasts stale, so keep the queue short: shorter `timeoutMs` for start toasts, and drop a start toast once its finish toast is queued. The human chose one toast per event (variant a) on 2026-10-03.
 
@@ -101,6 +101,18 @@ Guidance:
 - On `/resume`, Claude Code appends `<status>stopped</status>` rows for shells in the resumed transcript with no completion record, through `session.append` door `prompt` only. The hooks above never read them; they can be wrong (one said `stopped` for a shell that completed).
 
 Reason: The #14 spike (`prototypes/research-14/`, 2.1.288) showed each path live. The `$.clock.every` timer kept running across `/clear`, its first tick read the new session, and its write succeeded. No render site carries the footer's shell count (`SessionMode` `modes` stays empty). The human chose to read the late kill notification without a toast (the person's own action, often minutes old), and to carry running background work across `/clear`.
+
+## A Workflow run is one task row; teammates stay hidden
+
+Applies when: handling Workflow runs, teammates, or a background shell whose `agentId` the `agents` Sidebar plugin doesn't hold.
+
+Guidance:
+- Add a Workflow run as one row, `⚙ <workflowName> workflow`, from its Workflow `tool.call` result (`taskId`, `workflowName`, `transcriptDir`), with the usual start and done/failed toasts. Its end, a TaskStop and the `/clear` carry-over follow the task-end entry above, keyed by `taskId`. Its agents get no rows: they fire no `agent.spawn` and `$.agent.list()` never names them.
+- A background shell whose `agentId` isn't held: `$.fs.stat('<transcriptDir>/agent-<agentId>.jsonl')` for each running run, and nest it as `└` under the run whose dir has the file. No toasts; it reads `running` until the run's end removes it. Skip it when no run matches (teammates, engine forks).
+- Filter `type: 'teammate'` out of `$.agent.list()`: no rows, no toasts.
+- Only local runs (`async_launched`) were seen; a `remote_launched` run takes the same row, unverified.
+
+Reason: The human chose this in #16 after a live spike (`prototypes/research-16/`, 2.1.288). A Workflow run is one background task with an id and a task-notification end, and Claude Code's footer draws its progress. A shell started inside a workflow agent or a teammate reports no end to the mod. Teammates need `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, fire no `agent.spawn`, read `running` while idle and drop out of the list when stopped, and Claude Code's footer already lists them. The transcript file name is observed, not typed; recheck it on a version bump.
 
 ## Publish to Anthropic's plugin directory and to npm
 
