@@ -137,13 +137,13 @@ Guidance: Set `displayName` to `ctui`. The repo and marketplace stay `claude-tui
 
 Reason: Anthropic's directory holds names that match a known brand for review. The human chose `ctui` and noted the scope is wider than the sidebar.
 
-## Update indicator reuses Claude Code's own update notice; the mod makes no network call
+## The `versions` footer shows no update icon; the mod makes no network call
 
-Applies when: working on the `versions` sidebar plugin or anything that would fetch remote data.
+Applies when: working on the `versions` Sidebar plugin or anything that would fetch remote data.
 
-Guidance: The footer shows the installed version from `$.session.version()`. It shows an update icon only when Claude Code itself announces an update, observed through render sites such as `PromptHint` `hint` or `InfoNotice` `text`. Never fetch release data from the mod. Whether and where the native notice can be observed is **unverified**. The probe is in `prototypes/toasts-mod` (it logs `native hint →` and `native notice →` lines).
+Guidance: The footer shows the installed version from `$.session.version()` and nothing about updates. Claude Code's own notification line (`Update available! Run: <command>`, right-aligned above the prompt rule) stays the only update signal. Fetch no release data and run no version-check process from the mod.
 
-Reason: The human asked for "the same way we receive native claude info about update". Staying network-free avoids the directory's disclosure, opt-out and privacy-policy requirements.
+Reason: The #17 spike (`prototypes/research-17/`, 2.1.288 with 2.1.289 out) showed that native notice reaches no mod hook: no render site (`PromptHint`, `SessionMode`, `AbovePrompt`, `InfoNotice`), no event, and no `http.fetch` op. No engine-written file names the latest version either. The human then chose no icon over an opt-in fetch or an `npm view` child process. Staying network-free avoids the directory's disclosure, opt-out and privacy-policy requirements.
 
 ## `tsc` runs against vendored engine types
 

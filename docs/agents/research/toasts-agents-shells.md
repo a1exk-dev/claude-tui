@@ -234,4 +234,4 @@ Reported by the human after running `/ctui-proto-toasts demo` with variant a:
 - **The title is the plugin `name`** (`ctui-proto-toasts`), not `displayName`. For ctui both are `ctui`.
 - **Decision: variant a, one toast per event.**
 - **Follow-up for the implementation:** keep a toast queue short when events come in bursts. Candidates are a shorter `timeoutMs` for `◆`/`$` start toasts, and dropping a queued start toast once its finish toast is queued. Measure in the real mod.
-- **Update-notice probe:** only `InfoNotice` "1 more notice hidden" was observed. The "Auto mode is now the default" announcement did not pass through `InfoNotice` or `PromptHint`, so announcements may be invisible to mods. An update notice has not yet been observed.
+- **Update-notice probe:** only `InfoNotice` "1 more notice hidden" was observed. The "Auto mode is now the default" announcement did not pass through `InfoNotice` or `PromptHint`, so announcements may be invisible to mods. #17 later confirmed that the update notice is invisible to mods too (`prototypes/research-17/notes.md`).
