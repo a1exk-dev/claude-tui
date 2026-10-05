@@ -79,6 +79,18 @@ Guidance:
 
 Reason: The human chose this in #11 to keep the mod free of child processes and network calls. The spike (`prototypes/research-11/`, 2.1.288) showed the tool list follows `/mcp disable|enable` within 250 ms, and every scope's disable lands in that one list under its `/mcp` name. The auth pseudo-tools appear only at startup, so a re-enabled server needing auth reads `connecting`, then `down`. `tool.describe` fires only for tools sent to the model, so it can't be the only source of names.
 
+## The `todo` Sidebar plugin turns the task tools on by default
+
+Applies when: working on the `todo` Sidebar plugin, its settings, or `$.env.set`.
+
+Guidance:
+- Add the `userConfig` boolean `todo_tools` (title `Task tools`, default `true`), its description naming Opus 5.x and `CLAUDE_CODE_ENABLE_TODO_TOOLS`. It is independent of `todo_enable`.
+- On `session.start`, which fires again on each reload with new `options`: when `todo_tools` is on and the variable is unset, call `$.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', '1')` and record that in `$.state`. When it is off, unset the variable only if `$.state` records that ctui set it, so a value the person set stays. `/clear` empties `$.state`, so an off toggle after `/clear` takes effect in the next process.
+- Gate the section on `$.tool.list()` at each render: it follows `/model` within 1 s, with no event. With `TaskList` or `TodoWrite`, read the list as #10 found; an empty list draws the header `0/0` and no rows. With neither, draw the header without a count and one dim hint: `no task tools on this model` / `turn on ctui Task tools in /config` when `todo_tools` is off, `no task tools in this session` when it is on (`--tools`, a deny rule). Call `TaskList` only when the tool is listed: it throws otherwise.
+- `ctui/README` discloses that the default gives Claude the Task tools on Opus 5.x and how to turn it off, and names the variable for people who set it in `settings.json` `env`.
+
+Reason: The human chose this in #21 after a live spike (`prototypes/research-21/`, 2.1.288). Without the variable, the 5.x models (Opus 5.5, the human's default, and Sonnet 5.5) have no task tools, so the section would always be empty. After `$.env.set`, Opus 5.5 got the tools at once and used them; unsetting removed them. `/plugin install` shows a "Configure ctui" screen listing every `userConfig` field, defaulted ones too, with the focused field's description: that screen is where ctui suggests the tools. The Task tools are deferred tools (#10), so they cost little per request. Subagents and child processes, a nested `claude -p` included, inherit the variable.
+
 ## Agent and shell events go to toasts, the live list goes to the sidebar
 
 Applies when: working on the `agents` sidebar plugin or on toasts.
