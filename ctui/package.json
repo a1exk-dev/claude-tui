@@ -15,6 +15,7 @@
     "hooks",
     "plugins",
     "types",
+    "COMPATIBILITY.md",
     "README.md",
     "LICENSE"
   ],

@@ -234,7 +234,7 @@ claude-tui/                          repo root = marketplace root
 │   ├── tests/                       *.test.ts(x) for `claude plugin test ctui`
 │   ├── tsconfig.json                official options; include [".claude-plugin/types","hooks","plugins","types","tests"]
 │   └── README.md                    states the tested Claude Code version
-├── scripts/check.sh                 typecheck, validate --strict (plugin + marketplace), test, and registry consistency (§6b)
+├── scripts/check.ts                 typecheck, validate --strict (plugin + marketplace), test, and registry consistency (§6b)
 ├── vendor/claude-code-types/        pinned copy of the engine d.ts for CI
 ├── tsconfig.json                    CI type-check: vendor + ctui/**
 ├── package.json, package-lock.json  dev-only (typescript >=5.4); kept OUT of ctui/ so no npm install runs in users' cache
@@ -364,7 +364,7 @@ export default definePlugin({
   - With no name, it opens a picker pane with a `Select`. `enable` lists the disabled plugins and `disable` lists the enabled ones. It shares `pickers.tsx` with `/ctui:theme`.
   - With an unknown name, it returns `{ text }` listing the valid ids.
 - **Effective state:** `store override ?? options.<id>_enable`. The `/config` row and the command can disagree. Whether the command can write the `/config` value directly through `$.config.set` is unverified (§6a). If it can, drop the store override.
-- **Consistency check** (`scripts/check.sh`): plugin folders = `plugins/index.ts` imports = `<id>_enable` keys in `plugin.json`. Also `themes/*.json` slugs = `theme.options`.
+- **Consistency check** (`scripts/check.ts`): plugin folders = `plugins/index.ts` imports = `<id>_enable` keys in `plugin.json`. Also `themes/*.json` slugs = `theme.options`.
 
 ### Agent and shell toasts (agreed in the open-claude-mod session)
 

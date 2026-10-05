@@ -191,8 +191,8 @@
 claude-tui/
 ├── .claude-plugin/marketplace.json   add "description" (validate --strict warns without it, E4); keep plugins[0] = {"name":"ctui","source":"./ctui"}
 ├── .github/workflows/
-│   ├── ci.yml                        on PR/push: scripts/check.sh (tsc, validate --strict ctui and ., plugin test, registry + version consistency)
-│   └── release.yml                   on tag v*: check.sh, assert tag == plugin.json == ctui/package.json, npm publish (OIDC), gh release create
+│   ├── ci.yml                        on PR/push: scripts/check.ts (tsc, validate --strict ctui and ., plugin test, registry + version consistency)
+│   └── release.yml                   on tag v*: scripts/check.ts, assert tag == plugin.json == ctui/package.json, npm publish (OIDC), gh release create
 ├── ctui/
 │   ├── .claude-plugin/plugin.json    + license, homepage, repository, author, icon, documentationUrl, supportUrl, privacyPolicyUrl
 │   ├── package.json                  NEW: npm manifest only; no deps, no scripts, files whitelist (above); NO lockfile, ever
@@ -217,7 +217,7 @@ claude-tui/
 
 1. **Prepare the release on a branch.** On `release/x.y.z` from `develop`:
    - Bump `ctui/.claude-plugin/plugin.json` `version` and `ctui/package.json` `version`.
-   - Update `CHANGELOG.md` and run `check.sh`.
+   - Update `CHANGELOG.md` and run `scripts/check.ts`.
 2. **Merge to `main`.** It must be the GitHub **default branch**: users who add `a1exk-dev/claude-tui` and the directory (empty tracked-ref field) both follow the default branch (CDC:plugins/submit L49).
    - If `develop` were the default branch, unreleased work would reach users.
 3. **Tag `main`.**

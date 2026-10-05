@@ -1,8 +1,10 @@
 {
   "name": "claude-tui-dev",
   "private": true,
+  "type": "module",
   "description": "Dev tooling for the ctui plugin. Not published; the plugin's own manifest is ctui/package.json.",
   "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.288",
     "typescript": "^7.0.2"
   }
 }

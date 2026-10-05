@@ -16,4 +16,4 @@ jobs:
           node-version: lts/*
           cache: npm
       - run: npm ci
-      - run: scripts/check.sh
+      - run: node scripts/check.ts
