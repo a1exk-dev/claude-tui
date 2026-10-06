@@ -127,6 +127,8 @@ function host(on: On, world: { tools: ToolInfo[]; json: string; mtimeMs: number 
   on('fs.read', (_, e) => ({ value: e.path === path ? world.json : '{ "version": "0.0.0" }' }))
   on('tool.list', () => ({ value: [{ name: 'Bash', description: '', mcp: false }, ...world.tools] }))
   on('tool.describe', (_, e) => ({ description: e.description }))
+  // ctui sets CLAUDE_CODE_ENABLE_TODO_TOOLS at start.
+  on('env.set', () => ({ value: undefined }))
 }
 
 // `~/.claude.json` as Claude Code writes it, trimmed to the keys read, with

@@ -1,7 +1,7 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import { plugins } from '../plugins'
-import type { GitSnapshot, Usage } from '../types'
+import type { GitSnapshot, Todo, TodoItem, Usage } from '../types'
 import { readConfig } from './config'
 import { formatReset } from './format'
 import { parseGit, tildify } from './git'
@@ -17,6 +17,9 @@ const VERSIONS = { plugin: 'ctui', key: 'versions' } as const
 const USAGE = { plugin: 'ctui', key: 'usage' } as const
 const NOW = { plugin: 'ctui', key: 'now' } as const
 const MCP = { plugin: 'ctui', key: 'mcp' } as const
+const TODO = { plugin: 'ctui', key: 'todo' } as const
+const ACTIVE_FORMS = { plugin: 'ctui', key: 'activeForms' } as const
+const TODO_ENV_SET = { plugin: 'ctui', key: 'todoEnvSet' } as const
 
 // The dock docks from 110 terminal columns; the Sidebar asks 42, or 53 from 160.
 const DOCK_COLUMNS = 110
@@ -36,6 +39,8 @@ let mcpRunning = false
 let mcpTimeout: number | undefined // MCP_TIMEOUT, read once
 let claudeJson: { path: string; project: string; mtimeMs?: number; disabled: string[] } | undefined
 const mcpNames: Record<string, string> = {} // segment → /mcp name, from `tool.describe`
+let todoRunning = false
+let todoAgain = false // a reload came while one ran: run once more after it
 
 // A run still going takes this refresh as one more run after it ends.
 async function refreshGit($: EngineInterface) {
@@ -148,6 +153,90 @@ async function refreshMcp($: EngineInterface) {
   }
 }
 
+// MEMORY.md "The `todo` Sidebar plugin turns the task tools on by default":
+// set the variable when it's unset, and unset it only when ctui set it.
+async function setTodoEnv($: EngineInterface, tools: boolean) {
+  const { value: ours } = await $.state.get(TODO_ENV_SET)
+  if (tools && (await $.env.get('CLAUDE_CODE_ENABLE_TODO_TOOLS')) === undefined) {
+    await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', '1')
+    await $.state.set(TODO_ENV_SET, true)
+  } else if (!tools && ours) {
+    await $.env.set('CLAUDE_CODE_ENABLE_TODO_TOOLS', undefined)
+    await $.state.set(TODO_ENV_SET, false)
+  }
+}
+
+const TODO_STATUSES = new Set<string>(['pending', 'in_progress', 'completed'])
+
+const todoToolsOf = (names: readonly string[]): Todo['tools'] =>
+  names.includes('TaskList') ? 'task' : names.includes('TodoWrite') ? 'todowrite' : 'none'
+
+async function setTodo($: EngineInterface, todo: Todo) {
+  const { value } = await $.state.get(TODO)
+  if (JSON.stringify(value) !== JSON.stringify(todo)) await $.state.set(TODO, todo)
+}
+
+// The list as the session's task tools hold it (the map decision for #10).
+// `TaskList` covers a reload, `--resume` and compaction; it lacks `activeForm`,
+// kept from the TaskCreate/TaskUpdate inputs. `TodoWrite` takes the last call's
+// list from the transcript. A run still going takes this load as one more run.
+async function loadTodo($: EngineInterface) {
+  if (todoRunning) {
+    todoAgain = true
+    return
+  }
+  todoRunning = true
+  try {
+    const tools = todoToolsOf((await $.tool.list()).map((tool) => tool.name))
+    let items: TodoItem[] = []
+    if (tools === 'task') {
+      // TaskList throws when the tool isn't listed, as after a `/model` switch.
+      const listed = await $.tool.call({ tool: 'TaskList' }).catch(() => undefined)
+      if (!listed?.result || listed.isError) return
+      const { value: forms = {} } = await $.state.get(ACTIVE_FORMS)
+      // Rows leave out `deleted`, which 2.1.288's TaskList type doesn't list.
+      const shown = listed.result.tasks.filter(({ status }) => TODO_STATUSES.has(status))
+      items = shown.map(({ id, subject, status }) => ({
+        id,
+        subject,
+        status,
+        ...(forms[id] !== undefined && { activeForm: forms[id] }),
+      }))
+    } else if (tools === 'todowrite') {
+      const uses = (await $.session.messages()).flatMap((message) => message.toolUses)
+      const last = uses.findLast((use) => use.tool === 'TodoWrite' && !use.isError)
+      items = todoWriteItems(last?.input.todos)
+    }
+    await setTodo($, { tools, items })
+  } finally {
+    todoRunning = false
+  }
+  if (todoAgain) {
+    todoAgain = false
+    await loadTodo($)
+  }
+}
+
+// A TodoWrite list: its `todos` input, or its `newTodos` result.
+function todoWriteItems(todos: unknown): TodoItem[] {
+  if (!Array.isArray(todos)) return []
+  return todos.map(({ content, status, activeForm }) => ({ subject: content, status, activeForm }))
+}
+
+// Reloads the list when the session's task tools change: a `/model` switch,
+// or `/clear` and `/resume`, which empty `$.state`.
+async function refreshTodo($: EngineInterface) {
+  const [tools, { value }] = await Promise.all([$.tool.list(), $.state.get(TODO)])
+  if (todoToolsOf(tools.map((tool) => tool.name)) !== value?.tools) await loadTodo($)
+}
+
+// Keeps a Task's `activeForm`, which TaskList lacks.
+async function keepActiveForm($: EngineInterface, id: string, activeForm: string | undefined) {
+  if (activeForm === undefined) return
+  const { value = {} } = await $.state.get(ACTIVE_FORMS)
+  if (value[id] !== activeForm) await $.state.set(ACTIVE_FORMS, { ...value, [id]: activeForm })
+}
+
 async function openSidebar($: EngineInterface, columns: number) {
   requested = columns
   const opened = await $.ui.open({ id: SIDEBAR, title: 'Sidebar', columns })
@@ -160,6 +249,8 @@ export const register: Register = (on, options) => {
   const needs = new Set(enabled.flatMap((plugin) => plugin.needs))
 
   on('session.start', async ($, e, next) => {
+    await setTodoEnv($, config.todo.tools)
+    if (needs.has('todo')) void loadTodo($)
     if (needs.has('git')) void refreshGit($)
     if (needs.has('versions')) void loadVersions($)
     if (needs.has('usage')) void loadUsage($).then(() => (needs.has('now') ? setNow($) : undefined))
@@ -170,6 +261,7 @@ export const register: Register = (on, options) => {
       if (ticks % 5 === 0 && needs.has('git')) void refreshGit($)
       if (needs.has('usage')) void refillUsage($)
       if (needs.has('mcp')) void refreshMcp($)
+      if (needs.has('todo')) void refreshTodo($)
       if (needs.has('now')) void setNow($)
     })
     return next(e)
@@ -194,6 +286,36 @@ export const register: Register = (on, options) => {
     } finally {
       if (needs.has('git') && GIT_TOOLS.has(e.tool)) void refreshGit($)
     }
+  })
+
+  // A task tool's call reloads the list. Observe only.
+  on('tool.call', { tool: 'TaskCreate' }, async ($, e, next) => {
+    const done = await next(e)
+    if (needs.has('todo') && done.result && !done.isError) {
+      await keepActiveForm($, done.result.task.id, e.activeForm)
+      void loadTodo($)
+    }
+    return done
+  })
+
+  on('tool.call', { tool: 'TaskUpdate' }, async ($, e, next) => {
+    const done = await next(e)
+    if (needs.has('todo') && done.result && !done.isError) {
+      await keepActiveForm($, e.taskId, e.activeForm)
+      void loadTodo($)
+    }
+    return done
+  })
+
+  on('tool.call', { tool: 'TodoWrite' }, async ($, e, next) => {
+    const done = await next(e)
+    if (!needs.has('todo') || !done.result || done.isError) return done
+    // Before the first load or after `/clear`, the tick's load replays the transcript.
+    const { value } = await $.state.get(TODO)
+    if (value?.tools === 'todowrite') {
+      await setTodo($, { tools: 'todowrite', items: todoWriteItems(done.result.newTodos) })
+    }
+    return done
   })
 
   // MEMORY.md "The Sidebar shows only when docked": watch an always-drawn site
@@ -237,7 +359,7 @@ export const register: Register = (on, options) => {
         $.clock.after(0, () => void openSidebar($, columns))
       }
     }
-    const [folded, expanded, scroll, git, usage, now, mcp, versions] = await Promise.all([
+    const [folded, expanded, scroll, git, usage, now, mcp, todo, versions] = await Promise.all([
       $.state.get(FOLDED),
       $.state.get(EXPANDED),
       $.state.get(SCROLL),
@@ -245,6 +367,7 @@ export const register: Register = (on, options) => {
       $.state.get(USAGE),
       $.state.get(NOW),
       $.state.get(MCP),
+      $.state.get(TODO),
       $.state.get(VERSIONS),
     ])
     const drawn = sidebar({
@@ -252,7 +375,14 @@ export const register: Register = (on, options) => {
       bodyRows: e.props.scroll.bodyRows,
       bodyColumns: e.props.bodyColumns,
       plugins: enabled,
-      data: { git: git.value, usage: usage.value, now: now.value, mcp: mcp.value, versions: versions.value },
+      data: {
+        git: git.value,
+        usage: usage.value,
+        now: now.value,
+        mcp: mcp.value,
+        todo: todo.value,
+        versions: versions.value,
+      },
       config,
       folded: folded.value ?? {},
       expanded: expanded.value ?? {},
