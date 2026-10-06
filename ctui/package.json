@@ -1,0 +1,26 @@
+{
+  "name": "@a1exk-dev/ctui",
+  "version": "0.1.0",
+  "description": "A skin for the Claude Code TUI: a docked sidebar with git, context, limits, MCP, todo and agent sections, plus agent and shell toasts.",
+  "license": "MIT",
+  "keywords": ["claude-code", "plugin", "tui", "sidebar"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/a1exk-dev/claude-tui.git",
+    "directory": "ctui"
+  },
+  "files": [
+    ".claude-plugin/plugin.json",
+    "commands",
+    "hooks",
+    "plugins",
+    "types",
+    "COMPATIBILITY.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

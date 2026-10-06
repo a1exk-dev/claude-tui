@@ -1,0 +1,114 @@
+{
+  "name": "ctui",
+  "displayName": "ctui",
+  "version": "0.1.0",
+  "description": "A skin for the Claude Code TUI: a docked sidebar with git, context, limits, MCP, todo and agent sections, plus agent and shell toasts.",
+  "author": {
+    "name": "Aliaksandr Katkou"
+  },
+  "homepage": "https://github.com/a1exk-dev/claude-tui",
+  "repository": "https://github.com/a1exk-dev/claude-tui",
+  "license": "MIT",
+  "keywords": [
+    "tui",
+    "sidebar",
+    "skin",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "git_enable": {
+      "type": "boolean",
+      "title": "Git header",
+      "description": "Show the git header (path, branch, ahead/behind, file status, lines changed) in the sidebar",
+      "default": true
+    },
+    "context_enable": {
+      "type": "boolean",
+      "title": "Context section",
+      "description": "Show the context-window section in the sidebar",
+      "default": true
+    },
+    "context_folded": {
+      "type": "boolean",
+      "title": "Context folded",
+      "description": "Start each session with the Context section folded",
+      "default": false
+    },
+    "limits_enable": {
+      "type": "boolean",
+      "title": "Limits section",
+      "description": "Show the usage-limits section in the sidebar",
+      "default": true
+    },
+    "limits_folded": {
+      "type": "boolean",
+      "title": "Limits folded",
+      "description": "Start each session with the Limits section folded",
+      "default": false
+    },
+    "mcp_enable": {
+      "type": "boolean",
+      "title": "MCP section",
+      "description": "Show the MCP servers section in the sidebar",
+      "default": true
+    },
+    "mcp_folded": {
+      "type": "boolean",
+      "title": "MCP folded",
+      "description": "Start each session with the MCP section folded",
+      "default": false
+    },
+    "todo_enable": {
+      "type": "boolean",
+      "title": "Todo section",
+      "description": "Show the todo list section in the sidebar",
+      "default": true
+    },
+    "todo_folded": {
+      "type": "boolean",
+      "title": "Todo folded",
+      "description": "Start each session with the Todo section folded",
+      "default": false
+    },
+    "todo_tools": {
+      "type": "boolean",
+      "title": "Task tools",
+      "description": "Give Claude the Task tools (TaskCreate, TaskList, TaskUpdate) on models without them by default, such as Opus 5.x, by setting CLAUDE_CODE_ENABLE_TODO_TOOLS=1 for the session; the Todo section shows their list",
+      "default": true
+    },
+    "agents_enable": {
+      "type": "boolean",
+      "title": "Agents & shells section",
+      "description": "Show running subagents and background shells in the sidebar",
+      "default": true
+    },
+    "agents_folded": {
+      "type": "boolean",
+      "title": "Agents & shells folded",
+      "description": "Start each session with the Agents & shells section folded",
+      "default": false
+    },
+    "agents_toasts": {
+      "type": "boolean",
+      "title": "Agent and shell toasts",
+      "description": "Show a toast when a subagent or background shell starts, finishes or fails",
+      "default": true
+    },
+    "versions_enable": {
+      "type": "boolean",
+      "title": "Versions footer",
+      "description": "Show the Claude Code version footer in the sidebar",
+      "default": true
+    },
+    "theme": {
+      "type": "string",
+      "title": "Sidebar theme",
+      "description": "Theme for the sidebar: inherit follows your Claude Code theme, or pick a ctui theme",
+      "options": [
+        "inherit"
+      ],
+      "default": "inherit"
+    }
+  }
+}
