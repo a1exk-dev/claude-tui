@@ -158,6 +158,14 @@ test('the agent list ends a running agent; a kill raises no toast; an ended agen
   ])
 })
 
+test('the agent list acts on a change of its own status only', () => {
+  const tasks = { a1: task({ id: 'a1', status: 'failed', endedAt: 1, listed: 'running' }) }
+  expect(applyAgentList(tasks, [{ id: 'a1', status: 'running' }], 4000)).toEqual([])
+  expect(tasks.a1.status).toBe('failed')
+  applyAgentList(tasks, [{ id: 'a1', status: 'failed' }], 5000)
+  expect([tasks.a1.status, tasks.a1.endedAt]).toEqual(['failed', 1])
+})
+
 const start = (id: string): Toast => ({ id, end: false, text: `start ${id}` })
 const end = (id: string): Toast => ({ id, end: true, text: `end ${id}` })
 

@@ -237,6 +237,37 @@ test('classic.StopFailure gives the failure reason', async ($, on) => {
   expect(world.toasts).toEqual(['◆ general-purpose started: FAIL probe', '✗ general-purpose failed: model not found'])
 })
 
+// #67, 2.1.288: during an API 529 the list kept `running` for minutes after
+// the failure notice.
+test('a failed notice ends an agent the list still calls running, until the list changes', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  const world = { agents: [] as AgentInfo[], toasts: [] as string[] }
+  host(on, world)
+  await start($)
+  await spawn($, 'List ctui folder files')
+  // Both before the first poll.
+  await $.classic.StopFailure({ agent_id: 'a1', error: 'overloaded', last_assistant_message: '' })
+  await notify(
+    $,
+    'a1',
+    'failed',
+    'Agent "List ctui folder files" failed: Agent terminated early due to an API error: API Error: 529 Overloaded. This is a server-side issue, usually temporary.',
+  )
+  await clock.advance(3000)
+  const { rows } = await sidebarOf($)
+  expect(await rows()).toEqual(['✗ Explore · List ctui folder files · API overloaded'])
+  await clock.advance(2100)
+  expect(world.toasts).toEqual(['◆ Explore started: List ctui folder files', '✗ Explore failed: API overloaded'])
+  // A later `completed` doesn't make the failure a success.
+  world.agents[0]!.status = 'completed'
+  await clock.advance(1000)
+  expect(await rows()).toEqual(['✗ Explore · List ctui folder files · API overloaded'])
+  // Woken again (SendMessage), the list says running and the row runs again.
+  world.agents[0]!.status = 'running'
+  await clock.advance(1000)
+  expect(await rows()).toEqual(['◐ Explore · List ctui folder files'])
+})
+
 test('a background Bash gives a shell row; its notification ends it with the exit code', async ($, on) => {
   const clock = mock.clock(on, { now: 0 })
   const world = { agents: [] as AgentInfo[], toasts: [] as string[] }
