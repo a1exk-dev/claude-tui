@@ -81,6 +81,18 @@ Toasts draw at the top right under the title `ctui`, in fullscreen and on the ma
 
 ## Render-site rewrites
 
+Run each row in fullscreen and again on the main screen (`--settings '{"tui":"default"}'`).
+
+| Setup | Action | Expected |
+|---|---|---|
+| A new session | Send a prompt of several lines with a pasted block | The prompt sits in a panel in `userMessageBackground` with a thin `┃` in `promptBorder` down its left edge, one row above it. The bar spans the panel's rows and no later row. The pasted text shows without its tags. |
+| The previous row | Ask for a reply with a heading, bold text and a list | The reply has no `●` bullet and starts 2 columns in, the markdown styled as Claude Code styles it. |
+| The previous row | Ask Claude to read a file in the cwd, run a two-line Bash command, run `true`, run `ls /nonexistent-dir`, write a new file and edit it | One row each, 2 columns in: `→ Read  <relative path> · N lines`, `$ Bash  <first line> … · N lines`, `$ Bash  true · no output`, `$ Bash  ls /nonexistent-dir · Error: Exit code 2` with the glyph, name and summary in `error`, `← Write  <path> · +N`, `← Edit  <path> · +a -d`, each summary dim. A path outside the cwd is absolute, with `~` for home. Write and Edit keep Claude Code's `⎿` result and diff under the row; on the main screen a Bash call Claude Code didn't fold into a group keeps its `⎿` output too. While a call runs its summary reads `running`. |
+| The previous row | Ask Claude to run `sleep 2` in the background | The task notification row stays Claude Code's `● Background command "…" completed (exit code 0)` line, with no bar. |
+| The previous row | Ask Claude to run `ping -c 30 127.0.0.1` in the foreground (Claude Code blocks a bare `sleep 30`), then press Esc while it runs | The Bash row reads `· interrupted` in `warning`. |
+| The previous row | Press ctrl+o, then ctrl+o again | The transcript view shows the same rows; fullscreen shows each call with its full result under it. |
+| The previous row | Ask Claude to create a task with TaskCreate | Claude Code's own `● TaskCreate` row: tools other than Read, Edit, Write and Bash keep theirs. |
+
 ## Commands and pickers
 
 | Setup | Action | Expected |
