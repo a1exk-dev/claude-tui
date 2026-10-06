@@ -9,6 +9,9 @@ import { parseGit, tildify } from './git'
 import { mcpRows, segmentOf } from './mcp'
 import { picker } from './pickers'
 import { sidebar } from './sidebar'
+import { assistantMessage } from './skin/assistant'
+import { hasToolRow, toolLine, toolRow } from './skin/tool'
+import { isOwnPrompt, userMessage } from './skin/user'
 import {
   applyAgentList,
   applyNotification,
@@ -703,6 +706,25 @@ export const register: Register = (on, options) => {
     if (offset !== value) await $.state.set(SCROLL, offset)
     return {}
   })
+  // Transcript rewrites (docs/spec/v0.1.md slice 8). `ToolResult` stays the engine's.
+  on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) =>
+    assistantMessage($.ui.resolve(e), await next({ ...e, props: { ...e.props, isFirstOfReply: false } })),
+  )
+
+  on('ui.render', { component: 'UserMessage' }, ($, e, next) =>
+    isOwnPrompt(e.props.origin) ? userMessage($.ui.resolve(e), e.props.text) : next(e),
+  )
+
+  // Each call of a group draws as its own `ToolUse` row.
+  on('ui.render', { component: 'ToolGroup' }, ($, e, next) => next({ ...e, props: { ...e.props, isExpanded: true } }))
+
+  // The cwd is read here: on `--continue` the transcript draws before `session.start`.
+  on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
+    if (!hasToolRow(e.props.tool)) return next(e)
+    const line = toolLine(e.props, { cwd: await $.session.cwd(), home: await $.env.get('HOME') })
+    return line ? toolRow($.ui.resolve(e), line) : next(e)
+  })
+
   // MEMORY.md "`/ctui:*` commands stay quiet on success; a bare command opens
   // a picker pane". Each hook answers without `next`: the markdown fallback
   // never reaches the model.

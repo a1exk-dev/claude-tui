@@ -165,7 +165,7 @@ Applies when: rewriting the `UserMessage` render site (the `┃` bar and panel).
 
 Guidance:
 - Choose rows by `origin.kind`, never by `isExpanded`. Draw the bar and panel for `composer`, `bridge` and `sdk` in both states. Pass every other row (task notifications, peers, channels, teammates) to `next(e)`, so the engine keeps its one-liners, sender framing and `(ctrl+o to expand)`.
-- Draw a row Box with `marginTop: 1`, `paddingLeft: 1` and `overflow: 'hidden'`. Inside it, put an absolute Box (`top: 0, bottom: 0, left: 0, width: 1`) holding a tall `┃` Text colored `promptBorder`, then the body Box (`backgroundColor: 'userMessageBackground'`, `paddingX: 2`, `paddingY: 1`). The outer `overflow: 'hidden'` is what clips the `┃` column to the row.
+- Draw a row Box with `marginTop: 1`, `paddingLeft: 1` and `overflow: 'hidden'`. Inside it, put an absolute Box (`top: 0, bottom: 0, left: 0, width: 1`) holding a tall `┃` Text colored `promptBorder`, then the body Box (`flexGrow: 1`, `backgroundColor: 'userMessageBackground'`, `paddingX: 2`, `paddingY: 1`). The outer `overflow: 'hidden'` is what clips the `┃` column to the row.
 - Draw `text` with `<pasted_content …>` tags and leading and trailing newlines removed, as the engine does. Build new values: `e.props` is frozen, and assigning to it throws, which skips the hook.
 - The fullscreen sticky header (the prompt pinned at the top while scrolling) is the engine's and ignores the rewrite.
 
@@ -177,12 +177,12 @@ Applies when: rewriting the `ToolUse`, `ToolGroup` or `ToolResult` render sites.
 
 Guidance:
 - `ToolUse` for `Read` (`→`), `Edit` and `Write` (`←`), `Bash` (`$`): one row, `Box paddingLeft 2`: `<glyph> <tool>  <subject>`, then ` · <summary>` dim, the row `truncate-end`. Pass every other tool to `next(e)`.
-- Subject: the path relative to `$.session.cwd()` (read it in the hook: on `--continue` the transcript renders before `session.start`), or the command's first line plus ` …` when it has more.
+- Subject: a path inside `$.session.cwd()` relative to it, any other path absolute with `~` for `HOME` (read both in the hook: on `--continue` the transcript renders before `session.start`); or the command's first line plus ` …` when it has more.
 - Summary on success: Read `N lines` (`output.file.numLines`); Edit and Write `+a -d` counted from `output.structuredPatch`, or `+N` content lines when `output.type` is `create`; Bash `N lines` of stdout plus stderr, else `no output`. While `isRunning`: `running`. `isInterrupted`: `interrupted` in `warning` (Esc and a refused permission look the same). `isErrored`: the output's first line, glyph, tool name and summary in `error`. No summary while waiting for permission (no `output`).
 - `ToolGroup`: return `next({ ...e, props: { ...e.props, isExpanded: true } })` so each call is its own `ToolUse` row.
-- `ToolResult`: always `next(e)`, Edit diff included. Its `⎿ Added N lines, removed M lines` line stays.
+- `ToolResult`: always `next(e)`, Edit diff included. Its `⎿ Added N lines, removed M lines` line stays. On the main screen a Bash call the engine didn't fold into a group is standalone, so its `⎿` output shows under ctui's row.
 
-Reason: The human chose this in #34 after a live spike (`prototypes/research-34/`, 2.1.288, fullscreen and main screen). 2.1.288 has no `Grep` or `Glob` tool: searches run as Bash, so the render's `* Grep` row is a known difference. Read and every Bash call fold into `ToolGroup`, whose folded line hides errors; Edit and Write are standalone with a `ToolResult`. Keeping the engine's results keeps ctrl+o's full output and the `diffAdded`/`diffRemoved` theme keys; a mod `Code` diff drew identical rows, so it bought only the dropped header line. `ToolResult` can't tell ctrl+o from the normal view. Under main-screen ctrl+o, unfolded calls show only ctui's row (the engine's inline output belongs to the row it replaces); fullscreen ctrl+o shows each call with its full result.
+Reason: The human chose this in #34 after a live spike, and the outside-cwd path form in #54 (`prototypes/research-34/`, 2.1.288, fullscreen and main screen). 2.1.288 has no `Grep` or `Glob` tool: searches run as Bash, so the render's `* Grep` row is a known difference. Read and every Bash call fold into `ToolGroup`, whose folded line hides errors; Edit and Write are standalone with a `ToolResult`. Keeping the engine's results keeps ctrl+o's full output and the `diffAdded`/`diffRemoved` theme keys; a mod `Code` diff drew identical rows, so it bought only the dropped header line. `ToolResult` can't tell ctrl+o from the normal view. Under main-screen ctrl+o, unfolded calls show only ctui's row (the engine's inline output belongs to the row it replaces); fullscreen ctrl+o shows each call with its full result.
 
 ## The prompt box and main background stay Claude Code's
 
