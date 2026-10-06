@@ -11,6 +11,12 @@ Tested with Claude Code 2.1.288 ([all tested versions](COMPATIBILITY.md)).
 /plugin install ctui@claude-tui
 ```
 
+The sidebar docks only in fullscreen: set `"tui": "fullscreen"` in `settings.json` or start Claude Code with `CLAUDE_CODE_NO_FLICKER=1`, in a terminal 110 or more columns wide. Below that, or on the main screen, ctui draws no sidebar; the toasts and the restyled rows still show.
+
+## Configuration
+
+Every setting, the sidebar sections and their options, an example Claude Code theme with the colors ctui uses, and how to set the main background in your terminal are in [the configuration docs](https://github.com/a1exk-dev/claude-tui/blob/main/docs/configuration.md).
+
 ## Commands
 
 - `/ctui:theme [theme]` switches the sidebar theme. `inherit`, the default, follows your Claude Code theme.
@@ -24,7 +30,11 @@ The todo section shows Claude's task list. Claude Code gives Claude the Task too
 
 ## What ctui watches
 
-ctui runs as a mod in every Claude Code session where the plugin is enabled. It watches Bash tool calls and subagent events to show background shells and agents, watches Claude's task tool calls and reads the session's task list for the todo section, and runs `git` in the working directory for the sidebar header. It makes no network calls and sends nothing anywhere.
+ctui runs as a mod in every Claude Code session where the plugin is enabled. It watches Bash tool calls and subagent events to show background shells and agents, watches Claude's task tool calls and reads the session's task list for the todo section, runs `git` in the working directory for the sidebar header, and reads the list of MCP servers you turned off from `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`). It makes no network calls and sends nothing anywhere.
+
+## Known differences
+
+Some parts of the design renders are Claude Code's own and stay as Claude Code draws them: the sidebar's frame and close button, the prompt box, the permission-mode pill, the main background, and the rows of tools other than Read, Edit, Write and Bash. See [the full list](https://github.com/a1exk-dev/claude-tui/blob/main/docs/spec/v0.1.md#known-differences-from-the-renders).
 
 ## License
 
