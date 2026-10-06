@@ -80,6 +80,15 @@ test('rows: running, nested, shell, workflow and ended, each with its elapsed ti
   expect(await glyph('✗')).toEqual(['error', 'error'])
 })
 
+// The row lays out label and time with a gap, and only the label truncates.
+test('a long label keeps a gap and the whole elapsed time', async ($, on) => {
+  const long = task({ id: 'a1', label: 'list every file in the ctui folder', startedAt: 0 })
+  const pane = await draw($, on, { a1: long }, 75_000)
+  const boxes = await pane.findAll({ type: 'Box' })
+  expect(boxes.find((box) => box.props.justifyContent === 'space-between')?.props.columnGap).toBe(1)
+  expect(boxes.find((box) => box.props.flexShrink === 0)?.text).toBe('1m 15s')
+})
+
 test('empty: nothing running; the header counts running rows, folded with ◐', async ($, on) => {
   const pane = await draw($, on, {}, 0)
   expect(await textsOf(pane, /nothing running/)).toEqual(['nothing running'])

@@ -25,11 +25,13 @@ const plugin: SidebarPlugin = {
     shown(mcp).map((row) => {
       const { glyph, color, text } = STATES[row.state]
       return (
-        <Box flexGrow={1} justifyContent="space-between">
+        <Box flexGrow={1} justifyContent="space-between" columnGap={1}>
           <Text wrap="truncate-end">
             <Text color={color}>{glyph}</Text> {row.label}
           </Text>
-          <Text {...(row.state === 'ok' ? { dimColor: true } : { color })}>{text(row)}</Text>
+          <Box flexShrink={0}>
+            <Text {...(row.state === 'ok' ? { dimColor: true } : { color })}>{text(row)}</Text>
+          </Box>
         </Box>
       )
     }),

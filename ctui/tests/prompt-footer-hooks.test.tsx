@@ -63,8 +63,14 @@ const prompt = ($: Engine, permission_mode: string) =>
 const complete = ($: Engine, durationMs: number, reason: 'answer' | 'aborted' = 'answer') =>
   $.turn.complete({ answer: '', durationMs, isAborted: reason === 'aborted', turnId: 't1', reason })
 
-const footer = ($: Engine, durationMs: number) =>
-  $.ui.mount({ plugin: 'ctui', surface: 'terminal', component: 'TurnDuration', props: { word: 'Baked', durationMs } })
+const footer = ($: Engine, durationMs: number, requestId?: string) =>
+  $.ui.mount({
+    plugin: 'ctui',
+    surface: 'terminal',
+    component: 'TurnDuration',
+    ...(requestId && { requestId }),
+    props: { word: 'Baked', durationMs },
+  })
 
 const sessionMode = async ($: Engine, columns: number) => {
   const site = await $.ui.mount({
@@ -87,6 +93,30 @@ test("a finished turn's footer starts with its mode and model", async ($, on) =>
   await clock.settle()
   await footer($, 12000)
   expect(seen.TurnDuration).toEqual([{ word: 'accept edits · claude-sonnet-5-5 · Baked', durationMs: 12000 }])
+})
+
+// On 2.1.288 the footer of a turn a task notification opened can count from
+// an earlier start (8975 ms for a 2900 ms turn; 2m 24s for a 3 s one).
+test('a footer drawn right after its turn, with another duration, reads that turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const seen = host(on, { model: OPUS, settings: {} })
+  await start($)
+  // A footer from before ctui loaded, drawn already.
+  const old = await footer($, 55000, 'old')
+  await prompt($, 'acceptEdits')
+  await step($)
+  await complete($, 2900)
+  const fresh = await footer($, 144000, 'new')
+  // The old one redrawn in the same moment stays plain.
+  await old.redraw()
+  await clock.settle()
+  // A redraw later, as on scroll, still finds the new one.
+  await clock.advance(10_000)
+  await fresh.redraw()
+  const words = (durationMs: number) =>
+    new Set(seen.TurnDuration.filter((props) => props.durationMs === durationMs).map(({ word }) => word))
+  expect(words(144000)).toEqual(new Set([`accept edits · ${OPUS} · Baked`]))
+  expect(words(55000)).toEqual(new Set(['Baked']))
 })
 
 test('a footer with no record passes through', async ($, on) => {

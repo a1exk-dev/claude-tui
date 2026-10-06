@@ -35,7 +35,7 @@ Fullscreen means the `"tui": "fullscreen"` setting or `CLAUDE_CODE_NO_FLICKER=1`
 | The previous row | Send a prompt and wait for the reply | Context fills: `<tokens> / <window> tokens` with thousands commas, the cost grows, the bar has filled cells. Limits percents follow the reply. |
 | The previous row | Wait a minute | Each `resets in` counts down by a minute. |
 | The previous row | Fold Context and Limits | Their headers read `4% · $0.11` and `5h 44% · wk 20%`, dim, at the right. |
-| The previous row, both expanded | Run `/clear` | Within a second Context reads `0%`, `0 / <window> tokens`, `$0.00`; Limits keeps its windows. |
+| The previous row, both expanded | Run `/clear` | Within a second Context reads `0%`, `0 / <window> tokens`, `$0.00`; Limits keeps its windows; the footer still reads `ctui …` and `claude-cli …`. |
 | Off a subscription: start with `--settings '{"apiKeyHelper":"echo sk-ant-api03-dummy"}'` (no key prompt, nothing saved) | Look at Limits | It reads `no limits reported`, dim. |
 | Sidebar docked, `CLAUDE_CONFIG_DIR` set to a scratch folder (so `/mcp` writes stay out of `~/.claude.json`), a repo whose approved `.mcp.json` holds three working stdio servers, `MCP_TIMEOUT=10000` | Look at MCP | One row per server, plus one per claude.ai connector on the account: `●` in `success`, the name, then `N tools` dim at the right (`1 tool` for one). The header reads `n/n` dim (`3/3` with no connector). |
 | The previous row | Run `/mcp disable <server>` | Within a second its row reads `○` and `off` in `inactive`, moved below the others, and the header counts one `●` fewer (`2/3` with no connector). |
@@ -56,6 +56,7 @@ Fullscreen means the `"tui": "fullscreen"` setting or `CLAUDE_CODE_NO_FLICKER=1`
 | The previous row | Ask Claude to start a background Explore agent that lists the folder, and to run `sleep 20` in the background | A row `◐` in `warning`, `Explore` then ` · <description>` dim, its elapsed time dim at the right (`21s`, `1m 15s`), and a row `◐ $ sleep 20`. The header reads `2 running`. Each row turns `✓` in `success` when it ends and leaves 8 s later. |
 | The previous row | Ask Claude to start a general-purpose agent that itself runs `sleep 30` in the background | The shell row sits under the agent as `└ ◐ $ sleep 30`, 2 columns further in. |
 | The previous row | Ask Claude to run `sleep 2; exit 3` in the background | It ends as `✗` in `error`, `$ sleep 2; exit 3 · exit code 3`. |
+| The previous row | Ask Claude to start a background Explore agent with a description longer than the row, and to run `sleep 70` in the background | The description ends in `…` with a space before the elapsed time. Past a minute the shell's time reads `1m 05s`, never cut. |
 | The previous row, with work running | Fold Agents & shells | The header's right side reads `◐ <n> running`, or `nothing running` once all has ended. |
 | Background `sleep 120` running | Run `/clear` | Within a second the row is back with its elapsed time still counting, and its end still turns it `✓`. Same after `/resume` to another session. |
 | Background `sleep 300` running | Open `/tasks`, stop it with `x`, close the dialog, then send any prompt | Nothing changes until the prompt; then the row reads `✗ $ sleep 300 · killed`, with no toast. |
@@ -95,6 +96,7 @@ Run each row in fullscreen and again on the main screen (`--settings '{"tui":"de
 | A new session on Haiku 4.5, 120 columns | Look at the line under the prompt | `claude-haiku-4-5-20251001` dim at its right edge, after Claude Code's mode pill and hint. In fullscreen, it stays there once a prompt docks the Sidebar. |
 | The previous row | Run `/model claude-opus-5-5`, then `/effort low` | Within a second the label reads `claude-opus-5-5`, then `claude-opus-5-5 · low effort`. |
 | The previous row | Press shift+tab to accept edits, then send a prompt | Its footer reads `✻ accept edits · claude-opus-5-5 · <Verb> for Ns · done <time>`. The first turn's footer keeps `manual mode · claude-haiku-4-5-20251001`. |
+| The previous row | Ask Claude to start a background agent that fails at once (an agent file in `~/.claude/agents/` whose `model` doesn't exist), then stop | Claude Code reports the failure in a new turn at once. Both turns' footers read `✻ <mode> · <model> · …`. |
 | The previous row | Narrow the terminal to 80 columns | The label moves to its own row under the hint, left-aligned. Widening back returns it to the right edge. |
 | The previous row | Run `/clear` | The label keeps `· low effort`. |
 

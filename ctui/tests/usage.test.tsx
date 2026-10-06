@@ -200,27 +200,28 @@ test('session.measure moves the context and limits rows', async ($, on) => {
 })
 
 // `/clear` empties `$.state` with no `session.start`; the test empties the
-// `usage` key beneath the plugin until the plugin writes it again.
-test('after /clear empties $.state, the tick reloads the usage', async ($, on) => {
+// `usage` and `versions` keys beneath the plugin until the plugin writes them again.
+test('after /clear empties $.state, the tick reloads the usage and the versions', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
   host(on, { startedAt: NOW, ...MEASURED })
-  let cleared = false
-  on('state.get', async ($, e, next) =>
-    cleared && e.key === 'usage' ? { value: { value: undefined, version: 0 } } : next(e),
-  )
+  const cleared = new Set<string>()
+  on('state.get', async ($, e, next) => (cleared.has(e.key) ? { value: { value: undefined, version: 0 } } : next(e)))
   on('state.set', async ($, e, next) => {
-    if (e.key === 'usage') cleared = false
+    cleared.delete(e.key)
     return next(e)
   })
   await $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
   await clock.settle()
   const pane = await $.ui.mount(SIDEBAR)
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()
+  expect(await pane.find({ text: 'claude-cli 2.1.288' })).toBeDefined()
 
-  cleared = true
+  cleared.add('usage').add('versions')
   await pane.redraw()
   expect(await pane.find({ text: /tokens/ })).toBeUndefined()
+  expect(await pane.find({ text: /claude-cli/ })).toBeUndefined()
   await clock.advance(1000)
   await pane.redraw()
+  expect(await pane.find({ text: 'claude-cli 2.1.288' })).toBeDefined()
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()
 })
