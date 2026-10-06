@@ -6,6 +6,8 @@ Run them with `node_modules/.bin/claude --plugin-dir ./ctui` in a fullscreen ter
 
 To read a terminal's width, run `tty` in it, then `watch -n0.5 stty size -F <that tty>` from another shell (rows, then columns). Or run the session in tmux at a fixed size (`tmux new-session -x 130 -y 40`) and read it with `tmux capture-pane -p`; tmux doesn't deliver ctrl+x x.
 
+A ctui row in `/config` is the `pluginConfigs` entry in `settings.json`. Editing the file while a session runs reloads ctui as `/config` does.
+
 ## Sidebar docking
 
 Fullscreen means the `"tui": "fullscreen"` setting or `CLAUDE_CODE_NO_FLICKER=1`. The main screen means `--settings '{"tui":"default"}'`, since fullscreen can be on by default.
@@ -13,7 +15,7 @@ Fullscreen means the `"tui": "fullscreen"` setting or `CLAUDE_CODE_NO_FLICKER=1`
 | Setup | Action | Expected |
 |---|---|---|
 | Fullscreen, 144+ columns | Start a session | The Sidebar docks beside the transcript with no prompt sent, 42 columns wide (53 from 160). No `[ ✕ ]` press or key closes it. |
-| Fullscreen, 110 to 143 columns, before any prompt has docked the Sidebar on this machine | Start a session, then send a prompt | Nothing docks at start. The prompt docks the Sidebar. A later session at this width docks it at start. |
+| Fullscreen, 110 to 143 columns, before any prompt has docked the Sidebar on this machine (to reset, remove the `sidebar` entry from `pluginPanes.asked` in `.claude.json` while no session runs) | Start a session, then send a prompt | Nothing docks at start. The prompt docks the Sidebar. A later session at this width docks it at start. |
 | Sidebar docked at 150 columns | Widen past 160, then narrow back | The dock moves to 53 columns, then back to 42. |
 | Sidebar docked | Narrow the terminal below 110 columns | The Sidebar disappears: no inline block above the prompt. |
 | The previous row | Widen back to 110+ columns | The Sidebar docks again. |
@@ -66,7 +68,7 @@ Fullscreen means the `"tui": "fullscreen"` setting or `CLAUDE_CODE_NO_FLICKER=1`
 
 ## Toasts
 
-Toasts draw at the top right under the title `ctui`, in fullscreen and on the main screen alike.
+In fullscreen, toasts draw at the top right under the title `ctui`. On the main screen, Claude Code draws each one as `ctui: <text>` at the right of the line under the prompt, for its 4 s.
 
 | Setup | Action | Expected |
 |---|---|---|
@@ -78,7 +80,7 @@ Toasts draw at the top right under the title `ctui`, in fullscreen and on the ma
 | The previous row | Ask Claude to start four background agents at once | Toasts come about 2 s apart, at most two on screen. An end goes ahead of starts still waiting, and a start still waiting when its own end comes is dropped; every end shows. |
 | A background shell stopped from `/tasks` | Send a prompt | No toast. |
 | `/config`: ctui Agent and shell toasts off | Repeat the first row | No toast; the Sidebar rows still show. |
-| Main screen (`--settings '{"tui":"default"}'`) | Repeat the first row | The same toasts, top right. |
+| Main screen (`--settings '{"tui":"default"}'`) | Repeat the first row | The same toast texts, as `ctui: <text>` at the right of the line under the prompt. |
 
 ## Render-site rewrites
 
