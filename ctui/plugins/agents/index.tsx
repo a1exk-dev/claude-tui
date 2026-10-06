@@ -51,13 +51,15 @@ const plugin: SidebarPlugin = {
           </Text>
         )
       return (
-        <Box flexGrow={1} justifyContent="space-between" paddingLeft={depth ? 2 * depth : 0}>
+        <Box flexGrow={1} justifyContent="space-between" columnGap={1} paddingLeft={depth ? 2 * depth : 0}>
           <Text wrap="truncate-end">
             {depth ? <Text dimColor>└ </Text> : null}
             <Text color={color}>{glyph}</Text> {name}
             {ended && why ? <Text dimColor> · {why}</Text> : null}
           </Text>
-          <Text dimColor>{formatElapsed((task.endedAt ?? now ?? task.startedAt) - task.startedAt)}</Text>
+          <Box flexShrink={0}>
+            <Text dimColor>{formatElapsed((task.endedAt ?? now ?? task.startedAt) - task.startedAt)}</Text>
+          </Box>
         </Box>
       )
     })

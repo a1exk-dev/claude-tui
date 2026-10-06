@@ -1,7 +1,7 @@
 import type { CommandRunResult, EngineInterface, Register } from 'claude-code'
 
 import { plugins } from '../plugins'
-import type { GitSnapshot, Task, Todo, TodoItem, Usage } from '../types'
+import type { GitSnapshot, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { deniedText, gated, type Outcome, pluginsOutcome, themeOutcome } from './commands'
 import { type Config, readConfig } from './config'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
@@ -92,6 +92,8 @@ let savedLevel: { model: string; level: unknown } | undefined // modelSettings[m
 let effortCarry: string | null | undefined // the session's effort across /clear and /resume
 let mode: string | undefined // the latest main-loop permission_mode
 let stepModel: string | undefined // the last main-loop turn.step's model
+let lastTurn: { turn: Turn; at: number } | undefined // the latest main-loop turn.complete's record
+const drawnFooters = new Set<string>() // TurnDuration instances drawn since load
 
 // A run still going takes this refresh as one more run after it ends.
 async function refreshGit($: EngineInterface) {
@@ -119,6 +121,12 @@ async function refreshGit($: EngineInterface) {
     gitAgain = false
     await refreshGit($)
   }
+}
+
+// `/clear` and `/resume` empty `$.state` with no `session.start`: the tick refills it.
+async function refillVersions($: EngineInterface) {
+  const { value } = await $.state.get(VERSIONS)
+  if (!value) await loadVersions($)
 }
 
 async function loadVersions($: EngineInterface) {
@@ -435,6 +443,14 @@ async function refreshModel($: EngineInterface) {
   if (stored.value !== model) await $.state.set(MODEL, model)
 }
 
+// A turn's footer draws within this long of its turn.complete.
+const FOOTER_MS = 2000
+
+async function addTurn($: EngineInterface, turn: Turn) {
+  const { value = [] } = await $.state.get(TURNS)
+  await $.state.set(TURNS, [...value, turn])
+}
+
 // The latest main-loop permission mode, for the turn footer.
 function noteMode(e: { agent_id?: string; permission_mode?: string }) {
   if (e.agent_id === undefined && e.permission_mode) mode = e.permission_mode
@@ -478,6 +494,7 @@ export const register: Register = (on, options) => {
       void refreshModel($).catch(() => undefined)
       if (ticks % 5 === 0 && needs.has('git')) void refreshGit($)
       if (needs.has('usage')) void refillUsage($)
+      if (needs.has('versions')) void refillVersions($)
       if (needs.has('mcp')) void refreshMcp($)
       if (needs.has('todo')) void refreshTodo($)
       if (needs.has('now')) void setNow($)
@@ -837,8 +854,9 @@ export const register: Register = (on, options) => {
       const model = stepModel
       stepModel = undefined
       if (e.reason !== 'aborted' && mode && model) {
-        const { value = [] } = await $.state.get(TURNS)
-        await $.state.set(TURNS, [...value, { durationMs: e.durationMs, mode, model }])
+        const turn = { durationMs: e.durationMs, mode, model }
+        lastTurn = { turn, at: await $.clock.now() }
+        await addTurn($, turn)
       }
     }
     return next(e)
@@ -846,7 +864,16 @@ export const register: Register = (on, options) => {
 
   // A footer from an earlier process has no record: Claude Code's plain line.
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
-    const turn = turnOf((await $.state.get(TURNS)).value, e.props.durationMs)
+    let turn = turnOf((await $.state.get(TURNS)).value, e.props.durationMs)
+    const isFirstDraw = !drawnFooters.has(e.requestId)
+    drawnFooters.add(e.requestId)
+    // A turn a task notification opened can count from earlier: first drawn
+    // right after its turn.complete, the footer is that turn's, kept under its own duration.
+    if (!turn && isFirstDraw && lastTurn && (await $.clock.now()) - lastTurn.at < FOOTER_MS) {
+      turn = { ...lastTurn.turn, durationMs: e.props.durationMs }
+      const alias = turn
+      $.clock.after(0, () => void addTurn($, alias))
+    }
     return next(turn ? { ...e, props: { ...e.props, word: turnWord(e.props.word, turn) } } : e)
   })
 
