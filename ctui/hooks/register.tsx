@@ -1,11 +1,13 @@
-import type { EngineInterface, Register } from 'claude-code'
+import type { CommandRunResult, EngineInterface, Register } from 'claude-code'
 
 import { plugins } from '../plugins'
 import type { GitSnapshot, Task, Todo, TodoItem, Usage } from '../types'
-import { readConfig } from './config'
+import { deniedText, gated, type Outcome, pluginsOutcome, themeOutcome } from './commands'
+import { type Config, readConfig } from './config'
 import { formatReset } from './format'
 import { parseGit, tildify } from './git'
 import { mcpRows, segmentOf } from './mcp'
+import { picker } from './pickers'
 import { sidebar } from './sidebar'
 import {
   applyAgentList,
@@ -38,6 +40,14 @@ const TASKS = { plugin: 'ctui', key: 'tasks' } as const
 const DOCK_COLUMNS = 110
 const widthFor = (terminalColumns: number) => (terminalColumns >= 160 ? 53 : 42)
 
+// The `/ctui:*` picker panes by command, which is also the Select's key: pane id and title.
+const PICKERS = {
+  theme: { id: 'ctui-theme', title: 'Sidebar theme' },
+  enable: { id: 'ctui-enable', title: 'Enable a Sidebar plugin' },
+  disable: { id: 'ctui-disable', title: 'Disable a Sidebar plugin' },
+} as const
+type Picker = keyof typeof PICKERS
+
 const GIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'Bash'])
 
 // Toasts come at most this often: the engine drops one within 2 s of the last.
@@ -64,6 +74,7 @@ let toasting = false
 let toastsOn = true // `agents_toasts`
 let lastToast = -Infinity
 let agentsRunning = false
+let themes: readonly string[] | undefined // the `theme` setting's options, read once
 
 // A run still going takes this refresh as one more run after it ends.
 async function refreshGit($: EngineInterface) {
@@ -278,8 +289,9 @@ function updateTasks(
 }
 
 // One toast at most every TOAST_GAP_MS; an end goes ahead of waiting starts.
-function showToast($: EngineInterface, toast: Toast) {
-  if (!toastsOn) return
+// `always` skips the `agents_toasts` gate, for a toast that isn't a task's.
+function showToast($: EngineInterface, toast: Toast, always = false) {
+  if (!toastsOn && !always) return
   toasts = enqueue(toasts, toast)
   // A reload unloads the environment under a waiting toast: the new module starts its own queue.
   if (!toasting) void drainToasts($).catch(() => undefined)
@@ -335,6 +347,53 @@ function onNotification($: EngineInterface, text: string) {
 
 const textOf = (content: readonly { type: string; text?: string }[]) =>
   content.map((block) => (block.type === 'text' ? (block.text ?? '') : '')).join('\n')
+
+// The manifest's `theme` options: under `claude -p` no `/config` row lists them.
+async function themesOf($: EngineInterface) {
+  themes ??= JSON.parse(await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`)).userConfig.theme
+    .options as string[]
+  return themes
+}
+
+// What a `/ctui:*` command, or a pick in its picker, does with `args`.
+async function outcomeOf($: EngineInterface, config: Config, name: Picker, args: string): Promise<Outcome> {
+  if (name === 'theme') return themeOutcome(args, await themesOf($), config.theme)
+  const states = plugins.map(({ id }) => ({ id, enable: config[id].enable }))
+  return pluginsOutcome(name, args, states)
+}
+
+async function runCommand(
+  $: EngineInterface,
+  config: Config,
+  name: Picker,
+  args: string,
+): Promise<CommandRunResult> {
+  const decided = await outcomeOf($, config, name, args)
+  const hasConfig = 'text' in decided || (await $.config.list()).some((row) => row.key === 'ctui.theme')
+  const outcome = gated(decided, hasConfig)
+  if ('text' in outcome) return { text: outcome.text }
+  if ('set' in outcome) {
+    const { deny } = await $.config.set(outcome.set)
+    return deny === undefined ? {} : { text: deniedText(outcome.set, deny) }
+  }
+  // As wide as the Sidebar it docks over; the dock ignores it inline.
+  const { id, title } = PICKERS[name]
+  await $.ui.open({ id, title, focus: true, closeOnEscape: true, columns: requested ?? widthFor(DOCK_COLUMNS) })
+  return {}
+}
+
+// A pick closes the pane, then writes last: the write reloads the mod. A
+// deny has no command row to print into, so it toasts.
+async function pick($: EngineInterface, config: Config, name: Picker, value: string) {
+  const outcome = await outcomeOf($, config, name, value)
+  const { id } = PICKERS[name]
+  $.clock.after(0, async () => {
+    await $.ui.close({ id })
+    if (!('set' in outcome)) return
+    const { deny } = await $.config.set(outcome.set)
+    if (deny !== undefined) showToast($, { id, end: true, text: deniedText(outcome.set, deny) }, true)
+  })
+}
 
 async function openSidebar($: EngineInterface, columns: number) {
   requested = columns
@@ -644,4 +703,25 @@ export const register: Register = (on, options) => {
     if (offset !== value) await $.state.set(SCROLL, offset)
     return {}
   })
+  // MEMORY.md "`/ctui:*` commands stay quiet on success; a bare command opens
+  // a picker pane". Each hook answers without `next`: the markdown fallback
+  // never reaches the model.
+  on('command.run', { command: 'ctui:theme' }, ($, e) => runCommand($, config, 'theme', e.args))
+  on('command.run', { command: 'ctui:plugins:enable' }, ($, e) => runCommand($, config, 'enable', e.args))
+  on('command.run', { command: 'ctui:plugins:disable' }, ($, e) => runCommand($, config, 'disable', e.args))
+
+  for (const name of Object.keys(PICKERS) as Picker[]) {
+    const { id, title } = PICKERS[name]
+    on('ui.render', { component: 'Pane', requestId: id }, async ($, e) => {
+      const ui = $.ui.resolve(e)
+      if (!('Select' in ui)) return <ui.Box />
+      const outcome = await outcomeOf($, config, name, '')
+      return picker({ ui, key: name, title, ...('pick' in outcome ? outcome.pick : { options: [] }) })
+    })
+
+    on('ui.select', { plugin: 'ctui', element: name }, async ($, e, next) => {
+      await pick($, config, name, e.value)
+      return next(e)
+    })
+  }
 }
