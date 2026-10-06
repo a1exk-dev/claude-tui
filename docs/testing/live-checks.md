@@ -83,4 +83,20 @@ Toasts draw at the top right under the title `ctui`, in fullscreen and on the ma
 
 ## Commands and pickers
 
+| Setup | Action | Expected |
+|---|---|---|
+| Fullscreen, Sidebar docked | Run `/ctui:plugins:disable mcp` | No transcript row, not even the command line, and nothing reaches the model. Claude Code prints `● ctui: options changed — reloaded`, and the Sidebar redraws without MCP. |
+| The previous row | Run `/ctui:plugins:disable mcp` again; then `/ctui:plugins:enable foo` | `⎿ ctui: mcp is already disabled`, then `⎿ ctui: Unknown plugin "foo". Plugins: git, context, limits, mcp, todo, agents, versions`. |
+| The previous row | Run `/ctui:plugins:enable` | A picker docks as a tab over the Sidebar, as wide as the Sidebar, focused, listing `mcp` only. Enter on it closes the picker, the Sidebar returns with MCP, and `● ctui: options changed — reloaded` prints. |
+| Every Sidebar plugin enabled | Run `/ctui:plugins:enable` | `⎿ ctui: All Sidebar plugins are already enabled`; no picker. |
+| Sidebar docked | Run `/ctui:plugins:disable`, then press Esc | The picker lists all seven plugins in Sidebar order; Esc closes it with no change, and the Sidebar returns. |
+| Sidebar docked | Run `/ctui:theme`; press Enter | The picker shows the one row `inherit`, selected. Enter closes it with no reload row. |
+| The previous row | Run `/ctui:theme inherit`; then `/ctui:theme x` | `⎿ ctui: Sidebar theme is already inherit`, then `⎿ ctui: Unknown theme "x". Themes: inherit`. |
+| A reply streaming | Type `/ctui:plugins:disable todo` and press Enter | It waits for the reply to end (Claude Code offers ctrl+x ctrl+s to send it now), then runs as above. |
+| Main screen (`--settings '{"tui":"default"}'`) | Run `/ctui:plugins:disable` | The picker sits inline above the prompt; a pick closes it and writes. |
+
 ## `claude -p`
+
+| Setup | Action | Expected |
+|---|---|---|
+| A shell | `claude -p --plugin-dir ./ctui '/ctui:plugins:disable mcp'`, then the same with `/ctui:theme` and `/ctui:theme x` | `ctui: Can't change ctui settings in claude -p. Use /config in an interactive session.` twice, then `ctui: Unknown theme "x". Themes: inherit`. No model reply, no settings change. |
