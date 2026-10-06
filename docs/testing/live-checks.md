@@ -37,6 +37,13 @@ Fullscreen means the `"tui": "fullscreen"` setting or `CLAUDE_CODE_NO_FLICKER=1`
 | The previous row | Fold Context and Limits | Their headers read `4% · $0.11` and `5h 44% · wk 20%`, dim, at the right. |
 | The previous row, both expanded | Run `/clear` | Within a second Context reads `0%`, `0 / <window> tokens`, `$0.00`; Limits keeps its windows. |
 | Off a subscription: start with `--settings '{"apiKeyHelper":"echo sk-ant-api03-dummy"}'` (no key prompt, nothing saved) | Look at Limits | It reads `no limits reported`, dim. |
+| Sidebar docked, `CLAUDE_CONFIG_DIR` set to a scratch folder (so `/mcp` writes stay out of `~/.claude.json`), a repo whose approved `.mcp.json` holds three working stdio servers, `MCP_TIMEOUT=10000` | Look at MCP | One row per server, plus one per claude.ai connector on the account: `●` in `success`, the name, then `N tools` dim at the right (`1 tool` for one). The header reads `n/n` dim (`3/3` with no connector). |
+| The previous row | Run `/mcp disable <server>` | Within a second its row reads `○` and `off` in `inactive`, moved below the others, and the header counts one `●` fewer (`2/3` with no connector). |
+| The previous row | Run `/mcp enable <server>` | Within a second or two the row reads `● N tools` again, back in its first place. A server slower than the 1 s tick reads `◐` and `connecting` in `warning` first. |
+| The previous row | Kill one server's process (find its PID with `pgrep -af '<server script>'`, then `kill <pid>`) | Within a second its row reads `◐` and `connecting` in `warning`, then `✕` and `down` in `error` about 10 s after the kill. |
+| The previous row, with a claude.ai connector or a plugin's server listed | Send a prompt, then look at its row | The label is its `/mcp` name without `claude.ai ` or `plugin:<plugin>:` (`Claude Docs`). Before the first prompt it reads the tool-name form (`Claude_Docs`). |
+| The previous row | Fold MCP | The header's right side reads each state's glyph and count in its color, `●` first: `● 2 ✕ 1 ○ 1`. |
+| The previous row | List the processes under `claude` (`pstree -a <pid>`) for 10 s | Only the MCP servers and short `git` runs: no `claude -p` and no `claude mcp list`. |
 | More section rows than fit: an expanded long list, or a shorter terminal. Before the sections have rows of their own, give one stub section's `view` 12 placeholder rows and revert it after. | Check the cap: 4 rows then `▸ 8 more`; click it for every row and `▾ show less`. Then scroll the wheel over the Sidebar, down then up | `↓ more` marks the window's last row. Scrolling moves the sections only; the header and footer stay. `↑ more` shows once scrolled; at the end only `↑ more` shows. |
 
 ## Toasts

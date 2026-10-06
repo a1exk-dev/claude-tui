@@ -5,6 +5,7 @@ import type { GitSnapshot, Usage } from '../types'
 import { readConfig } from './config'
 import { formatReset } from './format'
 import { parseGit, tildify } from './git'
+import { mcpRows, segmentOf } from './mcp'
 import { sidebar } from './sidebar'
 
 const SIDEBAR = 'sidebar'
@@ -15,6 +16,7 @@ const GIT = { plugin: 'ctui', key: 'git' } as const
 const VERSIONS = { plugin: 'ctui', key: 'versions' } as const
 const USAGE = { plugin: 'ctui', key: 'usage' } as const
 const NOW = { plugin: 'ctui', key: 'now' } as const
+const MCP = { plugin: 'ctui', key: 'mcp' } as const
 
 // The dock docks from 110 terminal columns; the Sidebar asks 42, or 53 from 160.
 const DOCK_COLUMNS = 110
@@ -30,6 +32,10 @@ let checking = false // a viewport check is queued
 let waiting = false // opened unasked and not placed: open again on the person's prompt
 let requested: number | undefined // the columns last asked for
 let maxScroll = 0 // the sections window's last offset, as last drawn
+let mcpRunning = false
+let mcpTimeout: number | undefined // MCP_TIMEOUT, read once
+let claudeJson: { path: string; project: string; mtimeMs?: number; disabled: string[] } | undefined
+const mcpNames: Record<string, string> = {} // segment → /mcp name, from `tool.describe`
 
 // A run still going takes this refresh as one more run after it ends.
 async function refreshGit($: EngineInterface) {
@@ -95,6 +101,53 @@ async function setNow($: EngineInterface) {
   }
 }
 
+// `.claude.json` keys a project by its git root, found by walking up from the cwd, else the cwd.
+async function projectOf($: EngineInterface) {
+  const cwd = await $.session.cwd()
+  for (let dir = cwd; dir; dir = dir.slice(0, dir.lastIndexOf('/'))) {
+    if (await $.fs.exists(`${dir}/.git`)) return dir
+  }
+  return cwd
+}
+
+// `projects[<project>].disabledMcpServers`, re-read when the file's mtime changes.
+// Claude Code keeps the file in CLAUDE_CONFIG_DIR when that is set.
+async function readDisabled($: EngineInterface) {
+  const dir = (await $.env.get('CLAUDE_CONFIG_DIR')) || (await $.env.get('HOME'))
+  claudeJson ??= { path: `${dir}/.claude.json`, project: await projectOf($), disabled: [] }
+  const file = claudeJson
+  const stat = await $.fs.stat(file.path).catch(() => undefined)
+  if (stat?.mtimeMs !== file.mtimeMs) {
+    try {
+      const json = stat ? JSON.parse(await $.fs.read(file.path)) : {}
+      file.disabled = json.projects?.[file.project]?.disabledMcpServers ?? []
+      file.mtimeMs = stat?.mtimeMs
+    } catch {
+      // Caught mid-write: the next tick reads it again.
+    }
+  }
+  return file.disabled
+}
+
+// MEMORY.md "The `mcp` Sidebar plugin reads live tools and the disabled list; it never probes".
+async function refreshMcp($: EngineInterface) {
+  if (mcpRunning) return
+  mcpRunning = true
+  try {
+    mcpTimeout ??= Number(await $.env.get('MCP_TIMEOUT')) || 30_000
+    const [tools, disabled, now, { value: rows = [] }] = await Promise.all([
+      $.tool.list(),
+      readDisabled($),
+      $.clock.now(),
+      $.state.get(MCP),
+    ])
+    const next = mcpRows({ rows, tools, disabled, names: mcpNames, now, timeoutMs: mcpTimeout })
+    if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
+  } finally {
+    mcpRunning = false
+  }
+}
+
 async function openSidebar($: EngineInterface, columns: number) {
   requested = columns
   const opened = await $.ui.open({ id: SIDEBAR, title: 'Sidebar', columns })
@@ -116,6 +169,7 @@ export const register: Register = (on, options) => {
       ticks++
       if (ticks % 5 === 0 && needs.has('git')) void refreshGit($)
       if (needs.has('usage')) void refillUsage($)
+      if (needs.has('mcp')) void refreshMcp($)
       if (needs.has('now')) void setNow($)
     })
     return next(e)
@@ -124,6 +178,13 @@ export const register: Register = (on, options) => {
   on('session.measure', async ($, e, next) => {
     if (needs.has('usage')) await setUsage($, e)
     if (needs.has('now')) await setNow($)
+    return next(e)
+  })
+
+  // Names a server's row as /mcp does. Observe only.
+  on('tool.describe', ($, e, next) => {
+    const server = /^mcp:(.+)$/.exec(e.provider.plugin)?.[1]
+    if (server) mcpNames[segmentOf(server)] = server
     return next(e)
   })
 
@@ -176,13 +237,14 @@ export const register: Register = (on, options) => {
         $.clock.after(0, () => void openSidebar($, columns))
       }
     }
-    const [folded, expanded, scroll, git, usage, now, versions] = await Promise.all([
+    const [folded, expanded, scroll, git, usage, now, mcp, versions] = await Promise.all([
       $.state.get(FOLDED),
       $.state.get(EXPANDED),
       $.state.get(SCROLL),
       $.state.get(GIT),
       $.state.get(USAGE),
       $.state.get(NOW),
+      $.state.get(MCP),
       $.state.get(VERSIONS),
     ])
     const drawn = sidebar({
@@ -190,7 +252,7 @@ export const register: Register = (on, options) => {
       bodyRows: e.props.scroll.bodyRows,
       bodyColumns: e.props.bodyColumns,
       plugins: enabled,
-      data: { git: git.value, usage: usage.value, now: now.value, versions: versions.value },
+      data: { git: git.value, usage: usage.value, now: now.value, mcp: mcp.value, versions: versions.value },
       config,
       folded: folded.value ?? {},
       expanded: expanded.value ?? {},
