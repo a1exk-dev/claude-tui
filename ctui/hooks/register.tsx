@@ -1,12 +1,24 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import { plugins } from '../plugins'
-import type { GitSnapshot, Todo, TodoItem, Usage } from '../types'
+import type { GitSnapshot, Task, Todo, TodoItem, Usage } from '../types'
 import { readConfig } from './config'
 import { formatReset } from './format'
 import { parseGit, tildify } from './git'
 import { mcpRows, segmentOf } from './mcp'
 import { sidebar } from './sidebar'
+import {
+  applyAgentList,
+  applyNotification,
+  dropEnded,
+  endTask,
+  enqueue,
+  failureReason,
+  firstLine,
+  parseTaskNotification,
+  startedToast,
+  type Toast,
+} from './tasks'
 
 const SIDEBAR = 'sidebar'
 const FOLDED = { plugin: 'ctui', key: 'folded' } as const
@@ -20,12 +32,16 @@ const MCP = { plugin: 'ctui', key: 'mcp' } as const
 const TODO = { plugin: 'ctui', key: 'todo' } as const
 const ACTIVE_FORMS = { plugin: 'ctui', key: 'activeForms' } as const
 const TODO_ENV_SET = { plugin: 'ctui', key: 'todoEnvSet' } as const
+const TASKS = { plugin: 'ctui', key: 'tasks' } as const
 
 // The dock docks from 110 terminal columns; the Sidebar asks 42, or 53 from 160.
 const DOCK_COLUMNS = 110
 const widthFor = (terminalColumns: number) => (terminalColumns >= 160 ? 53 : 42)
 
 const GIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'Bash'])
+
+// Toasts come at most this often: the engine drops one within 2 s of the last.
+const TOAST_GAP_MS = 2100
 
 // Module state: a reload starts a fresh environment.
 let tick: { cancel: () => void } | undefined
@@ -41,6 +57,13 @@ let claudeJson: { path: string; project: string; mtimeMs?: number; disabled: str
 const mcpNames: Record<string, string> = {} // segment → /mcp name, from `tool.describe`
 let todoRunning = false
 let todoAgain = false // a reload came while one ran: run once more after it
+let tasksChain: Promise<unknown> = Promise.resolve() // task updates, one at a time
+let carry: Record<string, Task> | undefined // running tasks across /clear and /resume
+let toasts: Toast[] = []
+let toasting = false
+let toastsOn = true // `agents_toasts`
+let lastToast = -Infinity
+let agentsRunning = false
 
 // A run still going takes this refresh as one more run after it ends.
 async function refreshGit($: EngineInterface) {
@@ -237,6 +260,82 @@ async function keepActiveForm($: EngineInterface, id: string, activeForm: string
   if (value[id] !== activeForm) await $.state.set(ACTIVE_FORMS, { ...value, [id]: activeForm })
 }
 
+// Applies `change` to the session's tasks, one change at a time. `change`
+// edits the copy it gets and returns the toasts its edits raise.
+function updateTasks(
+  $: EngineInterface,
+  change: (tasks: Record<string, Task>, now: number) => Toast[] | void | Promise<Toast[] | void>,
+) {
+  const run = tasksChain.then(async () => {
+    const [{ value = {} }, now] = await Promise.all([$.state.get(TASKS), $.clock.now()])
+    const tasks = { ...value }
+    const raised = (await change(tasks, now)) ?? []
+    if (JSON.stringify(tasks) !== JSON.stringify(value)) await $.state.set(TASKS, tasks)
+    for (const toast of raised) showToast($, toast)
+  })
+  tasksChain = run.catch(() => undefined)
+  return run
+}
+
+// One toast at most every TOAST_GAP_MS; an end goes ahead of waiting starts.
+function showToast($: EngineInterface, toast: Toast) {
+  if (!toastsOn) return
+  toasts = enqueue(toasts, toast)
+  // A reload unloads the environment under a waiting toast: the new module starts its own queue.
+  if (!toasting) void drainToasts($).catch(() => undefined)
+}
+
+async function drainToasts($: EngineInterface) {
+  toasting = true
+  try {
+    while (toasts.length) {
+      const wait = lastToast + TOAST_GAP_MS - (await $.clock.now())
+      if (wait > 0) await $.clock.sleep(wait)
+      const [toast, ...rest] = toasts
+      toasts = rest
+      if (!toast) break
+      lastToast = await $.clock.now()
+      await $.ui.toast(toast.text)
+    }
+  } finally {
+    toasting = false
+  }
+}
+
+// Agent status from the list, which has no change event.
+async function refreshAgents($: EngineInterface) {
+  if (agentsRunning) return
+  agentsRunning = true
+  try {
+    const list = (await $.agent.list()).filter((agent) => agent.type !== 'teammate')
+    await updateTasks($, (tasks, now) => applyAgentList(tasks, list, now))
+  } finally {
+    agentsRunning = false
+  }
+}
+
+// The tick's share: merges the /clear carry, drops rows ended ENDED_MS ago,
+// and moves `now` while a row shows.
+async function tickTasks($: EngineInterface, timers: boolean) {
+  const carried = carry
+  carry = undefined
+  let shown = false
+  await updateTasks($, (tasks, now) => {
+    for (const task of Object.values(carried ?? {})) tasks[task.id] ??= task
+    dropEnded(tasks, now)
+    shown = Object.keys(tasks).length > 0
+  })
+  if (timers && shown) await $.state.set(NOW, await $.clock.now())
+}
+
+function onNotification($: EngineInterface, text: string) {
+  const note = parseTaskNotification(text)
+  if (note) return updateTasks($, (tasks, now) => applyNotification(tasks, note, now))
+}
+
+const textOf = (content: readonly { type: string; text?: string }[]) =>
+  content.map((block) => (block.type === 'text' ? (block.text ?? '') : '')).join('\n')
+
 async function openSidebar($: EngineInterface, columns: number) {
   requested = columns
   const opened = await $.ui.open({ id: SIDEBAR, title: 'Sidebar', columns })
@@ -247,6 +346,9 @@ export const register: Register = (on, options) => {
   const config = readConfig(options)
   const enabled = plugins.filter((plugin) => config[plugin.id].enable)
   const needs = new Set(enabled.flatMap((plugin) => plugin.needs))
+  // Tasks feed the Sidebar section and the toasts.
+  const tracking = needs.has('tasks') || config.agents.toasts
+  toastsOn = config.agents.toasts
 
   on('session.start', async ($, e, next) => {
     await setTodoEnv($, config.todo.tools)
@@ -263,6 +365,7 @@ export const register: Register = (on, options) => {
       if (needs.has('mcp')) void refreshMcp($)
       if (needs.has('todo')) void refreshTodo($)
       if (needs.has('now')) void setNow($)
+      if (tracking) void refreshAgents($).then(() => tickTasks($, needs.has('now')))
     })
     return next(e)
   })
@@ -318,6 +421,132 @@ export const register: Register = (on, options) => {
     return done
   })
 
+  // MEMORY.md "Agent and shell events go to toasts, the live list goes to the
+  // sidebar", "Task ends come from notifications" and "A Workflow run is one
+  // task row". Every task hook observes only.
+  on('agent.spawn', async ($, e, next) => {
+    const done = await next(e)
+    if (tracking && done.agentId) {
+      const id = done.agentId
+      await updateTasks($, (tasks, now) => {
+        const task: Task = {
+          id,
+          kind: 'agent',
+          type: e.subagentType,
+          label: e.description,
+          ...(e.parentAgentId && { parent: e.parentAgentId }),
+          status: 'running',
+          startedAt: now,
+        }
+        tasks[id] = task
+        return [startedToast(task)]
+      })
+    }
+    return done
+  })
+
+  // An agent dead on an API error: StopFailure comes before the list says `failed`.
+  on('classic.StopFailure', async ($, e, next) => {
+    const id = e.agent_id
+    if (tracking && id) {
+      await updateTasks($, (tasks) => {
+        const task = tasks[id]
+        if (task?.kind === 'agent') tasks[id] = { ...task, reason: failureReason(e.error) }
+      })
+    }
+    return next(e)
+  })
+
+  // A background shell: from the main loop, a held agent, or an agent of a
+  // running Workflow run (nested quietly under the run whose transcripts hold it).
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const done = await next(e)
+    const id = done.isError ? undefined : done.result?.backgroundTaskId
+    if (!tracking || !id) return done
+    const agentId = e.agentId
+    await updateTasks($, async (tasks, now) => {
+      const label = firstLine(e.command)
+      const shell: Task = { id, kind: 'shell', type: 'shell', label, status: 'running', startedAt: now }
+      if (!agentId || tasks[agentId]) {
+        tasks[id] = { ...shell, ...(agentId && { parent: agentId }) }
+        return [startedToast(shell)]
+      }
+      for (const run of Object.values(tasks)) {
+        if (run.kind !== 'workflow' || run.status !== 'running' || !run.transcriptDir) continue
+        const found = await $.fs.stat(`${run.transcriptDir}/agent-${agentId}.jsonl`).catch(() => undefined)
+        if (found) {
+          tasks[id] = { ...shell, parent: run.id }
+          return
+        }
+      }
+    })
+    return done
+  })
+
+  on('tool.call', { tool: 'Workflow' }, async ($, e, next) => {
+    const done = await next(e)
+    const result = done.isError ? undefined : done.result
+    if (tracking && result?.taskId) {
+      const id = result.taskId
+      await updateTasks($, (tasks, now) => {
+        const task: Task = {
+          id,
+          kind: 'workflow',
+          type: 'workflow',
+          label: result.workflowName ?? 'workflow',
+          ...(result.transcriptDir && { transcriptDir: result.transcriptDir }),
+          status: 'running',
+          startedAt: now,
+        }
+        tasks[id] = task
+        return [startedToast(task)]
+      })
+    }
+    return done
+  })
+
+  // The model's TaskStop sends no notification: its result is the kill.
+  on('tool.call', { tool: 'TaskStop' }, async ($, e, next) => {
+    const done = await next(e)
+    const id = done.isError ? undefined : done.result?.task_id
+    if (tracking && id) {
+      await updateTasks($, (tasks, now) => {
+        const task = tasks[id]
+        return task?.status === 'running' ? endTask(tasks, task, 'killed', now, true) : undefined
+      })
+    }
+    return done
+  })
+
+  on('prompt.submit', { origin: { kind: 'task-notification' } }, async ($, e, next) => {
+    if (tracking) await onNotification($, e.text)
+    return next(e)
+  })
+
+  // A /tasks kill's notification comes only as this row, with the next prompt.
+  on('session.append', { door: 'delivery', message: { name: 'queued_command' } }, async ($, e, next) => {
+    if (tracking) await onNotification($, textOf(e.message.content))
+    return next(e)
+  })
+
+  // A subagent's shell reports its end into that subagent's loop, with no
+  // `prompt.submit`. The main loop's door-`prompt` rows (the synthetic
+  // `stopped` after /resume) carry no `agentId` and stay unread.
+  on('session.append', { door: 'prompt', origin: { kind: 'task-notification' } }, async ($, e, next) => {
+    if (tracking && e.agentId) await onNotification($, textOf(e.message.content))
+    return next(e)
+  })
+
+  // /clear and /resume empty `$.state` while running work goes on: the tick
+  // merges it into the new session.
+  on('session.end', async ($, e, next) => {
+    if (tracking && (e.reason === 'clear' || e.reason === 'resume')) {
+      const { value = {} } = await $.state.get(TASKS)
+      carry = Object.fromEntries(Object.entries(value).filter(([, task]) => task.status === 'running'))
+    }
+    return next(e)
+  })
+
   // MEMORY.md "The Sidebar shows only when docked": watch an always-drawn site
   // and open the pane once the terminal can dock it. Observe only.
   on('ui.render', { component: 'SessionMode' }, ($, e, next) => {
@@ -359,7 +588,7 @@ export const register: Register = (on, options) => {
         $.clock.after(0, () => void openSidebar($, columns))
       }
     }
-    const [folded, expanded, scroll, git, usage, now, mcp, todo, versions] = await Promise.all([
+    const [folded, expanded, scroll, git, usage, now, mcp, todo, versions, tasks] = await Promise.all([
       $.state.get(FOLDED),
       $.state.get(EXPANDED),
       $.state.get(SCROLL),
@@ -369,6 +598,7 @@ export const register: Register = (on, options) => {
       $.state.get(MCP),
       $.state.get(TODO),
       $.state.get(VERSIONS),
+      $.state.get(TASKS),
     ])
     const drawn = sidebar({
       ui,
@@ -382,6 +612,7 @@ export const register: Register = (on, options) => {
         mcp: mcp.value,
         todo: todo.value,
         versions: versions.value,
+        tasks: tasks.value,
       },
       config,
       folded: folded.value ?? {},

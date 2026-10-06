@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { formatReset, formatTokens, formatUsd, formatWindow, level } from '../hooks/format'
+import { formatElapsed, formatReset, formatTokens, formatUsd, formatWindow, level } from '../hooks/format'
 
 test('token counts group thousands', () => {
   expect(formatTokens(0)).toBe('0')
@@ -39,4 +39,12 @@ test('resets within a day read hours and minutes', () => {
 test('resets past a day add the local weekday and time', () => {
   const now = new Date(2026, 9, 9, 5, 0).getTime() // Friday
   expect(formatReset(new Date(2026, 9, 12, 9, 0).toISOString(), now)).toBe('resets in 3d 4h, Mon 09:00')
+})
+
+test('elapsed times', () => {
+  expect(formatElapsed(21_400)).toBe('21s')
+  expect(formatElapsed(75_000)).toBe('1m 15s')
+  expect(formatElapsed(903_000)).toBe('15m 03s')
+  expect(formatElapsed(3_720_000)).toBe('1h 02m')
+  expect(formatElapsed(-5)).toBe('0s')
 })

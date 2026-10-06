@@ -44,3 +44,12 @@ export function bar(percent: number, width: number): { filled: string; empty: st
 
 // A percent in the 5 columns right of a bar: `  9%`, ` 100%`.
 export const formatPercent = (percent: number) => `${Math.round(percent)}%`.padStart(5)
+
+// `21s`, `1m 15s`, `15m 03s`, `1h 02m`.
+export function formatElapsed(ms: number): string {
+  const seconds = Math.floor(Math.max(ms, 0) / 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${pad(seconds % 60)}s`
+  return `${Math.floor(seconds / 3600)}h ${pad(Math.floor((seconds % 3600) / 60))}m`
+}
