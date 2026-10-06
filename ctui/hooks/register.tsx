@@ -4,13 +4,15 @@ import { plugins } from '../plugins'
 import type { GitSnapshot, Task, Todo, TodoItem, Usage } from '../types'
 import { deniedText, gated, type Outcome, pluginsOutcome, themeOutcome } from './commands'
 import { type Config, readConfig } from './config'
-import { formatReset } from './format'
+import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
 import { mcpRows, segmentOf } from './mcp'
 import { picker } from './pickers'
 import { sidebar } from './sidebar'
 import { assistantMessage } from './skin/assistant'
+import { promptLabelRow } from './skin/prompt'
 import { hasToolRow, toolLine, toolRow } from './skin/tool'
+import { turnOf, turnWord } from './skin/turn'
 import { isOwnPrompt, userMessage } from './skin/user'
 import {
   applyAgentList,
@@ -38,6 +40,9 @@ const TODO = { plugin: 'ctui', key: 'todo' } as const
 const ACTIVE_FORMS = { plugin: 'ctui', key: 'activeForms' } as const
 const TODO_ENV_SET = { plugin: 'ctui', key: 'todoEnvSet' } as const
 const TASKS = { plugin: 'ctui', key: 'tasks' } as const
+const MODEL = { plugin: 'ctui', key: 'model' } as const
+const EFFORT = { plugin: 'ctui', key: 'effort' } as const
+const TURNS = { plugin: 'ctui', key: 'turns' } as const
 
 // The dock docks from 110 terminal columns; the Sidebar asks 42, or 53 from 160.
 const DOCK_COLUMNS = 110
@@ -52,6 +57,9 @@ const PICKERS = {
 type Picker = keyof typeof PICKERS
 
 const GIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'Bash'])
+
+// What `/effort <args>` sets for the session.
+const EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max'])
 
 // Toasts come at most this often: the engine drops one within 2 s of the last.
 const TOAST_GAP_MS = 2100
@@ -78,6 +86,12 @@ let toastsOn = true // `agents_toasts`
 let lastToast = -Infinity
 let agentsRunning = false
 let themes: readonly string[] | undefined // the `theme` setting's options, read once
+let hint = '' // PromptHint's text, as the engine last drew it
+let dockColumns = 0 // the docked Sidebar's columns, its rule included; 0 while it isn't docked
+let savedLevel: { model: string; level: unknown } | undefined // modelSettings[model].effortLevel at the last poll
+let effortCarry: string | null | undefined // the session's effort across /clear and /resume
+let mode: string | undefined // the latest main-loop permission_mode
+let stepModel: string | undefined // the last main-loop turn.step's model
 
 // A run still going takes this refresh as one more run after it ends.
 async function refreshGit($: EngineInterface) {
@@ -398,6 +412,44 @@ async function pick($: EngineInterface, config: Config, name: Picker, value: str
   })
 }
 
+// MEMORY.md "The line under the prompt: `model · effort` is a `SessionMode`
+// label". The model follows `/model` within a tick. An unset effort is a new
+// session (or `/clear`, `/resume`): seed it. Later, a change in the current
+// model's saved level is a `/effort` picker save.
+async function refreshModel($: EngineInterface) {
+  const [model, settings, stored, effort] = await Promise.all([
+    $.session.model(),
+    $.settings.read(),
+    $.state.get(MODEL),
+    $.state.get(EFFORT),
+  ])
+  const level = modelEffort(settings, model)
+  const changed = savedLevel?.model === model && savedLevel.level !== level
+  savedLevel = { model, level }
+  if (effort.value === undefined) {
+    await setEffort($, effortCarry !== undefined ? effortCarry : (savedEffort(settings, model) ?? null))
+    effortCarry = undefined
+  } else if (changed && typeof level === 'string') {
+    await setEffort($, level)
+  }
+  if (stored.value !== model) await $.state.set(MODEL, model)
+}
+
+// The latest main-loop permission mode, for the turn footer.
+function noteMode(e: { agent_id?: string; permission_mode?: string }) {
+  if (e.agent_id === undefined && e.permission_mode) mode = e.permission_mode
+}
+
+// Redraws the line under the prompt on the next tick, never from a render.
+function redrawLater($: EngineInterface) {
+  $.clock.after(0, () => $.ui.invalidate('ui.render'))
+}
+
+async function setEffort($: EngineInterface, effort: string | null) {
+  const { value } = await $.state.get(EFFORT)
+  if (value !== effort) await $.state.set(EFFORT, effort)
+}
+
 async function openSidebar($: EngineInterface, columns: number) {
   requested = columns
   const opened = await $.ui.open({ id: SIDEBAR, title: 'Sidebar', columns })
@@ -414,6 +466,7 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     await setTodoEnv($, config.todo.tools)
+    void refreshModel($).catch(() => undefined)
     if (needs.has('todo')) void loadTodo($)
     if (needs.has('git')) void refreshGit($)
     if (needs.has('versions')) void loadVersions($)
@@ -422,6 +475,7 @@ export const register: Register = (on, options) => {
     tick?.cancel()
     tick = $.clock.every(1000, () => {
       ticks++
+      void refreshModel($).catch(() => undefined)
       if (ticks % 5 === 0 && needs.has('git')) void refreshGit($)
       if (needs.has('usage')) void refillUsage($)
       if (needs.has('mcp')) void refreshMcp($)
@@ -602,6 +656,7 @@ export const register: Register = (on, options) => {
   // /clear and /resume empty `$.state` while running work goes on: the tick
   // merges it into the new session.
   on('session.end', async ($, e, next) => {
+    if (e.reason === 'clear' || e.reason === 'resume') effortCarry = (await $.state.get(EFFORT)).value
     if (tracking && (e.reason === 'clear' || e.reason === 'resume')) {
       const { value = {} } = await $.state.get(TASKS)
       carry = Object.fromEntries(Object.entries(value).filter(([, task]) => task.status === 'running'))
@@ -610,8 +665,9 @@ export const register: Register = (on, options) => {
   })
 
   // MEMORY.md "The Sidebar shows only when docked": watch an always-drawn site
-  // and open the pane once the terminal can dock it. Observe only.
-  on('ui.render', { component: 'SessionMode' }, ($, e, next) => {
+  // and open the pane once the terminal can dock it. The same hook adds the
+  // `model · effort` label (MEMORY.md "The line under the prompt").
+  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const viewport = e.viewport
     if (viewport?.isFullscreen === true && viewport.columns >= DOCK_COLUMNS && !checking) {
       checking = true
@@ -626,6 +682,22 @@ export const register: Register = (on, options) => {
         }
       })
     }
+    const [{ value: model }, { value: effort }] = await Promise.all([$.state.get(MODEL), $.state.get(EFFORT)])
+    if (model === undefined) return next(e)
+    const label = promptLabel(model, effort)
+    // The line spans the terminal, while `viewport.columns` excludes the dock.
+    if (!viewport || fitsPromptLine(hint, label, viewport.columns + dockColumns)) {
+      return next({ ...e, props: { ...e.props, modes: [...e.props.modes, label] } })
+    }
+    return promptLabelRow($.ui.resolve(e), label)
+  })
+
+  // The hint's width decides where the label goes. Observe only.
+  on('ui.render', { component: 'PromptHint' }, ($, e, next) => {
+    if (e.props.hint !== hint) {
+      hint = e.props.hint
+      redrawLater($)
+    }
     return next(e)
   })
 
@@ -637,6 +709,11 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: SIDEBAR }, async ($, e) => {
     const ui = $.ui.resolve(e)
+    const dock = e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1
+    if (dock !== dockColumns) {
+      dockColumns = dock
+      redrawLater($)
+    }
     if (e.props.placement === 'inline') {
       $.clock.after(0, () => void $.ui.close({ id: SIDEBAR }))
       return <ui.Box />
@@ -723,6 +800,54 @@ export const register: Register = (on, options) => {
     if (!hasToolRow(e.props.tool)) return next(e)
     const line = toolLine(e.props, { cwd: await $.session.cwd(), home: await $.env.get('HOME') })
     return line ? toolRow($.ui.resolve(e), line) : next(e)
+  })
+
+  // MEMORY.md "The line under the prompt": the latest effort source wins.
+  // A main-loop step's effort is the one sent; absent, the model takes none.
+  on('turn.step', async function* ($, e, next) {
+    if (e.agentId === undefined) {
+      stepModel = e.model
+      // A numeric budget has no level to show: the label keeps the last.
+      if (typeof e.effort !== 'number') await setEffort($, e.effort ?? null)
+    }
+    return yield* next(e)
+  })
+
+  on('command.run', { command: 'effort' }, async ($, e, next) => {
+    const level = e.args.trim()
+    if (EFFORT_LEVELS.has(level)) await setEffort($, level)
+    return next(e)
+  })
+
+  // MEMORY.md "The turn footer: prefix the turn's mode and model to Claude
+  // Code's `word`". The mode comes from the main loop's classic events.
+  on('classic.UserPromptSubmit', ($, e, next) => {
+    noteMode(e)
+    return next(e)
+  })
+
+  on('classic.Stop', ($, e, next) => {
+    noteMode(e)
+    return next(e)
+  })
+
+  // An aborted turn draws no footer. The next turn names its own model.
+  on('turn.complete', async ($, e, next) => {
+    if (e.agentId === undefined) {
+      const model = stepModel
+      stepModel = undefined
+      if (e.reason !== 'aborted' && mode && model) {
+        const { value = [] } = await $.state.get(TURNS)
+        await $.state.set(TURNS, [...value, { durationMs: e.durationMs, mode, model }])
+      }
+    }
+    return next(e)
+  })
+
+  // A footer from an earlier process has no record: Claude Code's plain line.
+  on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
+    const turn = turnOf((await $.state.get(TURNS)).value, e.props.durationMs)
+    return next(turn ? { ...e, props: { ...e.props, word: turnWord(e.props.word, turn) } } : e)
   })
 
   // MEMORY.md "`/ctui:*` commands stay quiet on success; a bare command opens

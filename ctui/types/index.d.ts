@@ -62,6 +62,9 @@ export type Task = {
   reason?: string // short failure reason
 }
 
+// A finished main-loop turn, matched to its footer by `durationMs`.
+export type Turn = { durationMs: number; mode: string; model: string }
+
 declare module 'claude-code' {
   interface PluginState {
     ctui: {
@@ -77,6 +80,9 @@ declare module 'claude-code' {
       todoEnvSet?: boolean // ctui set CLAUDE_CODE_ENABLE_TODO_TOOLS
       versions?: Versions
       tasks: Record<string, Task>
+      model?: string // $.session.model(), from the tick
+      effort?: string | null // the session's effort; null when the model takes none
+      turns: Turn[] // every finished turn of the session: old footers redraw on scroll
     }
   }
 }
