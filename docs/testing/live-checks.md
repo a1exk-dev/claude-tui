@@ -92,6 +92,11 @@ Run each row in fullscreen and again on the main screen (`--settings '{"tui":"de
 | The previous row | Ask Claude to run `ping -c 30 127.0.0.1` in the foreground (Claude Code blocks a bare `sleep 30`), then press Esc while it runs | The Bash row reads `· interrupted` in `warning`. |
 | The previous row | Press ctrl+o, then ctrl+o again | The transcript view shows the same rows; fullscreen shows each call with its full result under it. |
 | The previous row | Ask Claude to create a task with TaskCreate | Claude Code's own `● TaskCreate` row: tools other than Read, Edit, Write and Bash keep theirs. |
+| A new session on Haiku 4.5, 120 columns | Look at the line under the prompt | `claude-haiku-4-5-20251001` dim at its right edge, after Claude Code's mode pill and hint. In fullscreen, it stays there once a prompt docks the Sidebar. |
+| The previous row | Run `/model claude-opus-5-5`, then `/effort low` | Within a second the label reads `claude-opus-5-5`, then `claude-opus-5-5 · low effort`. |
+| The previous row | Press shift+tab to accept edits, then send a prompt | Its footer reads `✻ accept edits · claude-opus-5-5 · <Verb> for Ns · done <time>`. The first turn's footer keeps `manual mode · claude-haiku-4-5-20251001`. |
+| The previous row | Narrow the terminal to 80 columns | The label moves to its own row under the hint, left-aligned. Widening back returns it to the right edge. |
+| The previous row | Run `/clear` | The label keeps `· low effort`. |
 
 ## Commands and pickers
 
