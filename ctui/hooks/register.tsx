@@ -569,6 +569,7 @@ export const register: Register = (on, options) => {
           label: e.description,
           ...(e.parentAgentId && { parent: e.parentAgentId }),
           status: 'running',
+          listed: 'running',
           startedAt: now,
         }
         tasks[id] = task
