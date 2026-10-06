@@ -101,8 +101,10 @@ export function endTask(
   return toast && !quiet ? [{ id: task.id, end: true, text: toastText.ended(ended) }] : []
 }
 
-// Held agents take the list's status. `completed` isn't final: an agent can
-// run again. A kill seen here is the person's own from /tasks: no toast.
+// Held agents take the list's status when it changes: a failed notice can
+// end an agent the list still calls running (#67). `completed` isn't final: an
+// agent can run again, but a failure doesn't turn into a success. A kill seen
+// here is the person's own from /tasks: no toast.
 export function applyAgentList(
   tasks: Record<string, Task>,
   list: readonly { id: string; status: string }[],
@@ -110,30 +112,34 @@ export function applyAgentList(
 ): Toast[] {
   const raised: Toast[] = []
   for (const agent of list) {
-    const task = tasks[agent.id]
-    if (task?.kind !== 'agent' || task.status === agent.status) continue
+    const held = tasks[agent.id]
+    if (held?.kind !== 'agent' || held.listed === agent.status) continue
+    const task: Task = { ...held, listed: agent.status }
+    tasks[agent.id] = task
+    if (task.status === agent.status) continue
     if (agent.status === 'running') {
       const { endedAt, reason, ...rest } = task
       tasks[agent.id] = { ...rest, status: 'running' }
     } else if (task.status === 'running') {
       raised.push(...endTask(tasks, task, agent.status, now, agent.status !== 'killed'))
-    } else {
+    } else if (task.status !== 'failed') {
       tasks[agent.id] = { ...task, status: agent.status }
     }
   }
   return raised
 }
 
-// A notification ends a held shell or Workflow run. For an agent it only
-// gives a failure reason: the agent list is its status. A kill (the person's,
-// from /tasks) raises no toast.
+// A notification ends a held shell or Workflow run, and a failed agent. For
+// another agent it only gives a failure reason: the agent list is its status.
+// A kill (the person's, from /tasks) raises no toast.
 export function applyNotification(tasks: Record<string, Task>, note: TaskNotification, now: number): Toast[] {
   const task = tasks[note.id]
   if (!task) return []
   const reason = note.status === 'failed' ? notificationReason(note) : undefined
   if (task.kind === 'agent') {
-    if (reason && !task.reason) tasks[task.id] = { ...task, reason }
-    return []
+    const reasoned = reason && !task.reason ? { ...task, reason } : task
+    tasks[task.id] = reasoned
+    return note.status === 'failed' && task.status === 'running' ? endTask(tasks, reasoned, 'failed', now, true) : []
   }
   if (task.status !== 'running') return []
   const toast = note.status === 'completed' || note.status === 'failed'

@@ -60,6 +60,7 @@ export type Task = {
   startedAt: number // $.clock.now()
   endedAt?: number
   reason?: string // short failure reason
+  listed?: string // agent only: the status $.agent.list() last gave
 }
 
 // A finished main-loop turn, matched to its footer by `durationMs`.
