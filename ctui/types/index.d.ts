@@ -27,6 +27,15 @@ export type Usage = {
   cost?: { usd: number }
 }
 
+// One MCP server row: `tools` with `ok`, `since` (when it started) with `connecting`.
+export type McpRow = {
+  server: string // the tool-name segment, `mcp__<server>__<tool>`
+  label: string
+  state: 'ok' | 'auth' | 'connecting' | 'down' | 'off'
+  tools?: number
+  since?: number
+}
+
 declare module 'claude-code' {
   interface PluginState {
     ctui: {
@@ -36,6 +45,7 @@ declare module 'claude-code' {
       now?: number // written by the tick while a timer shows
       git?: GitSnapshot
       usage?: Usage
+      mcp: McpRow[] // first-seen order
       versions?: Versions
     }
   }

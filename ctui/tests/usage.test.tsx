@@ -151,6 +151,11 @@ function host(on: On, usage: SessionUsage) {
   on('env.get', () => ({ value: '/home/a' }))
   on('session.version', () => ({ value: { version: '2.1.288' } }))
   on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
+  on('fs.exists', () => ({ value: false }))
+  on('fs.stat', () => {
+    throw new Error('ENOENT')
+  })
+  on('tool.list', () => ({ value: [] }))
   on('process.run', () => ({
     value: { exitCode: 128, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
   }))

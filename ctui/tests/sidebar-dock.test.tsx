@@ -165,6 +165,11 @@ function host(on: On, git: { runs: string[][]; status: string; exitCode?: number
   on('session.version', () => ({ value: { version: '2.1.288' } }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
+  on('fs.exists', () => ({ value: false }))
+  on('fs.stat', () => {
+    throw new Error('ENOENT')
+  })
+  on('tool.list', () => ({ value: [] }))
   on('process.run', async ($, e) => {
     git.runs.push([...e.argv])
     await git.slow?.()
