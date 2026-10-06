@@ -47,6 +47,21 @@ export type TodoItem = {
 // The list and which tools feed it: `none` when the session has no task tools.
 export type Todo = { tools: 'task' | 'todowrite' | 'none'; items: TodoItem[] }
 
+// A subagent, background shell or Workflow run the `agents` Sidebar plugin
+// draws and the toasts report.
+export type Task = {
+  id: string // agentId, backgroundTaskId or Workflow taskId
+  kind: 'agent' | 'shell' | 'workflow'
+  type: string // subagentType, 'shell' or 'workflow'
+  label: string // description, the command's first line, or workflowName
+  parent?: string // parent agent id or Workflow taskId: draws └
+  transcriptDir?: string // workflow only
+  status: string // running | completed | failed | killed | other engine words
+  startedAt: number // $.clock.now()
+  endedAt?: number
+  reason?: string // short failure reason
+}
+
 declare module 'claude-code' {
   interface PluginState {
     ctui: {
@@ -61,6 +76,7 @@ declare module 'claude-code' {
       activeForms: Record<string, string> // Task id → activeForm, from TaskCreate/TaskUpdate inputs
       todoEnvSet?: boolean // ctui set CLAUDE_CODE_ENABLE_TODO_TOOLS
       versions?: Versions
+      tasks: Record<string, Task>
     }
   }
 }

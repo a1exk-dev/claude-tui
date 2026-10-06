@@ -163,6 +163,7 @@ function host(on: On, git: { runs: string[][]; status: string; exitCode?: number
   on('session.cwd', () => ({ value: '/home/a/Projects/x' }))
   on('env.get', () => ({ value: '/home/a' }))
   on('session.version', () => ({ value: { version: '2.1.288' } }))
+  on('agent.list', () => ({ value: [] }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
   on('fs.exists', () => ({ value: false }))

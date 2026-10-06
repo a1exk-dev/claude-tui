@@ -1,7 +1,7 @@
 import type { ElementTable, RenderNode } from 'claude-code'
 
 import type { SectionConfig } from '../hooks/config'
-import type { GitSnapshot, McpRow, Todo, Usage, Versions } from '../types'
+import type { GitSnapshot, McpRow, Task, Todo, Usage, Versions } from '../types'
 
 export type SidebarId = 'git' | 'context' | 'limits' | 'mcp' | 'todo' | 'agents' | 'versions'
 
@@ -12,6 +12,7 @@ export type SidebarData = {
   now?: number
   mcp?: McpRow[]
   todo?: Todo
+  tasks?: Record<string, Task>
   versions?: Versions
 }
 

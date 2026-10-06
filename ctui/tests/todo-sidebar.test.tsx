@@ -85,6 +85,7 @@ function host(on: On, world: { tools: string[]; tasks: Task[]; env: Record<strin
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/srv/x' }))
   on('session.version', () => ({ value: { version: '2.1.288' } }))
+  on('agent.list', () => ({ value: [] }))
   on('session.usage', () => ({
     value: { startedAt: 0, context: { window: 200000 }, rateLimits: [], cost: { usd: 0 } },
   }))

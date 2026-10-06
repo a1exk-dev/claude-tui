@@ -150,6 +150,7 @@ function host(on: On, usage: SessionUsage) {
   on('session.cwd', () => ({ value: '/srv/x' }))
   on('env.get', () => ({ value: '/home/a' }))
   on('session.version', () => ({ value: { version: '2.1.288' } }))
+  on('agent.list', () => ({ value: [] }))
   on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
   on('fs.exists', () => ({ value: false }))
   on('fs.stat', () => {

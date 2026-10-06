@@ -113,6 +113,7 @@ function host(on: On, world: { tools: ToolInfo[]; json: string; mtimeMs: number 
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/srv/x/app' }))
   on('session.version', () => ({ value: { version: '2.1.288' } }))
+  on('agent.list', () => ({ value: [] }))
   on('session.usage', () => ({
     value: { startedAt: 0, context: { window: 200000 }, rateLimits: [], cost: { usd: 0 } },
   }))

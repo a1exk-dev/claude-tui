@@ -52,9 +52,32 @@ Fullscreen means the `"tui": "fullscreen"` setting or `CLAUDE_CODE_NO_FLICKER=1`
 | Task tools on, start with `--tools Bash,Read` | Look at Todo | It reads `no task tools in this session`, dim. |
 | Task tools on, start with `CLAUDE_CODE_ENABLE_TODO_TOOLS=0` set in the shell | Ask Claude to run `echo $CLAUDE_CODE_ENABLE_TODO_TOOLS`; then set Task tools off in `/config` and ask again | It prints `0` both times: ctui keeps the person's value. |
 | Task tools on, the variable unset | Ask Claude to run `echo $CLAUDE_CODE_ENABLE_TODO_TOOLS`; set Task tools off in `/config` and ask again | It prints `1`, then nothing. |
+| Sidebar docked, a new session | Look at Agents & shells | It reads `nothing running`, dim, and the header `0 running`. |
+| The previous row | Ask Claude to start a background Explore agent that lists the folder, and to run `sleep 20` in the background | A row `◐` in `warning`, `Explore` then ` · <description>` dim, its elapsed time dim at the right (`21s`, `1m 15s`), and a row `◐ $ sleep 20`. The header reads `2 running`. Each row turns `✓` in `success` when it ends and leaves 8 s later. |
+| The previous row | Ask Claude to start a general-purpose agent that itself runs `sleep 30` in the background | The shell row sits under the agent as `└ ◐ $ sleep 30`, 2 columns further in. |
+| The previous row | Ask Claude to run `sleep 2; exit 3` in the background | It ends as `✗` in `error`, `$ sleep 2; exit 3 · exit code 3`. |
+| The previous row, with work running | Fold Agents & shells | The header's right side reads `◐ <n> running`, or `nothing running` once all has ended. |
+| Background `sleep 120` running | Run `/clear` | Within a second the row is back with its elapsed time still counting, and its end still turns it `✓`. Same after `/resume` to another session. |
+| Background `sleep 300` running | Open `/tasks`, stop it with `x`, close the dialog, then send any prompt | Nothing changes until the prompt; then the row reads `✗ $ sleep 300 · killed`, with no toast. |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, a teammate running (an Agent call with a `name`) | Look at Agents & shells | No row and no toast for the teammate, nor for a TaskStop of it. |
+| A Workflow run whose agents run a background shell | Look at Agents & shells | One `◐ ⚙ <workflowName> workflow` row, the shells under it as `└ ◐ $ …`. The run's end turns it `✓` and removes the shells. |
 | More section rows than fit: an expanded long list, or a shorter terminal. Before the sections have rows of their own, give one stub section's `view` 12 placeholder rows and revert it after. | Check the cap: 4 rows then `▸ 8 more`; click it for every row and `▾ show less`. Then scroll the wheel over the Sidebar, down then up | `↓ more` marks the window's last row. Scrolling moves the sections only; the header and footer stay. `↑ more` shows once scrolled; at the end only `↑ more` shows. |
 
 ## Toasts
+
+Toasts draw at the top right under the title `ctui`, in fullscreen and on the main screen alike.
+
+| Setup | Action | Expected |
+|---|---|---|
+| Fullscreen, Sidebar docked | Ask Claude to start a background Explore agent that lists the folder | A toast `◆ Explore started: <description>`; when it ends, `✓ Explore done · <description> · <elapsed>`. |
+| The previous row | Ask Claude to run `sleep 3; echo hi` in the background | `$ sleep 3; echo hi started in background`, then `✓ shell done · sleep 3; echo hi · 3s`. |
+| The previous row | Ask Claude to run `sleep 2; exit 3` in the background | `✗ shell failed: exit code 3`. |
+| The previous row | Ask Claude to run `sleep 60` in the background, then stop it with TaskStop | `✗ shell killed`. |
+| The previous row | Ask Claude to start a Workflow | `◆ workflow started: <workflowName>`, then `✓ workflow done · <workflowName> · <elapsed>`. Shells inside it raise none. |
+| The previous row | Ask Claude to start four background agents at once | Toasts come about 2 s apart, at most two on screen. An end goes ahead of starts still waiting, and a start still waiting when its own end comes is dropped; every end shows. |
+| A background shell stopped from `/tasks` | Send a prompt | No toast. |
+| `/config`: ctui Agent and shell toasts off | Repeat the first row | No toast; the Sidebar rows still show. |
+| Main screen (`--settings '{"tui":"default"}'`) | Repeat the first row | The same toasts, top right. |
 
 ## Render-site rewrites
 
