@@ -1,12 +1,19 @@
 import type { ElementTable, RenderNode } from 'claude-code'
 
 import type { SectionConfig } from '../hooks/config'
-import type { GitSnapshot, McpRow, Usage, Versions } from '../types'
+import type { GitSnapshot, McpRow, Todo, Usage, Versions } from '../types'
 
 export type SidebarId = 'git' | 'context' | 'limits' | 'mcp' | 'todo' | 'agents' | 'versions'
 
 // What register.tsx loads for the enabled plugins' `needs`.
-export type SidebarData = { git?: GitSnapshot; usage?: Usage; now?: number; mcp?: McpRow[]; versions?: Versions }
+export type SidebarData = {
+  git?: GitSnapshot
+  usage?: Usage
+  now?: number
+  mcp?: McpRow[]
+  todo?: Todo
+  versions?: Versions
+}
 
 // `width` is the row's width in cells.
 type Draw<T> = (data: SidebarData, ui: ElementTable, cfg: SectionConfig, width: number) => T

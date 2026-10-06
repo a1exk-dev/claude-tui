@@ -36,6 +36,17 @@ export type McpRow = {
   since?: number
 }
 
+// One todo row: a Task tool task (`id` set) or a `TodoWrite` todo.
+export type TodoItem = {
+  id?: string
+  subject: string
+  status: 'pending' | 'in_progress' | 'completed'
+  activeForm?: string // shown while in progress
+}
+
+// The list and which tools feed it: `none` when the session has no task tools.
+export type Todo = { tools: 'task' | 'todowrite' | 'none'; items: TodoItem[] }
+
 declare module 'claude-code' {
   interface PluginState {
     ctui: {
@@ -46,6 +57,9 @@ declare module 'claude-code' {
       git?: GitSnapshot
       usage?: Usage
       mcp: McpRow[] // first-seen order
+      todo?: Todo
+      activeForms: Record<string, string> // Task id → activeForm, from TaskCreate/TaskUpdate inputs
+      todoEnvSet?: boolean // ctui set CLAUDE_CODE_ENABLE_TODO_TOOLS
       versions?: Versions
     }
   }

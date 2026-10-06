@@ -71,6 +71,12 @@
       "description": "Start each session with the Todo section folded",
       "default": false
     },
+    "todo_tools": {
+      "type": "boolean",
+      "title": "Task tools",
+      "description": "Give Claude the Task tools (TaskCreate, TaskList, TaskUpdate) on models without them by default, such as Opus 5.x, by setting CLAUDE_CODE_ENABLE_TODO_TOOLS=1 for the session; the Todo section shows their list",
+      "default": true
+    },
     "agents_enable": {
       "type": "boolean",
       "title": "Agents & shells section",
