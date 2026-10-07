@@ -7,7 +7,7 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export type Level = 'success' | 'warning' | 'error'
 
-// The color of a bar and its percent.
+// The role of a bar's fill.
 export const level = (percent: number): Level => (percent < 60 ? 'success' : percent < 85 ? 'warning' : 'error')
 
 // `18,402`
@@ -34,12 +34,11 @@ export function formatReset(resetsAt: string, now: number): string {
   return `resets in ${Math.floor(left / DAY)}d ${Math.floor((left % DAY) / HOUR)}h, ${clock}`
 }
 
-// A bar of `width` `━` cells for `percent`, split into filled and empty runs.
-// Past 100 it is full.
+// A bar of `width` cells for `percent`: filled `━`, empty `─`. Past 100 it is full.
 export function bar(percent: number, width: number): { filled: string; empty: string } {
   const cells = Math.max(width, 0)
   const filled = Math.round((cells * Math.min(Math.max(percent, 0), 100)) / 100)
-  return { filled: '━'.repeat(filled), empty: '━'.repeat(cells - filled) }
+  return { filled: '━'.repeat(filled), empty: '─'.repeat(cells - filled) }
 }
 
 // A percent in the 5 columns right of a bar: `  9%`, ` 100%`.

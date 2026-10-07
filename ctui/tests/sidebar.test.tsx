@@ -3,6 +3,7 @@ import { type Engine, expect, test } from 'claude-code/testing'
 
 import { readConfig } from '../hooks/config'
 import { scrollWindow, sidebar, type SidebarInput } from '../hooks/sidebar'
+import { colors } from '../plugins/colors'
 import type { SidebarPlugin } from '../plugins/plugin'
 
 const header: SidebarPlugin = {
@@ -60,6 +61,7 @@ async function draw(
       plugins: [header, list('mcp', 3), footer],
       data: {},
       config: readConfig({}),
+      colors: colors(),
       folded: {},
       expanded: {},
       scroll: 0,

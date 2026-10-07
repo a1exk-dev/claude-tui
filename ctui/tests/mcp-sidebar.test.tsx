@@ -1,6 +1,7 @@
 import type { On, ToolInfo } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
+import { colors } from '../plugins/colors'
 import mcp from '../plugins/mcp'
 import type { McpRow } from '../types'
 
@@ -35,8 +36,8 @@ async function draw($: Engine, on: On, part: 'view' | 'summary', rows: McpRow[])
     const ui = $.ui.resolve(e)
     const drawn =
       part === 'view'
-        ? mcp.view({ mcp: rows }, ui, { enable: true }, 36)
-        : mcp.summary?.({ mcp: rows }, ui, { enable: true }, 36)
+        ? mcp.view({ mcp: rows }, ui, { enable: true }, 36, colors())
+        : mcp.summary?.({ mcp: rows }, ui, { enable: true }, 36, colors())
     return <ui.Box flexDirection="column">{drawn}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
@@ -63,28 +64,30 @@ test('each row: the glyph in its color, the label, the state at the right; off r
   const color = async (text: string) => {
     // A string query matches inside a longer text: match it whole.
     const found = await pane.find({ type: 'Text', text: new RegExp(`^${text}$`) })
-    return found?.props.color ?? (found?.props.dimColor ? 'dim' : undefined)
+    return found?.props.color
   }
   expect(await Promise.all(['●', '!', '◐', '✕', '○'].map(color))).toEqual([
     'success',
     'warning',
     'warning',
     'error',
-    'inactive',
+    'subtle',
   ])
   expect(await Promise.all(['22 tools', 'needs auth', 'connecting', 'down', 'off'].map(color))).toEqual([
-    'dim',
+    'inactive',
     'warning',
     'warning',
     'error',
     'inactive',
   ])
+  // The label is main text, drawn with the theme's `text`.
+  expect((await pane.find({ type: 'Text', text: /^● playwright$/ }))?.props.color).toBe('text')
 })
 
 test('the header counts ● rows over listed rows', () => {
   const ui = {} as never
-  expect(mcp.count?.({ mcp: ROWS }, ui, { enable: true }, 36)).toBe('2/6')
-  expect(mcp.count?.({ mcp: [] }, ui, { enable: true }, 36)).toBe('0/0')
+  expect(mcp.count?.({ mcp: ROWS }, ui, { enable: true }, 36, colors())).toBe('2/6')
+  expect(mcp.count?.({ mcp: [] }, ui, { enable: true }, 36, colors())).toBe('0/0')
 })
 
 test('folded, each state present with its count, in its color, in glyph order', async ($, on) => {
@@ -95,9 +98,9 @@ test('folded, each state present with its count, in its color, in glyph order', 
     ['! 1', 'warning'],
     ['◐ 1', 'warning'],
     ['✕ 1', 'error'],
-    ['○ 1', 'inactive'],
+    ['○ 1', 'subtle'],
   ])
-  expect(mcp.summary?.({ mcp: [] }, {} as never, { enable: true }, 36)).toBeUndefined()
+  expect(mcp.summary?.({ mcp: [] }, {} as never, { enable: true }, 36, colors())).toBeUndefined()
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.

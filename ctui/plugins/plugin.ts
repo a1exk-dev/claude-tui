@@ -2,6 +2,7 @@ import type { ElementTable, RenderNode } from 'claude-code'
 
 import type { SectionConfig } from '../hooks/config'
 import type { GitSnapshot, McpRow, Task, Todo, Usage, Versions } from '../types'
+import type { Colors } from './colors'
 
 export type SidebarId = 'git' | 'context' | 'limits' | 'mcp' | 'todo' | 'agents' | 'versions'
 
@@ -16,11 +17,13 @@ export type SidebarData = {
   versions?: Versions
 }
 
-// `width` is the row's width in cells.
-type Draw<T> = (data: SidebarData, ui: ElementTable, cfg: SectionConfig, width: number) => T
+// `width` is the row's width in cells. `colors` holds each role's color.
+type Draw<T> = (data: SidebarData, ui: ElementTable, cfg: SectionConfig, width: number, colors: Colors) => T
 
 // A Sidebar plugin: pure, never receives `$`. register.tsx loads the data
 // each plugin `needs` and passes the element table from `$.ui.resolve(e)`.
+// Every color is a role from `colors`: a Text with no color draws in the
+// terminal's foreground, not the theme's.
 // `view` returns one node per row. A `section` gets a header row with a fold
 // button: `count` shows at its right while expanded, `summary` while folded.
 // A `list` section is capped at 4 rows.
