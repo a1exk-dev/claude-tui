@@ -121,8 +121,10 @@ Run each row in fullscreen and again on the main screen (`--settings '{"tui":"de
 | The previous row | Run `/ctui:plugins:enable` | A picker docks as a tab over the Sidebar, as wide as the Sidebar, focused, listing `mcp` only. Enter on it closes the picker, the Sidebar returns with MCP, and `● ctui: options changed — reloaded` prints. |
 | Every Sidebar plugin enabled | Run `/ctui:plugins:enable` | `⎿ ctui: All Sidebar plugins are already enabled`; no picker. |
 | Sidebar docked | Run `/ctui:plugins:disable`, then press Esc | The picker lists all seven plugins in Sidebar order; Esc closes it with no change, and the Sidebar returns. |
-| Sidebar docked | Run `/ctui:theme`; press Enter | The picker shows the one row `inherit`, selected. Enter closes it with no reload row. |
-| The previous row | Run `/ctui:theme inherit`; then `/ctui:theme x` | `⎿ ctui: Sidebar theme is already inherit`, then `⎿ ctui: Unknown theme "x". Themes: inherit`. |
+| Sidebar docked, `/theme` on built-in `dark` | Run `/ctui:theme`; press Enter | The picker lists 23 rows, `inherit` then the Theme slugs A–Z (`catppuccin` … `white`), with `inherit` selected. Enter closes it with no reload row. Run it again and press Esc: it closes. |
+| The previous row | Run `/ctui:theme`, pick `everforest` | The picker closes, Claude Code prints its reload row and no `⎿ ctui:` line. The Sidebar's text recolors to Everforest's (`text` `#d3c6aa`, `inactive` `#918c7e`); the transcript keeps `dark`. |
+| The previous row | Run `/ctui:theme`: `everforest` is selected. Pick `inherit` | The Sidebar's text returns to the `dark` theme's colors. |
+| The previous row | Run `/ctui:theme inherit`; then `/ctui:theme x` | `⎿ ctui: Sidebar theme is already inherit`, then `⎿ ctui: Unknown theme "x". Themes: inherit, catppuccin, …, white`. |
 | A reply streaming | Type `/ctui:plugins:disable todo` and press Enter | It waits for the reply to end (Claude Code offers ctrl+x ctrl+s to send it now), then runs as above. |
 | Main screen (`--settings '{"tui":"default"}'`) | Run `/ctui:plugins:disable` | The picker sits inline above the prompt; a pick closes it and writes. |
 
@@ -130,4 +132,4 @@ Run each row in fullscreen and again on the main screen (`--settings '{"tui":"de
 
 | Setup | Action | Expected |
 |---|---|---|
-| A shell | `claude -p --plugin-dir ./ctui '/ctui:plugins:disable mcp'`, then the same with `/ctui:theme` and `/ctui:theme x` | `ctui: Can't change ctui settings in claude -p. Use /config in an interactive session.` twice, then `ctui: Unknown theme "x". Themes: inherit`. No model reply, no settings change. |
+| A shell | `claude -p --plugin-dir ./ctui '/ctui:plugins:disable mcp'`, then the same with `/ctui:theme` and `/ctui:theme x` | `ctui: Can't change ctui settings in claude -p. Use /config in an interactive session.` twice, then `ctui: Unknown theme "x". Themes: inherit, catppuccin, …, white`. No model reply, no settings change. |
