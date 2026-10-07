@@ -14,6 +14,7 @@ export type SidebarInput = {
   data: SidebarData
   config: Config
   colors: Colors
+  background?: string // a selected Theme's glass; none under `inherit`
   folded: Record<string, boolean> // unset reads `<id>_folded`
   expanded: Record<string, boolean>
   scroll: number
@@ -109,7 +110,14 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   ))
 
   const tree = (
-    <Box flexDirection="column" height={input.bodyRows} paddingX={2} paddingY={1}>
+    // One flat color on the root covers every body cell, padding included.
+    <Box
+      flexDirection="column"
+      height={input.bodyRows}
+      paddingX={2}
+      paddingY={1}
+      {...(input.background && { backgroundColor: input.background })}
+    >
       {header}
       {headerGap ? row('') : null}
       {rows}
