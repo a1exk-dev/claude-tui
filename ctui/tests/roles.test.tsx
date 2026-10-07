@@ -1,6 +1,7 @@
-import type { On } from 'claude-code'
+import type { ElementTable, On } from 'claude-code'
 import { type Engine, expect, test } from 'claude-code/testing'
 
+import type { PressProps } from '../hooks/press'
 import { readConfig } from '../hooks/config'
 import { sidebar, type SidebarInput } from '../hooks/sidebar'
 import { plugins } from '../plugins'
@@ -49,7 +50,6 @@ type Node = { type?: string; props?: Record<string, unknown>; children?: unknown
 // strings in one Text (`↑{ahead}`) are one run.
 function runs(node: unknown, color?: string): { text: string; color?: string }[] {
   const { type, props = {}, children = [] } = (node ?? {}) as Node
-  if (type === 'Button') return [{ text: String(props.label), color: props.dimColor ? 'dim' : undefined }]
   const own = type === 'Text' ? ((props.color as string | undefined) ?? (props.dimColor ? 'dim' : color)) : color
   const out: { text: string; color?: string }[] = []
   let text = ''
@@ -68,11 +68,24 @@ function runs(node: unknown, color?: string): { text: string; color?: string }[]
   return out
 }
 
+// A test plugin loads no surface module, so each `press.tsx` Client draws as
+// the Text that module draws.
+function pressAsText(ui: ElementTable): SidebarInput['ui'] {
+  if (!('Client' in ui)) throw new Error('the Sidebar draws on the terminal')
+  return {
+    ...ui,
+    Client: ({ props }) => {
+      const { label, color } = props as PressProps
+      return <ui.Text color={color}>{label}</ui.Text>
+    },
+  }
+}
+
 // Draws the whole Sidebar with every plugin in a test Pane.
 async function draw($: Engine, on: On, input: Partial<SidebarInput> = {}, columns = 42) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
     return sidebar({
-      ui: $.ui.resolve(e),
+      ui: pressAsText($.ui.resolve(e)),
       bodyRows: 60,
       bodyColumns: e.props.bodyColumns,
       plugins,
@@ -82,8 +95,8 @@ async function draw($: Engine, on: On, input: Partial<SidebarInput> = {}, column
       folded: {},
       expanded: {},
       scroll: 0,
-      onFold: () => {},
-      onExpand: () => {},
+      focused: false,
+      onControl: () => {},
       ...input,
     }).tree
   })
@@ -108,17 +121,11 @@ const colorOf = (all: { text: string; color?: string }[], text: string) =>
   all.filter((run) => run.text.trim() === text).map((run) => run.color)
 
 // #86: text with no color is the terminal's foreground and missed theme switches.
-test('every run of text draws in a theme key; Buttons draw dim, the muted key', async ($, on) => {
+test('every run of text draws in a theme key; fold arrows draw muted', async ($, on) => {
   const { runs: all } = await draw($, on)
   const keys = Object.values(colors())
-  expect(all.filter((run) => run.color !== 'dim' && !keys.includes(run.color ?? ''))).toEqual([])
-  expect(all.filter((run) => run.color === 'dim').map((run) => run.text.trim())).toEqual([
-    '▾',
-    '▾',
-    '▾',
-    '▾',
-    '▾',
-  ])
+  expect(all.filter((run) => !keys.includes(run.color ?? ''))).toEqual([])
+  expect(colorOf(all, '▾')).toEqual(Array(5).fill('inactive'))
 })
 
 test('main text draws with the text key: path, branch, titles, labels, percents, versions', async ($, on) => {
@@ -165,10 +172,10 @@ test('scroll marks draw muted', async ($, on) => {
   expect(colorOf(all, '↓ more')).toEqual(['inactive'])
 })
 
-test('a capped list draws ▸ N more dim', async ($, on) => {
+test('a capped list draws ▸ N more muted', async ($, on) => {
   const mcp = Array.from({ length: 6 }, (_, i) => ({ server: `s${i}`, label: `s${i}`, state: 'ok' as const, tools: 1 }))
   const { runs: all } = await draw($, on, { data: { ...DATA, mcp } })
-  expect(colorOf(all, '▸ 2 more')).toEqual(['dim'])
+  expect(colorOf(all, '▸ 2 more')).toEqual(['inactive'])
 })
 
 for (const columns of [42, 53]) {
@@ -187,5 +194,6 @@ test("a Theme's overrides reach every role", async ($, on) => {
   expect(colorOf(all, 'Context')).toEqual(['#d3c6aa'])
   expect(colorOf(all, '⎇')).toEqual(['#918c7e'])
   expect(colorOf(all, '│')).toEqual(['#475258'])
+  expect(colorOf(all, '▾')).toEqual(Array(5).fill('#918c7e'))
   expect(all.some((run) => ['text', 'inactive', 'subtle'].includes(run.color ?? ''))).toBe(false)
 })

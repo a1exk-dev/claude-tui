@@ -12,9 +12,9 @@ const PANE = {
   component: 'Pane',
   requestId: 'sidebar',
 } as const
-const paneProps = (placement: 'dock' | 'inline', bodyRows = 30) => ({
+const paneProps = (placement: 'dock' | 'inline', bodyRows = 30, isFocused = false) => ({
   title: 'Sidebar',
-  isFocused: false,
+  isFocused,
   bodyColumns: 42,
   placement,
   scroll: { offset: 0, bodyRows },
@@ -141,12 +141,29 @@ test('a wheel tick scrolls the sections and the engine’s window stays', async 
 
 test('a section starts from <id>_folded and folds on a press', { options: { mcp_folded: true } }, async ($) => {
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
-  expect((await pane.find({ key: 'fold-mcp' }))?.text).toBe('▸')
-  expect((await pane.find({ key: 'fold-todo' }))?.text).toBe('▾')
+  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▸')
+  expect((await pane.find({ in: 'fold-todo' }))?.text).toBe('▾')
+  await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-mcp' })
+  await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-todo' })
+  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▾')
+  expect((await pane.find({ in: 'fold-todo' }))?.text).toBe('▸')
+})
+
+test('a fold arrow draws muted, and main under the pointer', async ($) => {
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+  const color = async () => (await pane.find({ in: 'fold-mcp' }))?.props.color
+  expect(await color()).toBe('inactive')
+  await pane.pointer({ type: 'enter', x: 0, y: 0, in: 'fold-mcp' })
+  expect(await color()).toBe('text')
+  await pane.pointer({ type: 'leave', x: 0, y: 0, in: 'fold-mcp' })
+  expect(await color()).toBe('inactive')
+})
+
+test('while the Sidebar holds the focus, fold arrows are Buttons the keyboard reaches', async ($) => {
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 30, true) })
+  expect(await pane.find({ type: 'Button', key: 'fold-mcp' })).toBeDefined()
   await pane.press({ key: 'fold-mcp' })
-  await pane.press({ key: 'fold-todo' })
-  expect((await pane.find({ key: 'fold-mcp' }))?.text).toBe('▾')
-  expect((await pane.find({ key: 'fold-todo' }))?.text).toBe('▸')
+  expect((await pane.find({ key: 'fold-mcp' }))?.text).toBe('▸')
 })
 
 const STATUS = [

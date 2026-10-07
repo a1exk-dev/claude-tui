@@ -160,7 +160,7 @@ test('TaskCreate and TaskUpdate draw rows, with activeForm from the inputs', asy
   expect(await rows()).toEqual(['✓ alpha', '◐ Doing beta'])
   expect(await text('1/2')).toBe('1/2')
 
-  await pane.press({ key: 'fold-todo' })
+  await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-todo' })
   expect(await text(/^1\/2 · /)).toBe('1/2 · Doing beta')
 })
 
