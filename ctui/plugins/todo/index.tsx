@@ -1,10 +1,12 @@
 import type { Todo, TodoItem } from '../../types'
+import type { Role } from '../colors'
 import type { SidebarPlugin } from '../plugin'
 
-const STATUSES: Record<TodoItem['status'], { glyph: string; color: string }> = {
-  completed: { glyph: '✓', color: 'inactive' },
-  in_progress: { glyph: '◐', color: 'warning' },
-  pending: { glyph: '○', color: 'inactive' },
+// Each status's glyph and its role, and the role of the item's text.
+const STATUSES: Record<TodoItem['status'], { glyph: string; role: Role; textRole: Role }> = {
+  completed: { glyph: '✓', role: 'muted', textRole: 'muted' },
+  in_progress: { glyph: '◐', role: 'warning', textRole: 'main' },
+  pending: { glyph: '○', role: 'faint', textRole: 'muted' },
 }
 
 const textOf = (item: TodoItem) => (item.status === 'in_progress' ? (item.activeForm ?? item.subject) : item.subject)
@@ -23,24 +25,23 @@ const plugin: SidebarPlugin = {
   slot: 'section',
   needs: ['todo'],
   list: true,
-  view: ({ todo }, { Text }, cfg) => {
+  view: ({ todo }, { Text }, cfg, _width, c) => {
     if (!todo) return []
     if (todo.tools === 'none') {
       const hints = cfg.tools
         ? ['no task tools in this session']
         : ['no task tools on this model', 'turn on ctui Task tools in /config']
       return hints.map((hint) => (
-        <Text dimColor wrap="truncate-end">
+        <Text color={c.muted} wrap="truncate-end">
           {hint}
         </Text>
       ))
     }
     return todo.items.map((item) => {
-      const { glyph, color } = STATUSES[item.status]
+      const { glyph, role, textRole } = STATUSES[item.status]
       return (
         <Text wrap="truncate-end">
-          <Text color={color}>{glyph}</Text>{' '}
-          <Text {...(item.status === 'completed' && { dimColor: true })}>{textOf(item)}</Text>
+          <Text color={c[role]}>{glyph}</Text> <Text color={c[textRole]}>{textOf(item)}</Text>
         </Text>
       )
     })

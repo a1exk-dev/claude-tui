@@ -35,11 +35,13 @@ ctui draws with Claude Code's theme colors, so it follows the theme you pick in 
   "name": "ctui dark",
   "base": "dark",
   "overrides": {
+    "text": "#eeeeee",
     "success": "#7fd88f",
     "warning": "#f5a742",
     "error": "#e06c75",
     "suggestion": "#9d7cd8",
     "inactive": "#808080",
+    "subtle": "#484848",
     "promptBorder": "#7fd88f",
     "userMessageBackground": "#141414",
     "composerSidebarBackground": "#141414"
@@ -49,16 +51,18 @@ ctui draws with Claude Code's theme colors, so it follows the theme you pick in 
 
 | Key | Where ctui uses it |
 |---|---|
-| `success` | Git `+staged` and `+added` lines, a bar and its percent below 60%, MCP `●`, a finished agent or shell `✓`. |
-| `warning` | Git `!modified`, a bar and its percent from 60% to 85%, MCP `!` and `◐`, the in-progress task `◐`, a running agent or shell `◐`, an interrupted tool row. |
-| `error` | Git `-removed` lines, a bar and its percent from 85%, MCP `✕`, a failed agent or shell `✗`, a failed tool row. |
+| `text` | The Sidebar's main text: the path, the branch, `↑N ↓N`, section titles, bar percents, the Limits labels, MCP names, the task in progress, agent names, the versions. |
+| `success` | Git `+staged` and `+added` lines, a bar's fill below 60%, MCP `●`, a finished agent or shell `✓`. |
+| `warning` | Git `!modified`, a bar's fill from 60% to 85%, MCP `!` and `◐`, the in-progress task `◐`, a running agent or shell `◐`, an interrupted tool row. |
+| `error` | Git `-removed` lines, a bar's fill from 85%, MCP `✕`, a failed agent or shell `✗`, a failed tool row. |
 | `suggestion` | Git `≡stashes`. |
-| `inactive` | Git `?untracked`, the empty part of each bar, MCP `○` and `off`, pending and done tasks. |
+| `inactive` | The `⎇`, Git `?untracked` and "lines changed", the fold arrows, section counts and folded summaries, tokens, cost and reset times, MCP `N tools` and `off`, done tasks and pending task text, agent details and elapsed times, `▸ N more` and `↑ more`/`↓ more`, the versions labels. |
+| `subtle` | The empty `─` part of each bar, MCP `○`, the pending task `○`, the `│` in the versions footer. |
 | `promptBorder` | The `┃` bar beside your prompts in the transcript. Claude Code also colors the prompt's `─` rules with it. |
 | `userMessageBackground` | The panel behind your prompts in the transcript. |
 | `composerSidebarBackground` | The Sidebar's background. Claude Code paints the dock with it, and only a theme picked in `/theme` sets it. |
 
-`base` supplies every key the file leaves out. Keys outside this list (`claude`, `text`, `diffAdded`, ...) color the rest of Claude Code; add them to the same `overrides` if you want.
+`base` supplies every key the file leaves out. Keys outside this list (`claude`, `diffAdded`, ...) color the rest of Claude Code; add them to the same `overrides` if you want.
 
 ## Main background
 

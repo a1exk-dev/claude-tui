@@ -1,6 +1,7 @@
 import type { On, ToolInfo } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
+import { colors } from '../plugins/colors'
 import todo from '../plugins/todo'
 import type { Todo } from '../types'
 
@@ -34,7 +35,7 @@ const PANE = {
 async function draw($: Engine, on: On, list: Todo, tools = true) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
     const ui = $.ui.resolve(e)
-    return <ui.Box flexDirection="column">{todo.view({ todo: list }, ui, { enable: true, tools }, 36)}</ui.Box>
+    return <ui.Box flexDirection="column">{todo.view({ todo: list }, ui, { enable: true, tools }, 36, colors())}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
 }
@@ -45,17 +46,18 @@ async function rowsOf(pane: Awaited<ReturnType<typeof draw>>) {
   return texts.map((text) => text.text)
 }
 
-test('rows in list order: ✓ dim, ◐ with its activeForm, ○', async ($, on) => {
+test('rows in list order: ✓ muted, ◐ with its activeForm, ○ faint with muted text', async ($, on) => {
   const pane = await draw($, on, LIST)
   expect(await rowsOf(pane)).toEqual(['✓ Write the parser', '◐ Running the tests', '○ Open the PR'])
   const glyph = async (text: string) => (await pane.find({ type: 'Text', text: new RegExp(`^${text}$`) }))?.props
   expect((await Promise.all(['✓', '◐', '○'].map(glyph))).map((props) => props?.color)).toEqual([
     'inactive',
     'warning',
-    'inactive',
+    'subtle',
   ])
-  expect((await glyph('Write the parser'))?.dimColor).toBe(true)
-  expect((await glyph('Running the tests'))?.dimColor).toBeUndefined()
+  expect((await glyph('Write the parser'))?.color).toBe('inactive')
+  expect((await glyph('Running the tests'))?.color).toBe('text')
+  expect((await glyph('Open the PR'))?.color).toBe('inactive')
 })
 
 test('an in-progress item without an activeForm shows its subject', async ($, on) => {
@@ -66,13 +68,13 @@ test('an in-progress item without an activeForm shows its subject', async ($, on
 test('the header counts completed over total; folded it adds the item in progress', () => {
   const ui = {} as never
   const cfg = { enable: true, tools: true }
-  expect(todo.count?.({ todo: LIST }, ui, cfg, 36)).toBe('1/3')
-  expect(todo.summary?.({ todo: LIST }, ui, cfg, 36)).toBe('1/3 · Running the tests')
+  expect(todo.count?.({ todo: LIST }, ui, cfg, 36, colors())).toBe('1/3')
+  expect(todo.summary?.({ todo: LIST }, ui, cfg, 36, colors())).toBe('1/3 · Running the tests')
   const idle = { tools: 'task' as const, items: LIST.items.filter((item) => item.status !== 'in_progress') }
-  expect(todo.summary?.({ todo: idle }, ui, cfg, 36)).toBe('1/2')
-  expect(todo.count?.({ todo: { tools: 'task', items: [] } }, ui, cfg, 36)).toBe('0/0')
-  expect(todo.count?.({ todo: { tools: 'none', items: [] } }, ui, cfg, 36)).toBeUndefined()
-  expect(todo.summary?.({ todo: { tools: 'none', items: [] } }, ui, cfg, 36)).toBeUndefined()
+  expect(todo.summary?.({ todo: idle }, ui, cfg, 36, colors())).toBe('1/2')
+  expect(todo.count?.({ todo: { tools: 'task', items: [] } }, ui, cfg, 36, colors())).toBe('0/0')
+  expect(todo.count?.({ todo: { tools: 'none', items: [] } }, ui, cfg, 36, colors())).toBeUndefined()
+  expect(todo.summary?.({ todo: { tools: 'none', items: [] } }, ui, cfg, 36, colors())).toBeUndefined()
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.

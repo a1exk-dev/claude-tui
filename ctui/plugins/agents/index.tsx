@@ -25,18 +25,18 @@ const plugin: SidebarPlugin = {
   slot: 'section',
   needs: ['tasks', 'now'],
   list: true,
-  view: ({ tasks = {}, now }, { Box, Text }) => {
+  view: ({ tasks = {}, now }, { Box, Text }, _cfg, _width, c) => {
     const rows = tree(tasks)
     if (!rows.length) {
       return [
-        <Text dimColor wrap="truncate-end">
+        <Text color={c.muted} wrap="truncate-end">
           nothing running
         </Text>,
       ]
     }
     return rows.map(({ task, depth }) => {
       const ended = task.status !== 'running'
-      const [glyph, color] = !ended ? ['◐', 'warning'] : task.status === 'completed' ? ['✓', 'success'] : ['✗', 'error']
+      const [glyph, color] = !ended ? ['◐', c.warning] : task.status === 'completed' ? ['✓', c.success] : ['✗', c.error]
       // A failure shows its reason; a kill or another engine word shows that word.
       const why = task.status === 'failed' ? task.reason : task.status === 'completed' ? undefined : task.status
       const name =
@@ -47,30 +47,30 @@ const plugin: SidebarPlugin = {
         ) : (
           <Text>
             {task.type}
-            <Text dimColor> · {task.label}</Text>
+            <Text color={c.muted}> · {task.label}</Text>
           </Text>
         )
       return (
         <Box flexGrow={1} justifyContent="space-between" columnGap={1} paddingLeft={depth ? 2 * depth : 0}>
-          <Text wrap="truncate-end">
-            {depth ? <Text dimColor>└ </Text> : null}
+          <Text color={c.main} wrap="truncate-end">
+            {depth ? <Text color={c.muted}>└ </Text> : null}
             <Text color={color}>{glyph}</Text> {name}
-            {ended && why ? <Text dimColor> · {why}</Text> : null}
+            {ended && why ? <Text color={c.muted}> · {why}</Text> : null}
           </Text>
           <Box flexShrink={0}>
-            <Text dimColor>{formatElapsed((task.endedAt ?? now ?? task.startedAt) - task.startedAt)}</Text>
+            <Text color={c.muted}>{formatElapsed((task.endedAt ?? now ?? task.startedAt) - task.startedAt)}</Text>
           </Box>
         </Box>
       )
     })
   },
   count: ({ tasks }) => `${running(tasks)} running`,
-  summary: ({ tasks }, { Text }) => {
+  summary: ({ tasks }, { Text }, _cfg, _width, c) => {
     const n = running(tasks)
     if (!n) return 'nothing running'
     return (
-      <Text dimColor>
-        <Text color="warning">◐</Text> {n} running
+      <Text color={c.muted}>
+        <Text color={c.warning}>◐</Text> {n} running
       </Text>
     )
   },

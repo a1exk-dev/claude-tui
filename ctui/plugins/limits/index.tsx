@@ -20,22 +20,21 @@ const plugin: SidebarPlugin = {
   title: 'Limits',
   slot: 'section',
   needs: ['usage', 'now'],
-  view: ({ usage, now }, { Text }, _cfg, width) => {
+  view: ({ usage, now }, { Text }, _cfg, width, c) => {
     if (!usage) return []
-    if (!usage.rateLimits.length) return [<Text dimColor>no limits reported</Text>]
+    if (!usage.rateLimits.length) return [<Text color={c.muted}>no limits reported</Text>]
     return sorted(usage).flatMap(({ kind, percentUsed, resetsAt }) => {
-      const color = level(percentUsed)
       const cells = bar(percentUsed, width - LABEL_WIDTH - 5)
       return [
-        <Text>
+        <Text color={c.main}>
           {(WINDOWS[kind]?.label ?? kind).padEnd(LABEL_WIDTH)}
-          <Text color={color}>{cells.filled}</Text>
-          <Text color="inactive">{cells.empty}</Text>
-          <Text color={color}>{formatPercent(percentUsed)}</Text>
+          <Text color={c[level(percentUsed)]}>{cells.filled}</Text>
+          <Text color={c.faint}>{cells.empty}</Text>
+          <Text color={c.main}>{formatPercent(percentUsed)}</Text>
         </Text>,
         ...(resetsAt && now !== undefined
           ? [
-              <Text dimColor wrap="truncate-end">
+              <Text color={c.muted} wrap="truncate-end">
                 {' '.repeat(LABEL_WIDTH)}
                 {formatReset(resetsAt, now)}
               </Text>,

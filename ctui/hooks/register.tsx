@@ -1,6 +1,7 @@
 import type { CommandRunResult, EngineInterface, Register } from 'claude-code'
 
 import { plugins } from '../plugins'
+import { colors } from '../plugins/colors'
 import type { GitSnapshot, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { deniedText, gated, type Outcome, pluginsOutcome, themeOutcome } from './commands'
 import { type Config, readConfig } from './config'
@@ -772,6 +773,8 @@ export const register: Register = (on, options) => {
         tasks: tasks.value,
       },
       config,
+      // `inherit`: no overrides, each role is its theme key.
+      colors: colors(),
       folded: folded.value ?? {},
       expanded: expanded.value ?? {},
       scroll: scroll.value ?? 0,

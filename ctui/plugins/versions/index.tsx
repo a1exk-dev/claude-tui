@@ -6,14 +6,12 @@ const plugin: SidebarPlugin = {
   title: 'Versions',
   slot: 'footer',
   needs: ['versions'],
-  view: ({ versions }, { Text }) =>
+  view: ({ versions }, { Text }, _cfg, _width, c) =>
     versions
       ? [
-          <Text wrap="truncate-end">
-            <Text dimColor>ctui</Text> {versions.ctui}
-          </Text>,
-          <Text wrap="truncate-end">
-            <Text dimColor>claude-cli</Text> {versions.claude}
+          <Text color={c.main} wrap="truncate-end">
+            <Text color={c.muted}>ctui</Text> {versions.ctui} <Text color={c.faint}>│</Text>{' '}
+            <Text color={c.muted}>claude-cli</Text> {versions.claude}
           </Text>,
         ]
       : [],
