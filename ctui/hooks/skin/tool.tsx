@@ -83,10 +83,14 @@ export function toolLine(props: RenderPropsOf['ToolUse'], where: Where): ToolLin
 }
 
 // `→ Read  src/a.ts · 40 lines`, one row cut at the edge.
-export function toolRow({ Box, Text }: ElementTable, { glyph, tool, subject, summary, tone }: ToolLine): RenderElement {
+export function toolRow(
+  { Box, Text }: ElementTable,
+  { glyph, tool, subject, summary, tone }: ToolLine,
+  right = 0,
+): RenderElement {
   const error = tone === 'error' ? 'error' : undefined
   return (
-    <Box paddingLeft={2}>
+    <Box paddingLeft={2} paddingRight={right}>
       <Text wrap="truncate-end">
         <Text color={error}>
           {glyph} {tool}
