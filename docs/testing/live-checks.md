@@ -4,6 +4,8 @@ Checks that mocks can't reach, run by hand in a signed-in terminal on the pinned
 
 Run them with `node_modules/.bin/claude --plugin-dir ./ctui` in a fullscreen terminal 110 or more columns wide.
 
+A dock width you dragged or keyed (`dockColumns` in `~/.claude.json`) overrides the 42/53 columns the Sidebar asks for. To check the widths, run with `CLAUDE_CONFIG_DIR` set to a scratch folder holding a copy of `~/.claude/.credentials.json`, and delete the folder after.
+
 To read a terminal's width, run `tty` in it, then `watch -n0.5 stty size -F <that tty>` from another shell (rows, then columns). Or run the session in tmux at a fixed size (`tmux new-session -x 130 -y 40`) and read it with `tmux capture-pane -p`; tmux doesn't deliver ctrl+x x.
 
 A ctui row in `/config` is the `pluginConfigs` entry in `settings.json`. Editing the file while a session runs reloads ctui as `/config` does.
@@ -30,7 +32,7 @@ Fullscreen means the `"tui": "fullscreen"` setting or `CLAUDE_CODE_NO_FLICKER=1`
 | The previous row | Ask Claude to edit a file; separately, change a file from another terminal | The counts and lines change right after the Edit returns, and within 5 s for the outside change. |
 | Detached HEAD (`git checkout --detach`) | Wait 5 s | Row 2 reads `⎇ <7-char sha>`. |
 | A directory outside any repo | Start a session there | The header is the path alone. |
-| Sidebar docked | Look at the body and its frame | Padding: 1 row above and below, 2 columns left and right. Claude Code draws the `│` rule, the `✕` and the row under the body. The footer reads `ctui <plugin.json version>` and `claude-cli 2.1.288`, names dim, on the body's last row, with no update icon. Each section header reads `▾` dim, then its title in bold, with a blank row after each expanded section. |
+| Sidebar docked | Look at the body and its frame | Padding: 1 row above and below, 2 columns left and right. Claude Code draws the `│` rule, the `✕` and the row under the body. The footer reads `ctui <plugin.json version>` and `claude-cli <pinned version>`, names dim, on the body's last row, with no update icon. Each section header reads `▾` dim, then its title in bold, with a blank row after each expanded section. |
 | Sidebar docked | Click a section's `▾` | It turns `▸` and the section's rows fold. The header and footer have no fold mark. |
 | `/config`: set MCP folded on | Start a new session, then run `/clear` | MCP starts folded. Fold another section, run `/clear`: the folds return to the settings. |
 | Sidebar docked, a new session on a subscription, the built-in `dark` theme (`/theme`), no prompt sent | Look at Context and Limits | Context: an empty bar in `inactive`, `0%` in `success`, then `0 / <window> tokens` dim (`1M` on Opus 5.5) with `$0.00` dim at the right. Limits: `5h`, then `week`, each a label, a bar and its percent, the filled cells and percent in the level color (below 60 `success`, below 85 `warning`, else `error`) and the rest `inactive`; under each bar, dim, `resets in 3h 27m` (`resets in 6d 7h, Mon 09:00` past a day). |
