@@ -2,7 +2,7 @@
 
 ctui is a skin for the Claude Code terminal UI. It docks a sidebar beside the transcript with git, context, limits, MCP, todo, and agents-and-shells sections, and it restyles the lines under the prompt input. It also raises short toasts when a subagent or a background shell starts, finishes, or fails.
 
-Tested with Claude Code 2.1.288 ([all tested versions](COMPATIBILITY.md)).
+Tested with Claude Code 2.1.292 ([all tested versions](COMPATIBILITY.md)).
 
 ## Install
 
@@ -12,6 +12,24 @@ Tested with Claude Code 2.1.288 ([all tested versions](COMPATIBILITY.md)).
 ```
 
 The sidebar docks only in fullscreen: set `"tui": "fullscreen"` in `settings.json` or start Claude Code with `CLAUDE_CODE_NO_FLICKER=1`, in a terminal 110 or more columns wide. Below that, or on the main screen, ctui draws no sidebar; the toasts and the restyled rows still show.
+
+## Terminal setup
+
+**tmux.** Inside tmux, Claude Code draws with the 256-color palette even when your terminal supports true color, so sidebar backgrounds and theme colors turn into the nearest grey. Turn true color back on in the `env` block of your user `settings.json`, then restart Claude Code:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_TMUX_TRUECOLOR": "1"
+  }
+}
+```
+
+**Ghostty with a transparent background.** With `background-opacity` below 1, Ghostty draws cells that have their own background color fully opaque, so the sidebar looks like a solid, lighter panel beside the see-through transcript. Add this to `~/.config/ghostty/config` and reload Ghostty, so colored cells take the same opacity:
+
+```ini
+background-opacity-cells = true
+```
 
 ## Configuration
 
@@ -30,7 +48,7 @@ The todo section shows Claude's task list. Claude Code gives Claude the Task too
 
 ## What ctui watches
 
-ctui runs as a mod in every Claude Code session where the plugin is enabled. It watches Bash tool calls and subagent events to show background shells and agents, watches Claude's task tool calls and reads the session's task list for the todo section, runs `git` in the working directory for the sidebar header, and reads the list of MCP servers you turned off from `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`). It makes no network calls and sends nothing anywhere.
+ctui runs as a mod in every Claude Code session where the plugin is enabled. It watches Bash tool calls and subagent events to show background shells and agents, watches Claude's task tool calls and reads the session's task list for the todo section, runs `git` in the working directory for the sidebar header, reads the list of MCP servers you turned off from `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`), and, with the `inherit` theme and a custom Claude Code theme, reads that theme's file from `~/.claude/themes/` to tint the sidebar. It makes no network calls and sends nothing anywhere.
 
 ## Known differences
 
@@ -38,4 +56,4 @@ Some parts of the design renders are Claude Code's own and stay as Claude Code d
 
 ## License
 
-MIT
+MIT. The Themes in `themes/` are generated from the built-in theme palettes of [Omarchy](https://github.com/basecamp/omarchy) 4.0.4, also MIT-licensed; both notices are in [LICENSE](LICENSE).

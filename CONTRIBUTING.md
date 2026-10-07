@@ -6,7 +6,7 @@ Use Node 22.18 or newer, which runs `.ts` files without a flag. Run `npm ci`. It
 
 ## Checks
 
-Run `node scripts/check.ts` before each commit. It runs `tsc`, `claude plugin validate ctui --strict` and `validate . --strict`, `claude plugin test ctui`, the consistency checks (Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; versions; the README and `COMPATIBILITY.md` against the pin) and `typos`. It exits 1 when `node_modules/.bin/claude` is missing. CI runs the same command.
+Run `node scripts/check.ts` before each commit. It runs `tsc`, `claude plugin validate ctui --strict` and `validate . --strict`, `claude plugin test ctui`, the consistency checks (Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; versions; the README and `COMPATIBILITY.md` against the pin), the Theme generator's tests in `scripts/themes.test.ts`, a check that `node scripts/themes.ts` would change no Theme and no `docs/configuration.md` table, and `typos`. It exits 1 when `node_modules/.bin/claude` is missing. CI runs the same command.
 
 ## Tests
 
@@ -14,7 +14,7 @@ Run `node scripts/check.ts` before each commit. It runs `tsc`, `claude plugin va
 
 ## Live checks
 
-Docking, engine chrome, toast drawing and the fullscreen and main-screen looks need a signed-in terminal. [`docs/testing/live-checks.md`](docs/testing/live-checks.md) lists each as setup, action and expected result, by section. Run the sections your pull request touches on the pinned version, and name them in the pull request template. A release or a pin bump runs every section. A docs-only pull request answers N/A. Auto-merge doesn't wait on the answer.
+Docking, engine chrome, toast drawing and the fullscreen and main-screen looks need a signed-in terminal. [`docs/testing/live-checks.md`](docs/testing/live-checks.md) lists each as setup, action and expected result, by section. Run the sections your pull request touches on the pinned version, and name them in the pull request template. A pull request for a release or into `main` runs every section. A docs-only pull request answers N/A. Auto-merge doesn't wait on the answer.
 
 ## Pull requests and pin bumps
 

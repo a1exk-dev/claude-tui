@@ -10,5 +10,6 @@ Sections of `docs/testing/live-checks.md` run on the pinned Claude Code (see `CO
 - [ ] Sidebar layout and scroll
 - [ ] Toasts
 - [ ] Render-site rewrites
+- [ ] Themes
 - [ ] Commands and pickers
 - [ ] `claude -p`

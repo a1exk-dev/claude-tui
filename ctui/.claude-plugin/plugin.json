@@ -1,7 +1,7 @@
 {
   "name": "ctui",
   "displayName": "ctui",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A skin for the Claude Code TUI: a docked sidebar with git, context, limits, MCP, todo and agent sections, plus agent and shell toasts.",
   "author": {
     "name": "Aliaksandr Katkou"
@@ -106,7 +106,29 @@
       "title": "Sidebar theme",
       "description": "Theme for the sidebar: inherit follows your Claude Code theme, or pick a ctui theme",
       "options": [
-        "inherit"
+        "inherit",
+        "catppuccin",
+        "catppuccin-latte",
+        "ethereal",
+        "everforest",
+        "flexoki-light",
+        "gruvbox",
+        "hackerman",
+        "kanagawa",
+        "last-horizon",
+        "lumon",
+        "lupine",
+        "matte-black",
+        "miasma",
+        "nord",
+        "osaka-jade",
+        "retro-82",
+        "ristretto",
+        "rose-pine",
+        "solitude",
+        "tokyo-night",
+        "vantablack",
+        "white"
       ],
       "default": "inherit"
     }

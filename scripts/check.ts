@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { outputs } from './themes.ts'
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'))
 
@@ -53,11 +54,11 @@ const keys = words(
 )
 same('Sidebar plugin folders and ctui/plugins/index.ts imports', folders, imports)
 same('Sidebar plugin folders and <id>_enable keys', folders, keys)
-const themes = ['inherit']
-if (existsSync('ctui/themes')) {
-  themes.push(...readdirSync('ctui/themes').filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')))
-}
-same('themes/*.json slugs plus inherit and theme options', words(themes), words(manifest.userConfig.theme.options))
+// The `theme` options: `inherit`, then every Theme file's slug A–Z.
+const themes = readdirSync('ctui/themes')
+  .map((f) => f.replace(/\.json$/, ''))
+  .sort()
+same('inherit plus the ctui/themes/*.json slugs A–Z and the theme options', ['inherit', ...themes].join(' '), manifest.userConfig.theme.options.join(' '))
 same('plugin.json and ctui/package.json versions', manifest.version, json('ctui/package.json').version)
 
 // The pin: README and COMPATIBILITY.md follow package.json.
@@ -76,6 +77,16 @@ if (rows[0]) {
   const [version, claudeVersion] = rows[0].split('|').slice(1).map((cell) => cell.trim())
   same('COMPATIBILITY.md top row and plugin.json versions', version ?? '', manifest.version)
   same('COMPATIBILITY.md top row and the pin', claudeVersion ?? '', pin)
+}
+
+// Themes and the docs/configuration.md table: regenerating must change nothing.
+run('node', ['--test', 'scripts/themes.test.ts'])
+const generated = outputs()
+for (const [path, contents] of generated) {
+  if (!existsSync(path) || readFileSync(path, 'utf8') !== contents) error(`${path} is stale, run node scripts/themes.ts`)
+}
+for (const file of readdirSync('ctui/themes')) {
+  if (!generated.has(`ctui/themes/${file}`)) error(`ctui/themes/${file} is not a generated Theme`)
 }
 
 if (spawnSync('typos', ['--version'], { stdio: 'ignore' }).error) warn('typos not installed, skipping spell check')

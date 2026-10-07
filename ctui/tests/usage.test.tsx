@@ -1,6 +1,7 @@
 import type { On, SessionMeasureInput, SessionUsage } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
+import { colors } from '../plugins/colors'
 import context from '../plugins/context'
 import limits from '../plugins/limits'
 import type { SidebarData, SidebarPlugin } from '../plugins/plugin'
@@ -30,7 +31,7 @@ const WIDTH = 36
 async function draw($: Engine, on: On, plugin: SidebarPlugin, data: SidebarData) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
     const ui = $.ui.resolve(e)
-    return <ui.Box flexDirection="column">{plugin.view(data, ui, { enable: true }, WIDTH)}</ui.Box>
+    return <ui.Box flexDirection="column">{plugin.view(data, ui, { enable: true }, WIDTH, colors())}</ui.Box>
   })
   return $.ui.mount({
     plugin: 'test',
@@ -66,14 +67,14 @@ async function barOf(pane: Pane, percent: RegExp) {
 
 test('context draws the fill bar, tokens and cost', async ($, on) => {
   const pane = await draw($, on, context, { usage: MEASURED })
-  expect(await barOf(pane, /9%$/)).toEqual({ filled: 3, empty: 28, colors: ['success', 'inactive', 'success'] })
-  expect((await pane.find({ type: 'Text', text: '18,402 / 200k tokens' }))?.props.dimColor).toBe(true)
-  expect((await pane.find({ type: 'Text', text: '$0.21' }))?.props.dimColor).toBe(true)
+  expect(await barOf(pane, /9%$/)).toEqual({ filled: 3, empty: 28, colors: ['success', 'subtle', 'text'] })
+  expect((await pane.find({ type: 'Text', text: '18,402 / 200k tokens' }))?.props.color).toBe('inactive')
+  expect((await pane.find({ type: 'Text', text: '$0.21' }))?.props.color).toBe('inactive')
 })
 
 test('before the first response context reads 0%', async ($, on) => {
   const pane = await draw($, on, context, { usage: FRESH })
-  expect(await barOf(pane, /0%$/)).toEqual({ filled: 0, empty: 31, colors: ['success', 'inactive', 'success'] })
+  expect(await barOf(pane, /0%$/)).toEqual({ filled: 0, empty: 31, colors: ['success', 'subtle', 'text'] })
   expect(await pane.find({ type: 'Text', text: '0 / 200k tokens' })).toBeDefined()
 })
 
@@ -81,49 +82,50 @@ for (const [percent, color] of [
   [60, 'warning'],
   [85, 'error'],
 ] as const) {
-  test(`context at ${percent}% draws in ${color}`, async ($, on) => {
+  test(`context at ${percent}% fills in ${color}`, async ($, on) => {
     const usage: Usage = { context: { tokens: percent * 2000, window: 200000, percent }, rateLimits: [] }
     const pane = await draw($, on, context, { usage })
-    expect((await barOf(pane, new RegExp(`${percent}%$`))).colors).toEqual([color, 'inactive', color])
+    expect((await barOf(pane, new RegExp(`${percent}%$`))).colors).toEqual([color, 'subtle', 'text'])
   })
 }
 
 test('limits draw each window in order with its reset', async ($, on) => {
   const pane = await draw($, on, limits, { usage: MEASURED, now: NOW })
   const rows = await pane.findAll({ type: 'Text', text: /^(5h|week|spend|\s+resets)/ })
-  expect(rows.map((row) => row.text.trim().replace(/━+/, ' ━ ').replace(/\s+/g, ' '))).toEqual([
+  expect(rows.map((row) => row.text.trim().replace(/━*─+/, ' ━ ').replace(/\s+/g, ' '))).toEqual([
     '5h ━ 34%',
     'resets in 2h 17m',
     'week ━ 81%',
     'resets in 3d 4h, Mon 09:00',
   ])
   // The label column takes 6 cells; the bar the rest less the percent's 5.
-  expect(await barOf(pane, /^5h/)).toEqual({ filled: 9, empty: 16, colors: ['success', 'inactive', 'success'] })
-  expect((await barOf(pane, /^week/)).colors).toEqual(['warning', 'inactive', 'warning'])
-  expect(rows[1]?.props.dimColor).toBe(true)
+  expect(await barOf(pane, /^5h/)).toEqual({ filled: 9, empty: 16, colors: ['success', 'subtle', 'text'] })
+  expect((await barOf(pane, /^week/)).colors).toEqual(['warning', 'subtle', 'text'])
+  expect(rows[0]?.props.color).toBe('text')
+  expect(rows[1]?.props.color).toBe('inactive')
   expect(rows[1]?.text).toMatch(/^ {6}resets/)
 })
 
 test('a spend limit past 100 draws a full bar in error; no reset time, no reset row', async ($, on) => {
   const usage: Usage = { context: FRESH.context, rateLimits: [{ kind: 'spend_limit', percentUsed: 112 }] }
   const pane = await draw($, on, limits, { usage, now: NOW })
-  expect(await barOf(pane, /112%$/)).toEqual({ filled: 25, empty: 0, colors: ['error', 'inactive', 'error'] })
+  expect(await barOf(pane, /112%$/)).toEqual({ filled: 25, empty: 0, colors: ['error', 'subtle', 'text'] })
   expect(await pane.find({ text: /resets/ })).toBeUndefined()
 })
 
 test('with no windows limits says so', async ($, on) => {
   const pane = await draw($, on, limits, { usage: FRESH, now: NOW })
   const row = await pane.find({ type: 'Text', text: 'no limits reported' })
-  expect(row?.props.dimColor).toBe(true)
+  expect(row?.props.color).toBe('inactive')
 })
 
 test('folded summaries', () => {
   const ui = {} as never
   const cfg = { enable: true }
-  expect(context.summary?.({ usage: MEASURED }, ui, cfg, WIDTH)).toBe('9% · $0.21')
-  expect(context.summary?.({ usage: FRESH }, ui, cfg, WIDTH)).toBe('0% · $0.00')
-  expect(limits.summary?.({ usage: MEASURED }, ui, cfg, WIDTH)).toBe('5h 34% · wk 81%')
-  expect(limits.summary?.({ usage: FRESH }, ui, cfg, WIDTH)).toBeUndefined()
+  expect(context.summary?.({ usage: MEASURED }, ui, cfg, WIDTH, colors())).toBe('9% · $0.21')
+  expect(context.summary?.({ usage: FRESH }, ui, cfg, WIDTH, colors())).toBe('0% · $0.00')
+  expect(limits.summary?.({ usage: MEASURED }, ui, cfg, WIDTH, colors())).toBe('5h 34% · wk 81%')
+  expect(limits.summary?.({ usage: FRESH }, ui, cfg, WIDTH, colors())).toBeUndefined()
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.
@@ -170,17 +172,17 @@ test('session.measure moves the context and limits rows', async ($, on) => {
   await clock.settle()
 
   const pane = await $.ui.mount(SIDEBAR)
-  expect(await pane.find({ type: 'Text', text: /^━+ +0%$/ })).toBeDefined()
+  expect(await pane.find({ type: 'Text', text: /^─+ +0%$/ })).toBeDefined()
   expect(await pane.find({ text: '0 / 200k tokens' })).toBeDefined()
   expect(await pane.find({ text: 'no limits reported' })).toBeDefined()
 
   const measured: SessionMeasureInput = { ...MEASURED, changed: ['context', 'rateLimits', 'cost'] }
   await $.session.measure(measured)
   await pane.redraw()
-  expect(await pane.find({ type: 'Text', text: /^━+ +9%$/ })).toBeDefined()
+  expect(await pane.find({ type: 'Text', text: /^━+─+ +9%$/ })).toBeDefined()
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()
   expect(await pane.find({ text: '$0.21' })).toBeDefined()
-  expect(await pane.find({ text: /^5h +━+ +34%$/ })).toBeDefined()
+  expect(await pane.find({ text: /^5h +━+─+ +34%$/ })).toBeDefined()
   expect(await pane.find({ text: /resets in 2h 17m$/ })).toBeDefined()
   expect(await pane.find({ text: 'no limits reported' })).toBeUndefined()
 
@@ -193,8 +195,8 @@ test('session.measure moves the context and limits rows', async ($, on) => {
   expect(await pane.find({ text: /resets in 2h 15m$/ })).toBeDefined()
 
   // Folded, each section reads its summary.
-  await pane.press({ key: 'fold-context' })
-  await pane.press({ key: 'fold-limits' })
+  await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-context' })
+  await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-limits' })
   expect(await pane.find({ text: '9% · $0.21' })).toBeDefined()
   expect(await pane.find({ text: '5h 34% · wk 81%' })).toBeDefined()
 })

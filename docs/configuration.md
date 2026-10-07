@@ -24,7 +24,7 @@ The Sidebar shows its Sidebar plugins in this order. Each one has an `<id>_enabl
 |---|---|---|
 | `todo_tools` (Task tools) | on | Claude Code gives Claude the Task tools (TaskCreate, TaskList, TaskUpdate) by default only on some models; Opus 5.x and Sonnet 5.x don't get them. With this on, ctui sets `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` for each session, and subagents and anything the session starts inherit it. ctui leaves the variable alone when you set it yourself, for example in the `env` block of `settings.json`. With it off, the Todo section reads `no task tools on this model` on such models. It is independent of `todo_enable`. |
 | `agents_toasts` (Agent and shell toasts) | on | A one-line toast when a subagent, a background shell or a Workflow run starts, finishes or fails. In fullscreen it shows at the top right; on the main screen Claude Code shows it as `ctui: <text>` at the right of the line under the prompt. Toasts come at most one every 2 s. The Sidebar rows show either way. |
-| `theme` (Sidebar theme) | `inherit` | `inherit` colors the Sidebar from your current Claude Code theme. It is the only option in 0.1. `/ctui:theme [theme]` writes it. To change ctui's colors, use a CLI theme as below. |
+| `theme` (Sidebar theme) | `inherit` | `inherit` colors the Sidebar from your current Claude Code theme. When that theme is a custom one that sets no Sidebar background (such as Omarchy's), ctui paints the Sidebar body with the theme's background tinted 6% toward its text, and follows the theme file as it changes; Claude Code's frame around the Sidebar keeps its default color. The other options are the 22 bundled Themes, one per built-in Omarchy theme: `catppuccin`, `catppuccin-latte`, `ethereal`, `everforest`, `flexoki-light`, `gruvbox`, `hackerman`, `kanagawa`, `last-horizon`, `lumon`, `lupine`, `matte-black`, `miasma`, `nord`, `osaka-jade`, `retro-82`, `ristretto`, `rose-pine`, `solitude`, `tokyo-night`, `vantablack`, `white`. A Theme recolors the Sidebar's text and paints its body with the Theme's `composerSidebarBackground`; the rest of Claude Code keeps your `/theme`. Claude Code still draws the Sidebar's frame (the `│` rule, the `✕` row and the row below the body) in your `/theme`'s dock color, so a frame shows around the tint. `/ctui:theme [theme]` writes it. To change all of Claude Code's colors, pick the same Theme in `/theme` too, which also makes the frame match the body. Or use a CLI theme as below. |
 
 ## Colors: an example CLI theme
 
@@ -35,11 +35,13 @@ ctui draws with Claude Code's theme colors, so it follows the theme you pick in 
   "name": "ctui dark",
   "base": "dark",
   "overrides": {
+    "text": "#eeeeee",
     "success": "#7fd88f",
     "warning": "#f5a742",
     "error": "#e06c75",
     "suggestion": "#9d7cd8",
     "inactive": "#808080",
+    "subtle": "#484848",
     "promptBorder": "#7fd88f",
     "userMessageBackground": "#141414",
     "composerSidebarBackground": "#141414"
@@ -49,20 +51,55 @@ ctui draws with Claude Code's theme colors, so it follows the theme you pick in 
 
 | Key | Where ctui uses it |
 |---|---|
-| `success` | Git `+staged` and `+added` lines, a bar and its percent below 60%, MCP `●`, a finished agent or shell `✓`. |
-| `warning` | Git `!modified`, a bar and its percent from 60% to 85%, MCP `!` and `◐`, the in-progress task `◐`, a running agent or shell `◐`, an interrupted tool row. |
-| `error` | Git `-removed` lines, a bar and its percent from 85%, MCP `✕`, a failed agent or shell `✗`, a failed tool row. |
+| `text` | The Sidebar's main text: the path, the branch, `↑N ↓N`, section titles, bar percents, the Limits labels, MCP names, the task in progress, agent names, the versions. |
+| `success` | Git `+staged` and `+added` lines, a bar's fill below 60%, MCP `●`, a finished agent or shell `✓`. |
+| `warning` | Git `!modified`, a bar's fill from 60% to 85%, MCP `!` and `◐`, the in-progress task `◐`, a running agent or shell `◐`, an interrupted tool row. |
+| `error` | Git `-removed` lines, a bar's fill from 85%, MCP `✕`, a failed agent or shell `✗`, a failed tool row. |
 | `suggestion` | Git `≡stashes`. |
-| `inactive` | Git `?untracked`, the empty part of each bar, MCP `○` and `off`, pending and done tasks. |
+| `inactive` | The `⎇`, Git `?untracked` and "lines changed", the fold arrows, section counts and folded summaries, tokens, cost and reset times, MCP `N tools` and `off`, done tasks and pending task text, agent details and elapsed times, `▸ N more` and `↑ more`/`↓ more`, the versions labels. |
+| `subtle` | The empty `─` part of each bar, MCP `○`, the pending task `○`, the `│` in the versions footer. |
 | `promptBorder` | The `┃` bar beside your prompts in the transcript. Claude Code also colors the prompt's `─` rules with it. |
 | `userMessageBackground` | The panel behind your prompts in the transcript. |
 | `composerSidebarBackground` | The Sidebar's background. Claude Code paints the dock with it, and only a theme picked in `/theme` sets it. |
 
-`base` supplies every key the file leaves out. Keys outside this list (`claude`, `text`, `diffAdded`, ...) color the rest of Claude Code; add them to the same `overrides` if you want.
+`base` supplies every key the file leaves out. Keys outside this list (`claude`, `diffAdded`, ...) color the rest of Claude Code; add them to the same `overrides` if you want.
 
 ## Main background
 
-Claude Code draws the transcript on your terminal's own background, and no theme key changes it. To match the renders, set your terminal's background to `#0a0a0a`:
+Claude Code draws the transcript on your terminal's own background, and no theme key changes it. To match the renders, set your terminal's background to `#0a0a0a`.
+
+With a ctui Theme, set the terminal to that Theme's background instead, for the glass look: the Sidebar's background is the Theme's background tinted slightly toward its text color, so it stands just off the transcript.
+
+<!-- Generated by `node scripts/themes.ts`. -->
+
+| Theme | Mode | Terminal background |
+|---|---|---|
+| `catppuccin` | dark | `#1e1e2e` |
+| `catppuccin-latte` | light | `#eff1f5` |
+| `ethereal` | dark | `#060b1e` |
+| `everforest` | dark | `#2d353b` |
+| `flexoki-light` | light | `#fffcf0` |
+| `gruvbox` | dark | `#282828` |
+| `hackerman` | dark | `#0b0c16` |
+| `kanagawa` | dark | `#1f1f28` |
+| `last-horizon` | dark | `#0c0b0c` |
+| `lumon` | dark | `#16242d` |
+| `lupine` | light | `#fafafa` |
+| `matte-black` | dark | `#121212` |
+| `miasma` | dark | `#222222` |
+| `nord` | dark | `#2e3440` |
+| `osaka-jade` | dark | `#111c18` |
+| `retro-82` | dark | `#05182e` |
+| `ristretto` | dark | `#2c2525` |
+| `rose-pine` | light | `#faf4ed` |
+| `solitude` | dark | `#101315` |
+| `tokyo-night` | dark | `#1a1b26` |
+| `vantablack` | dark | `#000000` |
+| `white` | light | `#ffffff` |
+
+<!-- End of generated table. -->
+
+The snippets below use `#0a0a0a`; put the Theme's background in its place.
 
 **Ghostty**, `~/.config/ghostty/config`:
 

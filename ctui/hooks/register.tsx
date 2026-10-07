@@ -1,14 +1,16 @@
 import type { CommandRunResult, EngineInterface, Register } from 'claude-code'
 
 import { plugins } from '../plugins'
+import { colors } from '../plugins/colors'
 import type { GitSnapshot, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { deniedText, gated, type Outcome, pluginsOutcome, themeOutcome } from './commands'
 import { type Config, readConfig } from './config'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
 import { mcpRows, segmentOf } from './mcp'
+import { inheritGlass, themeFile } from './glass'
 import { picker } from './pickers'
-import { sidebar } from './sidebar'
+import { type Control, controlKey, sidebar, type SidebarInput } from './sidebar'
 import { assistantMessage } from './skin/assistant'
 import { promptLabelRow } from './skin/prompt'
 import { hasToolRow, toolLine, toolRow } from './skin/tool'
@@ -43,9 +45,11 @@ const TASKS = { plugin: 'ctui', key: 'tasks' } as const
 const MODEL = { plugin: 'ctui', key: 'model' } as const
 const EFFORT = { plugin: 'ctui', key: 'effort' } as const
 const TURNS = { plugin: 'ctui', key: 'turns' } as const
+const GLASS = { plugin: 'ctui', key: 'glass' } as const
 
 // The dock docks from 110 terminal columns; the Sidebar asks 42, or 53 from 160.
 const DOCK_COLUMNS = 110
+const GAP = 2 // columns between the transcript rows ctui draws and the docked Sidebar's rule
 const widthFor = (terminalColumns: number) => (terminalColumns >= 160 ? 53 : 42)
 
 // The `/ctui:*` picker panes by command, which is also the Select's key: pane id and title.
@@ -75,6 +79,7 @@ let maxScroll = 0 // the sections window's last offset, as last drawn
 let mcpRunning = false
 let mcpTimeout: number | undefined // MCP_TIMEOUT, read once
 let claudeJson: { path: string; project: string; mtimeMs?: number; disabled: string[] } | undefined
+let themeSeen: { path?: string; mtimeMs?: number } = {} // the active custom /theme file, last read
 const mcpNames: Record<string, string> = {} // segment → /mcp name, from `tool.describe`
 let todoRunning = false
 let todoAgain = false // a reload came while one ran: run once more after it
@@ -191,6 +196,28 @@ async function readDisabled($: EngineInterface) {
     }
   }
   return file.disabled
+}
+
+// Under `inherit`, the glass of the active `/theme` when it's a user custom
+// theme with no dock color (Omarchy's), re-read when the theme or its file's
+// mtime changes: an Omarchy switch rewrites the file.
+async function refreshGlass($: EngineInterface) {
+  const row = (await $.config.list()).find((r) => r.key === 'theme')
+  const dir = (await $.env.get('CLAUDE_CONFIG_DIR')) || `${await $.env.get('HOME')}/.claude`
+  const path = themeFile(row?.value, dir)
+  const stat = path ? await $.fs.stat(path).catch(() => undefined) : undefined
+  // `/clear` and `/resume` empty `$.state` with no `session.start`: read again.
+  const { value } = await $.state.get(GLASS)
+  if (value !== undefined && path === themeSeen.path && stat?.mtimeMs === themeSeen.mtimeMs) return
+  let glass: string | null
+  try {
+    glass = (path && stat && inheritGlass(JSON.parse(await $.fs.read(path)).overrides ?? {})) || null
+  } catch {
+    return // Caught mid-write: the next tick reads it again.
+  }
+  themeSeen = { path, mtimeMs: stat?.mtimeMs }
+  // A state value is never undefined: null clears the paint.
+  if (value !== glass) await $.state.set(GLASS, glass)
 }
 
 // MEMORY.md "The `mcp` Sidebar plugin reads live tools and the disabled list; it never probes".
@@ -373,6 +400,26 @@ function onNotification($: EngineInterface, text: string) {
 const textOf = (content: readonly { type: string; text?: string }[]) =>
   content.map((block) => (block.type === 'text' ? (block.text ?? '') : '')).join('\n')
 
+// Folds or unfolds a section, or expands or caps its list.
+async function toggle($: EngineInterface, config: Config, { kind, id }: Control) {
+  if (kind === 'fold') {
+    const { value = {} } = await $.state.get(FOLDED)
+    await $.state.set(FOLDED, { ...value, [id]: !(value[id] ?? config[id].folded ?? false) })
+  } else {
+    const { value = {} } = await $.state.get(EXPANDED)
+    await $.state.set(EXPANDED, { ...value, [id]: !value[id] })
+  }
+}
+
+// The Sidebar's role colors and background: under `inherit` each role's theme
+// key and no background, else the selected Theme's overrides and its glass,
+// from `themes/<slug>.json`.
+async function themeLook($: EngineInterface, theme: string): Promise<Pick<SidebarInput, 'colors' | 'background'>> {
+  if (theme === 'inherit') return { colors: colors() }
+  const { overrides } = JSON.parse(await $.fs.read(`${$.plugin.root}/themes/${theme}.json`))
+  return { colors: colors(overrides), background: overrides.composerSidebarBackground }
+}
+
 // The manifest's `theme` options: under `claude -p` no `/config` row lists them.
 async function themesOf($: EngineInterface) {
   themes ??= JSON.parse(await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`)).userConfig.theme
@@ -479,6 +526,8 @@ export const register: Register = (on, options) => {
   // Tasks feed the Sidebar section and the toasts.
   const tracking = needs.has('tasks') || config.agents.toasts
   toastsOn = config.agents.toasts
+  const inherit = config.theme === 'inherit'
+  let look: ReturnType<typeof themeLook> | undefined // read once per load: a `theme` change reloads
 
   on('session.start', async ($, e, next) => {
     await setTodoEnv($, config.todo.tools)
@@ -487,6 +536,7 @@ export const register: Register = (on, options) => {
     if (needs.has('git')) void refreshGit($)
     if (needs.has('versions')) void loadVersions($)
     if (needs.has('usage')) void loadUsage($).then(() => (needs.has('now') ? setNow($) : undefined))
+    if (inherit) void refreshGlass($).catch(() => undefined)
     let ticks = 0
     tick?.cancel()
     tick = $.clock.every(1000, () => {
@@ -498,6 +548,7 @@ export const register: Register = (on, options) => {
       if (needs.has('mcp')) void refreshMcp($)
       if (needs.has('todo')) void refreshTodo($)
       if (needs.has('now')) void setNow($)
+      if (inherit) void refreshGlass($).catch(() => undefined)
       if (tracking) void refreshAgents($).then(() => tickTasks($, needs.has('now')))
     })
     return next(e)
@@ -727,6 +778,7 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: SIDEBAR }, async ($, e) => {
     const ui = $.ui.resolve(e)
+    if (!('Client' in ui)) return <ui.Box />
     const dock = e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1
     if (dock !== dockColumns) {
       dockColumns = dock
@@ -745,7 +797,7 @@ export const register: Register = (on, options) => {
         $.clock.after(0, () => void openSidebar($, columns))
       }
     }
-    const [folded, expanded, scroll, git, usage, now, mcp, todo, versions, tasks] = await Promise.all([
+    const [folded, expanded, scroll, git, usage, now, mcp, todo, versions, tasks, glass] = await Promise.all([
       $.state.get(FOLDED),
       $.state.get(EXPANDED),
       $.state.get(SCROLL),
@@ -756,6 +808,7 @@ export const register: Register = (on, options) => {
       $.state.get(TODO),
       $.state.get(VERSIONS),
       $.state.get(TASKS),
+      $.state.get(GLASS),
     ])
     const drawn = sidebar({
       ui,
@@ -772,20 +825,30 @@ export const register: Register = (on, options) => {
         tasks: tasks.value,
       },
       config,
+      ...(await (look ??= themeLook($, config.theme))),
+      // Under `inherit`, the active custom `/theme`'s glass, when it has no dock color.
+      ...(inherit && glass.value && { background: glass.value }),
       folded: folded.value ?? {},
       expanded: expanded.value ?? {},
       scroll: scroll.value ?? 0,
-      onFold: async (id) => {
-        const { value = {} } = await $.state.get(FOLDED)
-        await $.state.set(FOLDED, { ...value, [id]: !(value[id] ?? config[id].folded ?? false) })
-      },
-      onExpand: async (id) => {
-        const { value = {} } = await $.state.get(EXPANDED)
-        await $.state.set(EXPANDED, { ...value, [id]: !value[id] })
-      },
+      focused: e.props.isFocused,
+      onControl: (control) => void toggle($, config, control),
     })
     maxScroll = drawn.maxScroll
     return drawn.tree
+  })
+
+  // A fold arrow's or a list toggle's click (`press.tsx`) by its key.
+  const controls = new Map<string, Control>(
+    enabled
+      .filter((plugin) => plugin.slot === 'section')
+      .flatMap((plugin) => (['fold', 'more'] as const).map((kind) => ({ kind, id: plugin.id })))
+      .map((control) => [controlKey(control), control]),
+  )
+  on('ui.message', { component: 'Pane', requestId: SIDEBAR }, async ($, e) => {
+    const control = controls.get(e.element)
+    if (control) await toggle($, config, control)
+    return {}
   })
 
   // The person can't close the Sidebar; a plugin close passes.
@@ -802,12 +865,14 @@ export const register: Register = (on, options) => {
     return {}
   })
   // Transcript rewrites (docs/spec/v0.1.md slice 8). `ToolResult` stays the engine's.
+  // While the Sidebar is docked, the rows ctui draws end `GAP` columns before its rule.
+  const dockGap = () => (dockColumns ? GAP : 0)
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) =>
-    assistantMessage($.ui.resolve(e), await next({ ...e, props: { ...e.props, isFirstOfReply: false } })),
+    assistantMessage($.ui.resolve(e), await next({ ...e, props: { ...e.props, isFirstOfReply: false } }), dockGap()),
   )
 
   on('ui.render', { component: 'UserMessage' }, ($, e, next) =>
-    isOwnPrompt(e.props.origin) ? userMessage($.ui.resolve(e), e.props.text) : next(e),
+    isOwnPrompt(e.props.origin) ? userMessage($.ui.resolve(e), e.props.text, dockGap()) : next(e),
   )
 
   // Each call of a group draws as its own `ToolUse` row.
@@ -817,7 +882,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     if (!hasToolRow(e.props.tool)) return next(e)
     const line = toolLine(e.props, { cwd: await $.session.cwd(), home: await $.env.get('HOME') })
-    return line ? toolRow($.ui.resolve(e), line) : next(e)
+    return line ? toolRow($.ui.resolve(e), line, dockGap()) : next(e)
   })
 
   // MEMORY.md "The line under the prompt": the latest effort source wins.
