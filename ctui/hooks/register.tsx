@@ -49,6 +49,7 @@ const GLASS = { plugin: 'ctui', key: 'glass' } as const
 
 // The dock docks from 110 terminal columns; the Sidebar asks 42, or 53 from 160.
 const DOCK_COLUMNS = 110
+const GAP = 2 // columns between the transcript rows ctui draws and the docked Sidebar's rule
 const widthFor = (terminalColumns: number) => (terminalColumns >= 160 ? 53 : 42)
 
 // The `/ctui:*` picker panes by command, which is also the Select's key: pane id and title.
@@ -845,12 +846,14 @@ export const register: Register = (on, options) => {
     return {}
   })
   // Transcript rewrites (docs/spec/v0.1.md slice 8). `ToolResult` stays the engine's.
+  // While the Sidebar is docked, the rows ctui draws end `GAP` columns before its rule.
+  const dockGap = () => (dockColumns ? GAP : 0)
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) =>
-    assistantMessage($.ui.resolve(e), await next({ ...e, props: { ...e.props, isFirstOfReply: false } })),
+    assistantMessage($.ui.resolve(e), await next({ ...e, props: { ...e.props, isFirstOfReply: false } }), dockGap()),
   )
 
   on('ui.render', { component: 'UserMessage' }, ($, e, next) =>
-    isOwnPrompt(e.props.origin) ? userMessage($.ui.resolve(e), e.props.text) : next(e),
+    isOwnPrompt(e.props.origin) ? userMessage($.ui.resolve(e), e.props.text, dockGap()) : next(e),
   )
 
   // Each call of a group draws as its own `ToolUse` row.
@@ -860,7 +863,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     if (!hasToolRow(e.props.tool)) return next(e)
     const line = toolLine(e.props, { cwd: await $.session.cwd(), home: await $.env.get('HOME') })
-    return line ? toolRow($.ui.resolve(e), line) : next(e)
+    return line ? toolRow($.ui.resolve(e), line, dockGap()) : next(e)
   })
 
   // MEMORY.md "The line under the prompt": the latest effort source wins.

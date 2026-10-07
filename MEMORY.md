@@ -180,6 +180,14 @@ Guidance:
 
 Reason: The human chose this in #19 after a live spike (`prototypes/research-19/`, 2.1.288, fullscreen and main screen). `isExpanded` is false on every row in the normal view, the person's prompts included, and true only under ctrl+o. A returned tree draws in both states. Without the outer clip, the `┃` column painted over column 0 of every later row. A computed `┃` count drifts with word wrap, and a width-1 background strip is a solid block, heavier than the thin bar in `docs/design/`. In #43 the human chose the fixed `promptBorder` over the mode color the renders show: coloring by the turn's mode needs a way to tie a row to its prompt, which no known prop gives, and old rows would lose it. The example theme in `docs/configuration` can set `promptBorder` to the renders' green.
 
+## While the Sidebar is docked, ctui's transcript rows keep 2 columns off its rule
+
+Applies when: drawing `AssistantMessage`, `UserMessage` or `ToolUse` rows, or changing how the dock is tracked.
+
+Guidance: Claude Code draws the transcript up to the dock's `│` rule and has no setting for its right edge. While the Sidebar is docked (`dockColumns > 0`, kept from the `Pane` render), give the rows ctui draws or wraps `paddingRight: 2`, the Sidebar body's own horizontal padding: assistant text, the person's prompt panel, and the Read, Edit, Write and Bash rows. Not docked, no margin. A dock change already calls `$.ui.invalidate('ui.render')`, which redraws them. Rows Claude Code draws alone (`ToolResult`, other tools, system rows, the prompt's rules) still reach the rule.
+
+Reason: The human asked for space between the chat text and the Sidebar in #102 (2026-10-07). Checked live on 2.1.292: a wrapped prompt panel and a reply ended at column 104 against the rule at 107.
+
 ## Tool rows: glyph rows for Read, Edit, Write and Bash; results stay Claude Code's
 
 Applies when: rewriting the `ToolUse`, `ToolGroup` or `ToolResult` render sites.

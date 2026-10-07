@@ -1,5 +1,5 @@
 import type { On, RenderComponent, RenderPropsOf } from 'claude-code'
-import { type Engine, expect, test } from 'claude-code/testing'
+import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 // Scenario: the transcript rewrites (docs/spec/v0.1.md slice 8) through
 // `$.ui.mount`, with this test's own hooks beneath ctui standing in for the
@@ -102,4 +102,37 @@ test('a tool group unfolds into its calls', async ($, on) => {
   const seen = host(on)
   await mount($, 'ToolGroup', { calls: [], isActive: false, isExpanded: false })
   expect(seen.ToolGroup).toEqual([{ calls: [], isActive: false, isExpanded: true }])
+})
+
+// Docks the Sidebar: its Pane render records the dock's width.
+async function dock($: Engine) {
+  await $.ui.mount({
+    plugin: 'ctui',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'sidebar',
+    props: { title: 'Sidebar', isFocused: false, bodyColumns: 42, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} },
+  })
+}
+
+test('while the Sidebar is docked, the rows ctui draws end 2 columns before its rule', async ($, on) => {
+  mock.clock(on)
+  host(on)
+  await dock($)
+  const reply = await mount($, 'AssistantMessage', { text: 'hi', isFirstOfReply: true })
+  expect(await reply.drawn()).toMatchObject({ type: 'Box', props: { paddingLeft: 2, paddingRight: 2 } })
+  const prompt = await mount($, 'UserMessage', { text: 'fix it', origin: { kind: 'composer' }, isExpanded: false })
+  expect(await prompt.drawn()).toMatchObject({ type: 'Box', props: { paddingLeft: 1, paddingRight: 2 } })
+  const tool = await mount($, 'ToolUse', TOOL)
+  expect(await tool.drawn()).toMatchObject({ type: 'Box', props: { paddingLeft: 2, paddingRight: 2 } })
+})
+
+test('with no Sidebar docked, the rows keep the full width', async ($, on) => {
+  host(on)
+  const reply = await mount($, 'AssistantMessage', { text: 'hi', isFirstOfReply: true })
+  expect(await reply.drawn()).toMatchObject({ type: 'Box', props: { paddingRight: 0 } })
+  const prompt = await mount($, 'UserMessage', { text: 'fix it', origin: { kind: 'composer' }, isExpanded: false })
+  expect(await prompt.drawn()).toMatchObject({ type: 'Box', props: { paddingRight: 0 } })
+  const tool = await mount($, 'ToolUse', TOOL)
+  expect(await tool.drawn()).toMatchObject({ type: 'Box', props: { paddingRight: 0 } })
 })

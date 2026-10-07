@@ -11,11 +11,11 @@ const promptText = (text: string) => text.replace(/<\/?pasted_content\b[^>]*>/g,
 
 // The thin `┃` bar beside the panel. The bar is taller than any wrap of the
 // text can make the row; the row's `overflow: 'hidden'` clips it.
-export function userMessage({ Box, Text }: ElementTable, text: string): RenderElement {
+export function userMessage({ Box, Text }: ElementTable, text: string, right = 0): RenderElement {
   const shown = promptText(text)
   const bar = Array.from({ length: shown.length + 3 }, () => '┃').join('\n')
   return (
-    <Box marginTop={1} paddingLeft={1} overflow="hidden">
+    <Box marginTop={1} paddingLeft={1} paddingRight={right} overflow="hidden">
       <Box position="absolute" top={0} bottom={0} left={0} width={1}>
         <Text color="promptBorder">{bar}</Text>
       </Box>
