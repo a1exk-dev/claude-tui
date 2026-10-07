@@ -264,3 +264,11 @@ Guidance:
 - Behaviour mocks can't reach is a live check in `docs/testing/live-checks.md` (setup, action, expected), by section: Sidebar docking, Sidebar layout and scroll, toasts, render-site rewrites, Themes, commands and pickers, `claude -p`. A root `CONTRIBUTING.md` explains it; `.github/pull_request_template.md` asks which sections ran on the pin. A `ctui/` PR runs the sections it touches, a pin bump runs the checks its ticket names, a pull request for a release or into `main` runs the full list (the human decided on 2026-10-07), and a docs-only PR answers N/A. Auto-merge doesn't wait on it.
 
 Reason: The human chose this in #42. `claude plugin test` loads tests from inside the mod folder, `validate --strict` passes with `tests/` there, and npm's `files` whitelist leaves it out (checked on 2.1.288). Docking, engine chrome, toast drawing and the fullscreen and main-screen looks need a signed-in terminal, so they stay manual.
+
+## Redraw the renders from `docs/design/sidebar.html` when ctui changes its own design
+
+Applies when: a change alters how ctui draws something the renders in `docs/design/` show.
+
+Guidance: Edit `docs/design/sidebar.html` in the same work and re-export the three PNGs with the command in its header comment. Draw in the installed JetBrainsMono Nerd Font: the web JetBrains Mono has a narrower advance, and its box-drawing glyphs fall back to another font that stretches the bars. The "Known differences from the renders" table in `docs/spec/v0.1.md` lists engine limits only, never ctui's own design changes.
+
+Reason: The human chose this in #109: the renders show ctui's own design as it ships, so a design change redraws them rather than adding a known difference. In #113 the Nerd Font reproduced the 0.1 PNGs to within a pixel; the web font didn't.
