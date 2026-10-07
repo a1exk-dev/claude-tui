@@ -1,2 +1,6 @@
 [default.extend-words]
 # Project words that typos flags by mistake, e.g. `foo = "foo"`.
+
+[default.extend-identifiers]
+# Read as `PN` + `Gs`.
+PNGs = "PNGs"
