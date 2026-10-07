@@ -10,7 +10,7 @@ A pure module in `ctui/plugins/<id>/` that draws one foldable block of the **Sid
 
 ## Theme
 
-A `ctui/themes/<slug>.json` file in Claude Code's theme format that recolors the **Sidebar**. `inherit`, the default, means no file: the Sidebar uses the user's current Claude Code theme.
+A `ctui/themes/<slug>.json` file in Claude Code's theme format, selected in `/ctui:theme`, that recolors the **Sidebar** and paints its background. ctui bundles one per built-in Omarchy theme, generated from that theme's palette. Claude Code also lists each file in `/theme`, where it recolors all of Claude Code and the Sidebar's dock. `inherit`, the default, means no file: the Sidebar uses the user's current Claude Code theme and paints no background.
 
 ## ctui
 
