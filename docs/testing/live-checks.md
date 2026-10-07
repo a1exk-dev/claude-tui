@@ -104,6 +104,13 @@ Run each row in fullscreen and again on the main screen (`--settings '{"tui":"de
 | The previous row | Narrow the terminal to 80 columns | The label moves to its own row under the hint, left-aligned. Widening back returns it to the right edge. |
 | The previous row | Run `/clear` | The label keeps `· low effort`. |
 
+## Themes
+
+| Setup | Action | Expected |
+|---|---|---|
+| Fullscreen, Sidebar docked | Run `/theme` | The list holds the 22 Themes by name with `from ctui` at the right, from `Catppuccin` to `White`. |
+| The previous row | Pick `Everforest` (dark), then run `/theme` again and pick `Catppuccin Latte` (light) | Each pick recolors all of Claude Code at once: the transcript text, the prompt's rules and the dock. The dock is a flat tint just off the terminal background, `#363d41` for Everforest and `#e5e7ed` for Catppuccin Latte. |
+
 ## Commands and pickers
 
 | Setup | Action | Expected |
