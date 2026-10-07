@@ -1,5 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
+import { colors } from '../plugins/colors'
 import { plugins } from '../plugins'
 
 // Mounts every Sidebar plugin's view in a Pane, as the Sidebar does, with no
@@ -10,7 +11,7 @@ test('every Sidebar plugin view draws with empty data', async ($, on) => {
   on('ui.render', { component: 'Pane' }, async ($, e) => {
     const ui = $.ui.resolve(e)
     // 38: a header row's width at 42 columns.
-    const view = current?.view({}, ui, { enable: true }, 38) ?? []
+    const view = current?.view({}, ui, { enable: true }, 38, colors()) ?? []
     rows = view.length
     return <ui.Box flexDirection="column">{view}</ui.Box>
   })

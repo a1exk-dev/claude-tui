@@ -2,6 +2,7 @@ import type { AgentInfo, On } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 import agents from '../plugins/agents'
+import { colors } from '../plugins/colors'
 import type { Task } from '../types'
 
 // The `agents` Sidebar plugin and the toasts: the view with sample tasks, and
@@ -36,7 +37,7 @@ const task = (fields: Partial<Task> & Pick<Task, 'id'>): Task => ({
 async function draw($: Engine, on: On, tasks: Record<string, Task>, now: number) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
     const ui = $.ui.resolve(e)
-    return <ui.Box flexDirection="column">{agents.view({ tasks, now }, ui, { enable: true }, 36)}</ui.Box>
+    return <ui.Box flexDirection="column">{agents.view({ tasks, now }, ui, { enable: true }, 36, colors())}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
 }
@@ -95,8 +96,8 @@ test('empty: nothing running; the header counts running rows, folded with ◐', 
   const ui = {} as never
   const cfg = { enable: true }
   const two = { a: task({ id: 'a' }), b: task({ id: 'b' }), c: task({ id: 'c', status: 'completed', endedAt: 1 }) }
-  expect(agents.count?.({ tasks: two }, ui, cfg, 36)).toBe('2 running')
-  expect(agents.summary?.({ tasks: {} }, ui, cfg, 36)).toBe('nothing running')
+  expect(agents.count?.({ tasks: two }, ui, cfg, 36, colors())).toBe('2 running')
+  expect(agents.summary?.({ tasks: {} }, ui, cfg, 36, colors())).toBe('nothing running')
 })
 
 // Scenario: the Sidebar and the toasts through register.tsx's hooks.
