@@ -54,11 +54,11 @@ const keys = words(
 )
 same('Sidebar plugin folders and ctui/plugins/index.ts imports', folders, imports)
 same('Sidebar plugin folders and <id>_enable keys', folders, keys)
-// The `theme` options don't list the bundled Themes yet (#90); each one they name needs a file.
-const themes = readdirSync('ctui/themes').map((f) => f.replace(/\.json$/, ''))
-for (const option of manifest.userConfig.theme.options) {
-  if (option !== 'inherit' && !themes.includes(option)) error(`theme option ${option} has no ctui/themes/${option}.json`)
-}
+// The `theme` options: `inherit`, then every Theme file's slug A–Z.
+const themes = readdirSync('ctui/themes')
+  .map((f) => f.replace(/\.json$/, ''))
+  .sort()
+same('inherit plus the ctui/themes/*.json slugs A–Z and the theme options', ['inherit', ...themes].join(' '), manifest.userConfig.theme.options.join(' '))
 same('plugin.json and ctui/package.json versions', manifest.version, json('ctui/package.json').version)
 
 // The pin: README and COMPATIBILITY.md follow package.json.

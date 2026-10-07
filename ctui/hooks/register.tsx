@@ -1,7 +1,7 @@
 import type { CommandRunResult, EngineInterface, Register } from 'claude-code'
 
 import { plugins } from '../plugins'
-import { colors } from '../plugins/colors'
+import { type Colors, colors } from '../plugins/colors'
 import type { GitSnapshot, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { deniedText, gated, type Outcome, pluginsOutcome, themeOutcome } from './commands'
 import { type Config, readConfig } from './config'
@@ -374,6 +374,14 @@ function onNotification($: EngineInterface, text: string) {
 const textOf = (content: readonly { type: string; text?: string }[]) =>
   content.map((block) => (block.type === 'text' ? (block.text ?? '') : '')).join('\n')
 
+// The Sidebar's role colors: under `inherit` each role's theme key, else the
+// selected Theme's overrides from `themes/<slug>.json`.
+async function themeColors($: EngineInterface, theme: string): Promise<Colors> {
+  if (theme === 'inherit') return colors()
+  const file = JSON.parse(await $.fs.read(`${$.plugin.root}/themes/${theme}.json`))
+  return colors(file.overrides)
+}
+
 // The manifest's `theme` options: under `claude -p` no `/config` row lists them.
 async function themesOf($: EngineInterface) {
   themes ??= JSON.parse(await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`)).userConfig.theme
@@ -480,6 +488,7 @@ export const register: Register = (on, options) => {
   // Tasks feed the Sidebar section and the toasts.
   const tracking = needs.has('tasks') || config.agents.toasts
   toastsOn = config.agents.toasts
+  let palette: Promise<Colors> | undefined // read once per load: a `theme` change reloads
 
   on('session.start', async ($, e, next) => {
     await setTodoEnv($, config.todo.tools)
@@ -773,8 +782,7 @@ export const register: Register = (on, options) => {
         tasks: tasks.value,
       },
       config,
-      // `inherit`: no overrides, each role is its theme key.
-      colors: colors(),
+      colors: await (palette ??= themeColors($, config.theme)),
       folded: folded.value ?? {},
       expanded: expanded.value ?? {},
       scroll: scroll.value ?? 0,
