@@ -14,7 +14,7 @@ Run `node scripts/check.ts` before each commit. It runs `tsc`, `claude plugin va
 
 ## Live checks
 
-Docking, engine chrome, toast drawing and the fullscreen and main-screen looks need a signed-in terminal. [`docs/testing/live-checks.md`](docs/testing/live-checks.md) lists each as setup, action and expected result, by section. Run the sections your pull request touches on the pinned version, and name them in the pull request template. A release or a pin bump runs every section. A docs-only pull request answers N/A. Auto-merge doesn't wait on the answer.
+Docking, engine chrome, toast drawing and the fullscreen and main-screen looks need a signed-in terminal. [`docs/testing/live-checks.md`](docs/testing/live-checks.md) lists each as setup, action and expected result, by section. Run the sections your pull request touches on the pinned version, and name them in the pull request template. A pull request for a release or into `main` runs every section. A docs-only pull request answers N/A. Auto-merge doesn't wait on the answer.
 
 ## Pull requests and pin bumps
 

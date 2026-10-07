@@ -2,7 +2,7 @@
 
 ctui is a skin for the Claude Code terminal UI. It docks a sidebar beside the transcript with git, context, limits, MCP, todo, and agents-and-shells sections, and it restyles the lines under the prompt input. It also raises short toasts when a subagent or a background shell starts, finishes, or fails.
 
-Tested with Claude Code 2.1.288 ([all tested versions](COMPATIBILITY.md)).
+Tested with Claude Code 2.1.292 ([all tested versions](COMPATIBILITY.md)).
 
 ## Install
 
