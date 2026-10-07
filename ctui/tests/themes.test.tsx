@@ -163,3 +163,97 @@ test('under claude -p a slug writes nothing', async ($, on) => {
   )
   expect(sets).toEqual([])
 })
+
+// Scenario: under `inherit` with Omarchy's `custom:omarchy` theme, which sets
+// no dock color, the Sidebar paints that theme's glass and follows a switch.
+
+const OFF = Object.fromEntries(
+  [...['git', 'context', 'limits', 'mcp', 'todo', 'agents', 'versions'].map((id) => `${id}_enable`), 'agents_toasts'].map(
+    (key) => [key, false],
+  ),
+)
+const OMARCHY = '/home/a/.claude/themes/omarchy.json'
+// Omarchy's generated file, trimmed: `inverseText` is the background, `text` the foreground.
+const omarchy = (background: string, foreground: string) =>
+  JSON.stringify({ name: 'Omarchy', base: 'dark', overrides: { text: foreground, inverseText: background } })
+
+function claudeHome(on: On, world: { theme: string; file: string; mtimeMs: number }) {
+  mock.env(on, { HOME: '/home/a' })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('env.set', () => ({ value: undefined }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('settings.read', () => ({ value: {} }))
+  on('config.list', () => ({ value: [{ ...THEME_ROW, key: 'theme', value: world.theme }] }))
+  on('fs.stat', (_, e) => {
+    if (e.path !== OMARCHY) throw new Error('ENOENT')
+    return { value: { kind: 'file', size: world.file.length, mtimeMs: world.mtimeMs, isLink: false } }
+  })
+  on('fs.read', (_, e) => {
+    if (e.path !== OMARCHY) throw new Error('ENOENT')
+    return { value: world.file }
+  })
+}
+
+test('under inherit a custom /theme without a dock color paints its glass, and follows a switch', { options: OFF }, async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  const world = { theme: 'custom:omarchy', file: omarchy('#1a1b26', '#a9b1d6'), mtimeMs: 1 }
+  claudeHome(on, world)
+  await $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  const drawn = await pane($, 'sidebar')
+  const background = async () => ((await drawn.drawn()) as { props: { backgroundColor?: string } }).props.backgroundColor
+  expect(await background()).toBe('#232431')
+
+  // An Omarchy switch to Everforest rewrites the file.
+  Object.assign(world, { file: omarchy('#2d353b', '#d3c6aa'), mtimeMs: 2 })
+  await clock.advance(1000)
+  await drawn.redraw()
+  expect(await background()).toBe('#373e42')
+
+  // A built-in /theme pick: Claude Code's dock, no paint.
+  world.theme = 'dark'
+  await clock.advance(1000)
+  await drawn.redraw()
+  expect(await background()).toBeUndefined()
+})
+
+test('after /clear empties $.state, the tick paints the glass again', { options: OFF }, async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  claudeHome(on, { theme: 'custom:omarchy', file: omarchy('#2d353b', '#d3c6aa'), mtimeMs: 1 })
+  const cleared = new Set<string>()
+  on('state.get', async ($, e, next) => (cleared.has(e.key) ? { value: { value: undefined, version: 0 } } : next(e)))
+  on('state.set', async ($, e, next) => {
+    cleared.delete(e.key)
+    return next(e)
+  })
+  await $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  const drawn = await pane($, 'sidebar')
+  const background = async () => ((await drawn.drawn()) as { props: { backgroundColor?: string } }).props.backgroundColor
+  cleared.add('glass')
+  await drawn.redraw()
+  expect(await background()).toBeUndefined()
+  await clock.advance(1000)
+  await drawn.redraw()
+  expect(await background()).toBe('#373e42')
+})
+
+test('Claude Code keeps its themes in CLAUDE_CONFIG_DIR when that is set', { options: OFF }, async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  const file = omarchy('#2d353b', '#d3c6aa')
+  mock.env(on, { HOME: '/home/a', CLAUDE_CONFIG_DIR: '/cfg' })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('env.set', () => ({ value: undefined }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('settings.read', () => ({ value: {} }))
+  on('config.list', () => ({ value: [{ ...THEME_ROW, key: 'theme', value: 'custom:omarchy' }] }))
+  on('fs.stat', (_, e) => {
+    if (e.path !== '/cfg/themes/omarchy.json') throw new Error('ENOENT')
+    return { value: { kind: 'file', size: file.length, mtimeMs: 1, isLink: false } }
+  })
+  on('fs.read', () => ({ value: file }))
+  await $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  const root = (await (await pane($, 'sidebar')).drawn()) as { props: { backgroundColor?: string } }
+  expect(root.props.backgroundColor).toBe('#373e42')
+})

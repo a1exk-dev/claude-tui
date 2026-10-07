@@ -8,6 +8,7 @@ import { type Config, readConfig } from './config'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
 import { mcpRows, segmentOf } from './mcp'
+import { inheritGlass, themeFile } from './glass'
 import { picker } from './pickers'
 import { sidebar, type SidebarInput } from './sidebar'
 import { assistantMessage } from './skin/assistant'
@@ -44,6 +45,7 @@ const TASKS = { plugin: 'ctui', key: 'tasks' } as const
 const MODEL = { plugin: 'ctui', key: 'model' } as const
 const EFFORT = { plugin: 'ctui', key: 'effort' } as const
 const TURNS = { plugin: 'ctui', key: 'turns' } as const
+const GLASS = { plugin: 'ctui', key: 'glass' } as const
 
 // The dock docks from 110 terminal columns; the Sidebar asks 42, or 53 from 160.
 const DOCK_COLUMNS = 110
@@ -76,6 +78,7 @@ let maxScroll = 0 // the sections window's last offset, as last drawn
 let mcpRunning = false
 let mcpTimeout: number | undefined // MCP_TIMEOUT, read once
 let claudeJson: { path: string; project: string; mtimeMs?: number; disabled: string[] } | undefined
+let themeSeen: { path?: string; mtimeMs?: number } = {} // the active custom /theme file, last read
 const mcpNames: Record<string, string> = {} // segment → /mcp name, from `tool.describe`
 let todoRunning = false
 let todoAgain = false // a reload came while one ran: run once more after it
@@ -192,6 +195,28 @@ async function readDisabled($: EngineInterface) {
     }
   }
   return file.disabled
+}
+
+// Under `inherit`, the glass of the active `/theme` when it's a user custom
+// theme with no dock color (Omarchy's), re-read when the theme or its file's
+// mtime changes: an Omarchy switch rewrites the file.
+async function refreshGlass($: EngineInterface) {
+  const row = (await $.config.list()).find((r) => r.key === 'theme')
+  const dir = (await $.env.get('CLAUDE_CONFIG_DIR')) || `${await $.env.get('HOME')}/.claude`
+  const path = themeFile(row?.value, dir)
+  const stat = path ? await $.fs.stat(path).catch(() => undefined) : undefined
+  // `/clear` and `/resume` empty `$.state` with no `session.start`: read again.
+  const { value } = await $.state.get(GLASS)
+  if (value !== undefined && path === themeSeen.path && stat?.mtimeMs === themeSeen.mtimeMs) return
+  let glass: string | null
+  try {
+    glass = (path && stat && inheritGlass(JSON.parse(await $.fs.read(path)).overrides ?? {})) || null
+  } catch {
+    return // Caught mid-write: the next tick reads it again.
+  }
+  themeSeen = { path, mtimeMs: stat?.mtimeMs }
+  // A state value is never undefined: null clears the paint.
+  if (value !== glass) await $.state.set(GLASS, glass)
 }
 
 // MEMORY.md "The `mcp` Sidebar plugin reads live tools and the disabled list; it never probes".
@@ -489,6 +514,7 @@ export const register: Register = (on, options) => {
   // Tasks feed the Sidebar section and the toasts.
   const tracking = needs.has('tasks') || config.agents.toasts
   toastsOn = config.agents.toasts
+  const inherit = config.theme === 'inherit'
   let look: ReturnType<typeof themeLook> | undefined // read once per load: a `theme` change reloads
 
   on('session.start', async ($, e, next) => {
@@ -498,6 +524,7 @@ export const register: Register = (on, options) => {
     if (needs.has('git')) void refreshGit($)
     if (needs.has('versions')) void loadVersions($)
     if (needs.has('usage')) void loadUsage($).then(() => (needs.has('now') ? setNow($) : undefined))
+    if (inherit) void refreshGlass($).catch(() => undefined)
     let ticks = 0
     tick?.cancel()
     tick = $.clock.every(1000, () => {
@@ -509,6 +536,7 @@ export const register: Register = (on, options) => {
       if (needs.has('mcp')) void refreshMcp($)
       if (needs.has('todo')) void refreshTodo($)
       if (needs.has('now')) void setNow($)
+      if (inherit) void refreshGlass($).catch(() => undefined)
       if (tracking) void refreshAgents($).then(() => tickTasks($, needs.has('now')))
     })
     return next(e)
@@ -756,7 +784,7 @@ export const register: Register = (on, options) => {
         $.clock.after(0, () => void openSidebar($, columns))
       }
     }
-    const [folded, expanded, scroll, git, usage, now, mcp, todo, versions, tasks] = await Promise.all([
+    const [folded, expanded, scroll, git, usage, now, mcp, todo, versions, tasks, glass] = await Promise.all([
       $.state.get(FOLDED),
       $.state.get(EXPANDED),
       $.state.get(SCROLL),
@@ -767,6 +795,7 @@ export const register: Register = (on, options) => {
       $.state.get(TODO),
       $.state.get(VERSIONS),
       $.state.get(TASKS),
+      $.state.get(GLASS),
     ])
     const drawn = sidebar({
       ui,
@@ -784,6 +813,8 @@ export const register: Register = (on, options) => {
       },
       config,
       ...(await (look ??= themeLook($, config.theme))),
+      // Under `inherit`, the active custom `/theme`'s glass, when it has no dock color.
+      ...(inherit && glass.value && { background: glass.value }),
       folded: folded.value ?? {},
       expanded: expanded.value ?? {},
       scroll: scroll.value ?? 0,

@@ -84,6 +84,7 @@ declare module 'claude-code' {
       model?: string // $.session.model(), from the tick
       effort?: string | null // the session's effort; null when the model takes none
       turns: Turn[] // every finished turn of the session: old footers redraw on scroll
+      glass?: string | null // under `inherit`, the active custom /theme's glass; null or unset paints nothing
     }
   }
 }
