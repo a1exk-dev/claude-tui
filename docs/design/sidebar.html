@@ -195,7 +195,7 @@
       if (gap) html += '<div class="section-gap"></div>'
       gap = expanded
       const right = expanded ? (section.count ?? '') : section.summary
-      html += split(`${span('m', expanded ? '▾' : '▸')} <b>${section.title}</b>`, right)
+      html += split(`${span('m', expanded ? '▼' : '▶\uFE0E')} <b>${section.title}:</b>`, right)
       if (!expanded) continue
       html += '<div class="title-gap"></div>'
       let body = section.body ? section.body() : section.list

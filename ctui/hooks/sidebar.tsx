@@ -10,6 +10,10 @@ export const CAP = 4
 // whole cells (#120).
 const TITLE_GAP = 1
 const SECTION_GAP = 2
+// A section's fold arrow, one cell wide. `\uFE0E` asks for the text
+// presentation, so no font draws `▶` as an emoji.
+const EXPANDED = '▼'
+const FOLDED = '▶\uFE0E'
 
 export type SidebarInput = {
   ui: ElementTable<'terminal' | 'desktop'> // the surfaces that draw a Client
@@ -44,7 +48,8 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   // A fold arrow or a list toggle. At rest a muted `Client`, whose click
   // `register.tsx` answers at `ui.message`. A Client is outside the focus
   // ring, so while the Pane holds the focus it is a dim Button instead.
-  // A fold arrow lights with its title row's hover `scope`.
+  // A fold arrow lights in accent with its title row's hover `scope`; a list
+  // toggle lights main.
   const control = (key: Control, label: string) =>
     input.focused ? (
       <Button key={controlKey(key)} plain dimColor label={label} onPress={() => input.onControl(key)} />
@@ -52,7 +57,11 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
       <Client
         key={controlKey(key)}
         module="./press.tsx"
-        props={{ label, color: c.muted, hover: c.main, ...(key.kind === 'fold' && { scope: foldRowKey(key.id) }) }}
+        props={{
+          label,
+          color: c.muted,
+          ...(key.kind === 'fold' ? { hover: c.accent, scope: foldRowKey(key.id) } : { hover: c.main }),
+        }}
       />
     )
   const row = (node: RenderNode, indent = 0) => (
@@ -87,13 +96,13 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     const key = foldRowKey(plugin.id)
     const title = (
       <Box height={1} flexShrink={0}>
-        {control({ kind: 'fold', id: plugin.id }, folded ? '▸' : '▾')}
+        {control({ kind: 'fold', id: plugin.id }, folded ? FOLDED : EXPANDED)}
         <Client
           key={key}
           module="./foldrow.tsx"
           width={width - 1}
           flexGrow={1}
-          props={{ title: plugin.title, right, main: c.main, muted: c.muted, scope: key }}
+          props={{ title: plugin.title, right, main: c.main, muted: c.muted, accent: c.accent, scope: key }}
         />
       </Box>
     )

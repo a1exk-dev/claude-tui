@@ -114,7 +114,7 @@ test('header, sections and the footer on the last row', async ($, on) => {
     '~/x',
     '⎇ main',
     '',
-    '▾ mcp3',
+    '▼ mcp:3',
     T,
     'mcp 1',
     'mcp 2',
@@ -133,7 +133,7 @@ test('a folded section shows its summary; folded sections sit together', async (
     plugins: [list('mcp', 3), list('todo', 2)],
     folded: { mcp: true },
   })
-  expect(layout(tree)).toEqual(['▸ mcpsum 3', '▾ todo2', T, 'todo 1', 'todo 2', ''])
+  expect(layout(tree)).toEqual(['▶\uFE0E mcp:sum 3', '▼ todo:2', T, 'todo 1', 'todo 2', ''])
 })
 
 // #120: 1 row under an expanded title, 2 rows after an expanded section.
@@ -141,12 +141,12 @@ const three = [list('mcp', 2), list('todo', 1), { ...list('mcp', 1), id: 'agents
 
 test('expanded sections space 1 row under the title and 2 rows apart', async ($, on) => {
   const { tree } = await draw($, on, { plugins: three })
-  expect(layout(tree)).toEqual(['▾ mcp2', T, 'mcp 1', 'mcp 2', G, '▾ todo1', T, 'todo 1', G, '▾ agents1', T, 'mcp 1', ''])
+  expect(layout(tree)).toEqual(['▼ mcp:2', T, 'mcp 1', 'mcp 2', G, '▼ todo:1', T, 'todo 1', G, '▼ agents:1', T, 'mcp 1', ''])
 })
 
 test('folded sections take no spacer; an expanded one keeps its 2 rows before a folded one', async ($, on) => {
   const { tree } = await draw($, on, { plugins: three, folded: { mcp: true, agents: true } })
-  expect(layout(tree)).toEqual(['▸ mcpsum 2', '▾ todo1', T, 'todo 1', G, '▸ agentssum 1', ''])
+  expect(layout(tree)).toEqual(['▶\uFE0E mcp:sum 2', '▼ todo:1', T, 'todo 1', G, '▶\uFE0E agents:sum 1', ''])
 })
 
 test('under a selected Theme the root paint covers the spacers', async ($, on) => {
@@ -167,12 +167,12 @@ test('under a selected Theme the root paint covers the spacers', async ($, on) =
 test('a section the person has not toggled folds from <id>_folded', async ($, on) => {
   const config = readConfig({ mcp_folded: true })
   const first = await draw($, on, { plugins: [list('mcp', 3)], config })
-  expect(rows(first.tree)[0]?.text).toBe('▸ mcpsum 3')
+  expect(rows(first.tree)[0]?.text).toBe('▶\uFE0E mcp:sum 3')
 })
 
 test('a long list caps at 4 rows', async ($, on) => {
   const capped = await draw($, on, { plugins: [list('mcp', 6)] })
-  expect(layout(capped.tree)).toEqual(['▾ mcp6', T, 'mcp 1', 'mcp 2', 'mcp 3', 'mcp 4', '▸ 2 more', ''])
+  expect(layout(capped.tree)).toEqual(['▼ mcp:6', T, 'mcp 1', 'mcp 2', 'mcp 3', 'mcp 4', '▸ 2 more', ''])
 })
 
 test('an expanded list shows every row and show less', async ($, on) => {
@@ -182,7 +182,7 @@ test('an expanded list shows every row and show less', async ($, on) => {
 
 test('a list of 4 has no toggle', async ($, on) => {
   const four = await draw($, on, { plugins: [list('mcp', 4)] })
-  expect(layout(four.tree)).toEqual(['▾ mcp4', T, 'mcp 1', 'mcp 2', 'mcp 3', 'mcp 4', ''])
+  expect(layout(four.tree)).toEqual(['▼ mcp:4', T, 'mcp 1', 'mcp 2', 'mcp 3', 'mcp 4', ''])
 })
 
 test('sections taller than the free rows scroll in a window', async ($, on) => {
@@ -192,7 +192,7 @@ test('sections taller than the free rows scroll in a window', async ($, on) => {
   // From `mcp 2` (stop 2) the rest fits under `↑ more`.
   expect(top.maxScroll).toBe(2)
   // 4 free rows: `↓ more` leaves 3, which hold the title, its spacer and `mcp 1`.
-  expect(layout(top.tree).slice(3, 8)).toEqual(['▾ mcp4', T, 'mcp 1', '↓ more', ''])
+  expect(layout(top.tree).slice(3, 8)).toEqual(['▼ mcp:4', T, 'mcp 1', '↓ more', ''])
   expect(rows(top.tree).at(-1)?.text).toBe('claude-cli 2.1.288')
 })
 
@@ -243,7 +243,7 @@ test("#85's busy data at 34 body rows: 37 section rows overflow 26 free rows", a
 
 test("#85's busy data scrolled to the end", async ($, on) => {
   const window = windowOf(layout((await busy($, on, 99)).tree))
-  expect(window.slice(0, 4)).toEqual(['↑ more', 'spend ━────────────────────────   5%', G, '▾ MCP7/7'])
+  expect(window.slice(0, 4)).toEqual(['↑ more', 'spend ━────────────────────────   5%', G, '▼ MCP:7/7'])
   expect(window.at(-1)).toBe('◐ Plan · plan0s')
   expect(height(window)).toBe(26)
 })

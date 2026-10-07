@@ -112,12 +112,12 @@ test('every run of text draws in a theme key; fold arrows draw muted', async ($,
   const { runs: all } = await draw($, on)
   const keys = Object.values(colors())
   expect(all.filter((run) => !keys.includes(run.color ?? ''))).toEqual([])
-  expect(colorOf(all, '▾')).toEqual(Array(5).fill('inactive'))
+  expect(colorOf(all, '▼')).toEqual(Array(5).fill('inactive'))
 })
 
 test('main text draws with the text key: path, branch, titles, labels, percents, versions', async ($, on) => {
   const { runs: all } = await draw($, on)
-  for (const text of ['~/Projects/claude-tui', 'Context', 'MCP', 'playwright', '9%', '34%', '0.2.0', '2.1.292']) {
+  for (const text of ['~/Projects/claude-tui', 'Context:', 'MCP:', 'playwright', '9%', '34%', '0.2.0', '2.1.292']) {
     expect(colorOf(all, text), text).toEqual(['text'])
   }
   expect(colorOf(all, 'Run the tests')).toEqual(['text'])
@@ -178,9 +178,9 @@ for (const columns of [42, 53]) {
 test("a Theme's overrides reach every role", async ($, on) => {
   const theme: Colors = colors({ text: '#d3c6aa', inactive: '#918c7e', subtle: '#475258' })
   const { runs: all } = await draw($, on, { colors: theme })
-  expect(colorOf(all, 'Context')).toEqual(['#d3c6aa'])
+  expect(colorOf(all, 'Context:')).toEqual(['#d3c6aa'])
   expect(colorOf(all, '⎇')).toEqual(['#918c7e'])
   expect(colorOf(all, '│')).toEqual(['#475258'])
-  expect(colorOf(all, '▾')).toEqual(Array(5).fill('#918c7e'))
+  expect(colorOf(all, '▼')).toEqual(Array(5).fill('#918c7e'))
   expect(all.some((run) => ['text', 'inactive', 'subtle'].includes(run.color ?? ''))).toBe(false)
 })
