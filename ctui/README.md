@@ -38,4 +38,4 @@ Some parts of the design renders are Claude Code's own and stay as Claude Code d
 
 ## License
 
-MIT
+MIT. The Themes in `themes/` are generated from the built-in theme palettes of [Omarchy](https://github.com/basecamp/omarchy) 4.0.4, also MIT-licensed; both notices are in [LICENSE](LICENSE).
