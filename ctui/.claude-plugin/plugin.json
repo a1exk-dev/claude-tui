@@ -47,6 +47,12 @@
       "description": "Start each session with the Limits section folded",
       "default": false
     },
+    "limits_cost": {
+      "type": "boolean",
+      "title": "Limits cost",
+      "description": "Show the session cost in the Limits section",
+      "default": true
+    },
     "mcp_enable": {
       "type": "boolean",
       "title": "MCP section",
