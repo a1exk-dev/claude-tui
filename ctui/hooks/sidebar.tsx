@@ -5,6 +5,10 @@ import type { SidebarData, SidebarId, SidebarPlugin } from '../plugins/plugin'
 import type { Config } from './config'
 
 export const CAP = 4
+// Space under an expanded section's title, and after an expanded section
+// before the next title, in rows (#85).
+export const TITLE_GAP = 1 / 3
+export const SECTION_GAP = 1.5
 
 export type SidebarInput = {
   ui: ElementTable<'terminal' | 'desktop'> // the surfaces that draw a Client
@@ -61,22 +65,26 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
       )}
     </Box>
   )
+  const line = (node: RenderNode, indent = 0): Stop<RenderElement> => ({ nodes: [row(node, indent)], height: 1 })
+  // An empty Box: the root's paint covers it.
+  const spacer = (height: number) => <Box height={height} flexShrink={0} />
   const rowsOf = (slot: SidebarPlugin['slot']) =>
     plugins.filter((p) => p.slot === slot).flatMap((p) => p.view(data, ui, config[p.id], width, c))
 
-  const sections: RenderElement[] = []
+  // One scroll stop per section row. A title carries the gap before it and
+  // the space under it, so each scroll step moves one row.
+  const sections: Stop<RenderElement>[] = []
   let gap = false
   for (const plugin of plugins.filter((p) => p.slot === 'section')) {
     const cfg = config[plugin.id]
     const folded = input.folded[plugin.id] ?? cfg.folded ?? false
-    if (gap) sections.push(row(''))
     const right = (folded ? plugin.summary : plugin.count)?.(data, ui, cfg, width, c) ?? null
     // The title and the count or summary are one Client, under the same key
     // in both focus modes; a click anywhere on it folds the section. Its
     // `width` leaves the arrow's cell: `flexGrow` alone laid the region out a
     // cell too wide, into the right padding (checked on 2.1.292).
     const key = foldRowKey(plugin.id)
-    sections.push(
+    const title = (
       <Box height={1} flexShrink={0}>
         {control({ kind: 'fold', id: plugin.id }, folded ? '▸' : '▾')}
         <Client
@@ -86,17 +94,21 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
           flexGrow={1}
           props={{ title: plugin.title, right, main: c.main, muted: c.muted, scope: key }}
         />
-      </Box>,
+      </Box>
     )
+    sections.push({
+      nodes: [...(gap ? [spacer(SECTION_GAP)] : []), title, ...(folded ? [] : [spacer(TITLE_GAP)])],
+      height: (gap ? SECTION_GAP : 0) + 1 + (folded ? 0 : TITLE_GAP),
+    })
     gap = !folded
     if (folded) continue
     const body = plugin.view(data, ui, cfg, width - 2, c)
     const expanded = input.expanded[plugin.id] ?? false
     const capped = plugin.list && body.length > CAP
-    sections.push(...(capped && !expanded ? body.slice(0, CAP) : body).map((node) => row(node, 2)))
+    sections.push(...(capped && !expanded ? body.slice(0, CAP) : body).map((node) => line(node, 2)))
     if (capped) {
       const label = expanded ? '▾ show less' : `▸ ${body.length - CAP} more`
-      sections.push(row(control({ kind: 'more', id: plugin.id }, label), 2))
+      sections.push(line(control({ kind: 'more', id: plugin.id }, label), 2))
     }
   }
 
@@ -130,25 +142,46 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   return { tree, maxScroll }
 }
 
-// Slices `rows` to `free` rows at `offset`, with `↑ more` / `↓ more` rows
-// where rows are hidden. At the last offset only `↑ more` shows.
+// A scroll stop of the sections window: its nodes and their height in rows,
+// a row's 1 plus any spacers' fractions.
+export type Stop<T> = { nodes: readonly T[]; height: number }
+
+// Slices `stops` to `free` rows from stop `offset`, summing their heights,
+// with `↑ more` / `↓ more` rows (1 row each) where stops are hidden. At the
+// last offset only `↑ more` shows.
 export function scrollWindow<T>(
-  rows: readonly T[],
+  stops: readonly Stop<T>[],
   free: number,
   offset: number,
   more: (text: string) => T,
 ): { rows: T[]; maxScroll: number } {
-  if (rows.length <= free) return { rows: [...rows], maxScroll: 0 }
+  // Spacer fractions sum with float error: 14 rows can add up to 14.000000000000002.
+  const fits = (height: number, room: number) => height <= room + 1e-9
+  const heightFrom = (start: number) => stops.slice(start).reduce((sum, stop) => sum + stop.height, 0)
+  const nodes = (from: readonly Stop<T>[]) => from.flatMap((stop) => stop.nodes)
+  if (fits(heightFrom(0), free)) return { rows: nodes(stops), maxScroll: 0 }
   if (free < 2) return { rows: free ? [more('↓ more')] : [], maxScroll: 0 }
-  const maxScroll = rows.length - free + 1
+  // The last offset: the first whose rest fits under `↑ more`.
+  let maxScroll = stops.length
+  while (maxScroll > 1 && fits(heightFrom(maxScroll - 1), free - 1)) maxScroll--
   const start = Math.min(Math.max(offset, 0), maxScroll)
-  let visible = free - (start > 0 ? 1 : 0)
-  const below = start + visible < rows.length
-  if (below) visible--
+  // The index of the first stop past `room` rows from `start`.
+  const fitEnd = (room: number) => {
+    let index = start
+    let used = 0
+    for (const stop of stops.slice(start)) {
+      if (!fits(used + stop.height, room)) break
+      used += stop.height
+      index++
+    }
+    return index
+  }
+  const room = free - (start > 0 ? 1 : 0)
+  const below = fitEnd(room) < stops.length
   return {
     rows: [
       ...(start > 0 ? [more('↑ more')] : []),
-      ...rows.slice(start, start + Math.max(visible, 0)),
+      ...nodes(stops.slice(start, fitEnd(below ? room - 1 : room))),
       ...(below ? [more('↓ more')] : []),
     ],
     maxScroll,
