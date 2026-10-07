@@ -10,7 +10,7 @@ import { parseGit, tildify } from './git'
 import { mcpRows, segmentOf } from './mcp'
 import { inheritGlass, themeFile } from './glass'
 import { picker } from './pickers'
-import { sidebar, type SidebarInput } from './sidebar'
+import { type Control, controlKey, sidebar, type SidebarInput } from './sidebar'
 import { assistantMessage } from './skin/assistant'
 import { promptLabelRow } from './skin/prompt'
 import { hasToolRow, toolLine, toolRow } from './skin/tool'
@@ -400,6 +400,17 @@ function onNotification($: EngineInterface, text: string) {
 const textOf = (content: readonly { type: string; text?: string }[]) =>
   content.map((block) => (block.type === 'text' ? (block.text ?? '') : '')).join('\n')
 
+// Folds or unfolds a section, or expands or caps its list.
+async function toggle($: EngineInterface, config: Config, { kind, id }: Control) {
+  if (kind === 'fold') {
+    const { value = {} } = await $.state.get(FOLDED)
+    await $.state.set(FOLDED, { ...value, [id]: !(value[id] ?? config[id].folded ?? false) })
+  } else {
+    const { value = {} } = await $.state.get(EXPANDED)
+    await $.state.set(EXPANDED, { ...value, [id]: !value[id] })
+  }
+}
+
 // The Sidebar's role colors and background: under `inherit` each role's theme
 // key and no background, else the selected Theme's overrides and its glass,
 // from `themes/<slug>.json`.
@@ -767,6 +778,7 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: SIDEBAR }, async ($, e) => {
     const ui = $.ui.resolve(e)
+    if (!('Client' in ui)) return <ui.Box />
     const dock = e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1
     if (dock !== dockColumns) {
       dockColumns = dock
@@ -819,17 +831,24 @@ export const register: Register = (on, options) => {
       folded: folded.value ?? {},
       expanded: expanded.value ?? {},
       scroll: scroll.value ?? 0,
-      onFold: async (id) => {
-        const { value = {} } = await $.state.get(FOLDED)
-        await $.state.set(FOLDED, { ...value, [id]: !(value[id] ?? config[id].folded ?? false) })
-      },
-      onExpand: async (id) => {
-        const { value = {} } = await $.state.get(EXPANDED)
-        await $.state.set(EXPANDED, { ...value, [id]: !value[id] })
-      },
+      focused: e.props.isFocused,
+      onControl: (control) => void toggle($, config, control),
     })
     maxScroll = drawn.maxScroll
     return drawn.tree
+  })
+
+  // A fold arrow's or a list toggle's click (`press.tsx`) by its key.
+  const controls = new Map<string, Control>(
+    enabled
+      .filter((plugin) => plugin.slot === 'section')
+      .flatMap((plugin) => (['fold', 'more'] as const).map((kind) => ({ kind, id: plugin.id })))
+      .map((control) => [controlKey(control), control]),
+  )
+  on('ui.message', { component: 'Pane', requestId: SIDEBAR }, async ($, e) => {
+    const control = controls.get(e.element)
+    if (control) await toggle($, config, control)
+    return {}
   })
 
   // The person can't close the Sidebar; a plugin close passes.

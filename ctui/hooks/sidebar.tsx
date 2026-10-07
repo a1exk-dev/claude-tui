@@ -7,7 +7,7 @@ import type { Config } from './config'
 export const CAP = 4
 
 export type SidebarInput = {
-  ui: ElementTable
+  ui: ElementTable<'terminal' | 'desktop'> // the surfaces that draw a Client
   bodyRows: number // the Pane's `scroll.bodyRows`
   bodyColumns: number // the Pane's `bodyColumns`
   plugins: readonly SidebarPlugin[] // enabled, in registry order
@@ -18,9 +18,13 @@ export type SidebarInput = {
   folded: Record<string, boolean> // unset reads `<id>_folded`
   expanded: Record<string, boolean>
   scroll: number
-  onFold: (id: SidebarId) => void
-  onExpand: (id: SidebarId) => void
+  focused: boolean // the Pane's `isFocused`
+  onControl: (control: Control) => void
 }
+
+// A Sidebar control's key: `fold-<id>` or `more-<id>`.
+export type Control = { kind: 'fold' | 'more'; id: SidebarId }
+export const controlKey = ({ kind, id }: Control) => `${kind}-${id}`
 
 // The Sidebar body (MEMORY.md "The Sidebar adapts to the dock's engine
 // chrome"): git header, the sections window, flexible space, versions footer
@@ -29,7 +33,16 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   const { ui, plugins, data, config, colors: c } = input
   // Padding takes 2 columns each side; section rows indent 2 more.
   const width = input.bodyColumns - 4
-  const { Box, Text, Button } = ui
+  const { Box, Text, Button, Client } = ui
+  // A fold arrow or a list toggle. At rest a muted `Client`, whose click
+  // `register.tsx` answers at `ui.message`. A Client is outside the focus
+  // ring, so while the Pane holds the focus it is a dim Button instead.
+  const control = (key: Control, label: string) =>
+    input.focused ? (
+      <Button key={controlKey(key)} plain dimColor label={label} onPress={() => input.onControl(key)} />
+    ) : (
+      <Client key={controlKey(key)} module="./press.tsx" props={{ label, color: c.muted, hover: c.main }} />
+    )
   const row = (node: RenderNode, indent = 0) => (
     <Box height={1} flexShrink={0} paddingLeft={indent}>
       {typeof node === 'string' ? (
@@ -51,16 +64,9 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     const folded = input.folded[plugin.id] ?? cfg.folded ?? false
     if (gap) sections.push(row(''))
     const right = (folded ? plugin.summary : plugin.count)?.(data, ui, cfg, width, c)
-    // A Button takes no color: `dimColor` draws it in the theme's `inactive`, the muted key.
     sections.push(
       <Box height={1} flexShrink={0}>
-        <Button
-          key={`fold-${plugin.id}`}
-          plain
-          dimColor
-          label={folded ? '▸' : '▾'}
-          onPress={() => input.onFold(plugin.id)}
-        />
+        {control({ kind: 'fold', id: plugin.id }, folded ? '▸' : '▾')}
         <Text bold color={c.main} wrap="truncate-end">
           {' '}
           {plugin.title}
@@ -83,18 +89,8 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     const capped = plugin.list && body.length > CAP
     sections.push(...(capped && !expanded ? body.slice(0, CAP) : body).map((node) => row(node, 2)))
     if (capped) {
-      sections.push(
-        row(
-          <Button
-            key={`more-${plugin.id}`}
-            plain
-            dimColor
-            label={expanded ? '▾ show less' : `▸ ${body.length - CAP} more`}
-            onPress={() => input.onExpand(plugin.id)}
-          />,
-          2,
-        ),
-      )
+      const label = expanded ? '▾ show less' : `▸ ${body.length - CAP} more`
+      sections.push(row(control({ kind: 'more', id: plugin.id }, label), 2))
     }
   }
 
