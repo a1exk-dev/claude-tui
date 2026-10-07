@@ -165,7 +165,7 @@ test('/mcp disable and enable follow within a second, labels as /mcp names them'
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
   const rows = () => rowsOf(pane)
   expect(await rows()).toEqual(['● playwright22 tools', '● Claude Docs2 tools', '○ githuboff'])
-  expect(await pane.find({ type: 'Text', text: '2/3' })).toBeDefined()
+  expect(await pane.find({ type: 'Text', text: '2/3', in: 'foldrow-mcp' })).toBeDefined()
 
   // `/mcp disable playwright`: its tools go and the file lists it.
   world.tools = tools('claude_ai_Claude_Docs', 2)
@@ -195,9 +195,14 @@ test('/mcp disable and enable follow within a second, labels as /mcp names them'
   await pane.redraw()
   expect((await rows())[1]).toBe('✕ Claude Docsdown')
 
-  await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-mcp' })
-  const summary = await pane.findAll({ type: 'Text', text: /^ ?[●✕○] \d$/ })
-  expect(summary.map((part) => part.text.trim())).toEqual(['● 1', '✕ 1', '○ 1'])
+  // A click on the title row folds it; the summary keeps its colors inside the row's Client.
+  await pane.pointer({ type: 'down', x: 2, y: 0, button: 'left', in: 'foldrow-mcp' })
+  const summary = await pane.findAll({ type: 'Text', text: /^ ?[●✕○] \d$/, in: 'foldrow-mcp' })
+  expect(summary.map((part) => [part.text.trim(), part.props.color])).toEqual([
+    ['● 1', 'success'],
+    ['✕ 1', 'error'],
+    ['○ 1', 'subtle'],
+  ])
 })
 
 test('with CLAUDE_CONFIG_DIR set, the disabled list comes from the .claude.json there', async ($, on) => {

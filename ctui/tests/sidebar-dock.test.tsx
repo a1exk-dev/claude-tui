@@ -166,6 +166,69 @@ test('while the Sidebar holds the focus, fold arrows are Buttons the keyboard re
   expect((await pane.find({ key: 'fold-mcp' }))?.text).toBe('▸')
 })
 
+// #110: a click anywhere on a title row folds its section. The title and the
+// count or summary are one `foldrow-<id>` Client, under the same key whether
+// or not the Sidebar holds the focus.
+test('a click on a title row folds and unfolds its section', async ($) => {
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+  expect((await pane.find({ in: 'foldrow-mcp', type: 'Text' }))?.text).toBe(' MCP')
+  await pane.pointer({ type: 'down', x: 20, y: 0, button: 'left', in: 'foldrow-mcp' })
+  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▸')
+  await pane.pointer({ type: 'down', x: 2, y: 0, button: 'left', in: 'foldrow-mcp' })
+  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▾')
+})
+
+// Left to `flexGrow`, the region took the arrow's cell too and pushed the
+// count into the right padding (#83, 2.1.292).
+test('a title row takes the section row less the arrow’s cell', async ($) => {
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+  // 42 columns less 4 of padding and the arrow's cell.
+  expect((await pane.find({ key: 'foldrow-mcp' }))?.props).toMatchObject({ width: 37, flexGrow: 1 })
+})
+
+test('while the Sidebar holds the focus, the first click on a title row folds', async ($) => {
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 30, true) })
+  expect((await pane.find({ key: 'foldrow-todo' }))?.type).toBe('Client')
+  await pane.pointer({ type: 'down', x: 2, y: 0, button: 'left', in: 'foldrow-todo' })
+  expect((await pane.find({ key: 'fold-todo' }))?.text).toBe('▸')
+  expect((await pane.find({ key: 'foldrow-todo' }))?.type).toBe('Client')
+})
+
+test('a title row lights as one with its fold arrow', async ($) => {
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+  // The surface applies a `hover` while the pointer is anywhere in its scope.
+  const scope = 'foldrow-mcp'
+  expect(await pane.drawn({ in: 'foldrow-mcp' })).toMatchObject({
+    type: 'Box',
+    hover: { scope },
+    children: [{ type: 'Text', hover: { scope, underline: true } }, { type: 'Box' }],
+  })
+  expect(await pane.drawn({ in: 'fold-mcp' })).toMatchObject({ type: 'Text', hover: { scope, color: 'text' } })
+})
+
+test('after a wheel tick, a click on a moved title folds that section', async ($) => {
+  // 6 body rows leave 4 for the 5 section headers; a tick drops Context.
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 6) })
+  const titles = async () =>
+    (await pane.findAll({ type: 'Client' })).map((client) => client.key).filter((key) => key?.startsWith('foldrow-'))
+  await $.ui.scroll({
+    component: 'Pane',
+    requestId: 'sidebar',
+    offset: 1,
+    by: 1,
+    bodyRows: 6,
+    contentRows: 6,
+    origin: { kind: 'person' },
+  })
+  await pane.redraw()
+  expect((await titles())[0]).toBe('foldrow-limits')
+  await pane.pointer({ type: 'down', x: 2, y: 0, button: 'left', in: 'foldrow-limits' })
+  // Only Limits folded.
+  const arrows = (await pane.findAll({ type: 'Client' })).filter((client) => client.key?.startsWith('fold-'))
+  const folded = await Promise.all(arrows.map(async ({ key }) => [key, (await pane.find({ in: key! }))?.text]))
+  expect(folded.filter(([, arrow]) => arrow === '▸')).toEqual([['fold-limits', '▸']])
+})
+
 const STATUS = [
   '# branch.oid c1e879e48fada468970e942e80559adfe77c8713',
   '# branch.head main',

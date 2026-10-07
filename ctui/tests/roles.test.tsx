@@ -1,12 +1,12 @@
 import type { ElementTable, On } from 'claude-code'
 import { type Engine, expect, test } from 'claude-code/testing'
 
-import type { PressProps } from '../hooks/press'
 import { readConfig } from '../hooks/config'
 import { sidebar, type SidebarInput } from '../hooks/sidebar'
 import { plugins } from '../plugins'
 import { type Colors, colors } from '../plugins/colors'
 import type { SidebarData } from '../plugins/plugin'
+import { clientsAsTrees } from './clients'
 
 // The Sidebar's color roles (MEMORY.md "Sidebar colors inherit the Claude
 // Code theme"): every plugin and the Sidebar's own rows, with sample data.
@@ -68,24 +68,11 @@ function runs(node: unknown, color?: string): { text: string; color?: string }[]
   return out
 }
 
-// A test plugin loads no surface module, so each `press.tsx` Client draws as
-// the Text that module draws.
-function pressAsText(ui: ElementTable): SidebarInput['ui'] {
-  if (!('Client' in ui)) throw new Error('the Sidebar draws on the terminal')
-  return {
-    ...ui,
-    Client: ({ props }) => {
-      const { label, color } = props as PressProps
-      return <ui.Text color={color}>{label}</ui.Text>
-    },
-  }
-}
-
 // Draws the whole Sidebar with every plugin in a test Pane.
 async function draw($: Engine, on: On, input: Partial<SidebarInput> = {}, columns = 42) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
     return sidebar({
-      ui: pressAsText($.ui.resolve(e)),
+      ui: clientsAsTrees($.ui.resolve(e)),
       bodyRows: 60,
       bodyColumns: e.props.bodyColumns,
       plugins,

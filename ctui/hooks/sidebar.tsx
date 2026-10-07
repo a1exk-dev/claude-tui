@@ -22,9 +22,11 @@ export type SidebarInput = {
   onControl: (control: Control) => void
 }
 
-// A Sidebar control's key: `fold-<id>` or `more-<id>`.
+// A Sidebar control's key: `fold-<id>` or `more-<id>`. A section's title
+// row, `foldrow-<id>`, folds it as its `fold-<id>` arrow does.
 export type Control = { kind: 'fold' | 'more'; id: SidebarId }
 export const controlKey = ({ kind, id }: Control) => `${kind}-${id}`
+export const foldRowKey = (id: SidebarId) => `foldrow-${id}`
 
 // The Sidebar body (MEMORY.md "The Sidebar adapts to the dock's engine
 // chrome"): git header, the sections window, flexible space, versions footer
@@ -37,11 +39,16 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   // A fold arrow or a list toggle. At rest a muted `Client`, whose click
   // `register.tsx` answers at `ui.message`. A Client is outside the focus
   // ring, so while the Pane holds the focus it is a dim Button instead.
+  // A fold arrow lights with its title row's hover `scope`.
   const control = (key: Control, label: string) =>
     input.focused ? (
       <Button key={controlKey(key)} plain dimColor label={label} onPress={() => input.onControl(key)} />
     ) : (
-      <Client key={controlKey(key)} module="./press.tsx" props={{ label, color: c.muted, hover: c.main }} />
+      <Client
+        key={controlKey(key)}
+        module="./press.tsx"
+        props={{ label, color: c.muted, hover: c.main, ...(key.kind === 'fold' && { scope: foldRowKey(key.id) }) }}
+      />
     )
   const row = (node: RenderNode, indent = 0) => (
     <Box height={1} flexShrink={0} paddingLeft={indent}>
@@ -63,23 +70,22 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     const cfg = config[plugin.id]
     const folded = input.folded[plugin.id] ?? cfg.folded ?? false
     if (gap) sections.push(row(''))
-    const right = (folded ? plugin.summary : plugin.count)?.(data, ui, cfg, width, c)
+    const right = (folded ? plugin.summary : plugin.count)?.(data, ui, cfg, width, c) ?? null
+    // The title and the count or summary are one Client, under the same key
+    // in both focus modes; a click anywhere on it folds the section. Its
+    // `width` leaves the arrow's cell: `flexGrow` alone laid the region out a
+    // cell too wide, into the right padding (checked on 2.1.292).
+    const key = foldRowKey(plugin.id)
     sections.push(
       <Box height={1} flexShrink={0}>
         {control({ kind: 'fold', id: plugin.id }, folded ? '▸' : '▾')}
-        <Text bold color={c.main} wrap="truncate-end">
-          {' '}
-          {plugin.title}
-        </Text>
-        <Box flexGrow={1} justifyContent="flex-end" paddingLeft={1}>
-          {typeof right === 'string' ? (
-            <Text color={c.muted} wrap="truncate-end">
-              {right}
-            </Text>
-          ) : (
-            right
-          )}
-        </Box>
+        <Client
+          key={key}
+          module="./foldrow.tsx"
+          width={width - 1}
+          flexGrow={1}
+          props={{ title: plugin.title, right, main: c.main, muted: c.muted, scope: key }}
+        />
       </Box>,
     )
     gap = !folded

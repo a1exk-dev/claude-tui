@@ -1,11 +1,11 @@
 import type { ElementTable, On, RenderElement } from 'claude-code'
 import { type Engine, expect, test } from 'claude-code/testing'
 
-import type { PressProps } from '../hooks/press'
 import { readConfig } from '../hooks/config'
 import { scrollWindow, sidebar, type SidebarInput } from '../hooks/sidebar'
 import { colors } from '../plugins/colors'
 import type { SidebarPlugin } from '../plugins/plugin'
+import { clientsAsTrees } from './clients'
 
 const header: SidebarPlugin = {
   id: 'git',
@@ -47,19 +47,6 @@ function rows(tree: RenderElement): Row[] {
     .map((child) => ({ text: text(child), props: (child as { props: Record<string, unknown> }).props }))
 }
 
-// A test plugin loads no surface module, so each `press.tsx` Client draws as
-// the Text that module draws.
-function pressAsText(ui: ElementTable): SidebarInput['ui'] {
-  if (!('Client' in ui)) throw new Error('the Sidebar draws on the terminal')
-  return {
-    ...ui,
-    Client: ({ props }) => {
-      const { label, color } = props as PressProps
-      return <ui.Text color={color}>{label}</ui.Text>
-    },
-  }
-}
-
 // Draws `sidebar()` in a test Pane on the terminal surface and returns its root.
 async function draw(
   $: Engine,
@@ -69,7 +56,7 @@ async function draw(
   let maxScroll = -1
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
     const drawn = sidebar({
-      ui: pressAsText($.ui.resolve(e)),
+      ui: clientsAsTrees($.ui.resolve(e)),
       bodyRows: 30,
       bodyColumns: 42,
       plugins: [header, list('mcp', 3), footer],
