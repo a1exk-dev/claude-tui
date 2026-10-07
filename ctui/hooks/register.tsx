@@ -10,7 +10,7 @@ import { parseGit, tildify } from './git'
 import { mcpRows, segmentOf } from './mcp'
 import { inheritGlass, themeFile } from './glass'
 import { picker } from './pickers'
-import { type Control, controlKey, sidebar, type SidebarInput } from './sidebar'
+import { type Control, controlKey, foldRowKey, sidebar, type SidebarInput } from './sidebar'
 import { assistantMessage } from './skin/assistant'
 import { promptLabelRow } from './skin/prompt'
 import { hasToolRow, toolLine, toolRow } from './skin/tool'
@@ -838,12 +838,16 @@ export const register: Register = (on, options) => {
     return drawn.tree
   })
 
-  // A fold arrow's or a list toggle's click (`press.tsx`) by its key.
+  // A fold arrow's or a list toggle's click (`press.tsx`), or a title row's
+  // (`foldrow.tsx`), by its key.
   const controls = new Map<string, Control>(
     enabled
       .filter((plugin) => plugin.slot === 'section')
-      .flatMap((plugin) => (['fold', 'more'] as const).map((kind) => ({ kind, id: plugin.id })))
-      .map((control) => [controlKey(control), control]),
+      .flatMap((plugin) => {
+        const fold: Control = { kind: 'fold', id: plugin.id }
+        const more: Control = { kind: 'more', id: plugin.id }
+        return [[controlKey(fold), fold], [controlKey(more), more], [foldRowKey(plugin.id), fold]] as const
+      }),
   )
   on('ui.message', { component: 'Pane', requestId: SIDEBAR }, async ($, e) => {
     const control = controls.get(e.element)

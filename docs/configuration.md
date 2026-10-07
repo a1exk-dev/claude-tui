@@ -6,7 +6,7 @@ The Sidebar docks only in fullscreen (the `"tui": "fullscreen"` setting or `CLAU
 
 ## Sidebar plugins
 
-The Sidebar shows its Sidebar plugins in this order. Each one has an `<id>_enable` setting, on by default. `/ctui:plugins:enable [plugin]` and `/ctui:plugins:disable [plugin]` write the same setting; with no name they open a list to pick from. The sections, between the header and the footer, can be folded by clicking `▾`. Their `<id>_folded` setting picks the fold each new session (and each `/clear`) starts from.
+The Sidebar shows its Sidebar plugins in this order. Each one has an `<id>_enable` setting, on by default. `/ctui:plugins:enable [plugin]` and `/ctui:plugins:disable [plugin]` write the same setting; with no name they open a list to pick from. The sections, between the header and the footer, fold and unfold when you click anywhere on their title row: the `▾`, the title, the space between, or the count or folded summary at the right. Their `<id>_folded` setting picks the fold each new session (and each `/clear`) starts from.
 
 | Id | Shows | Settings (`/config` title) |
 |---|---|---|

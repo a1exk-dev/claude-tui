@@ -1,6 +1,8 @@
 import type { ConfigRow, ConfigSetInput, On } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
+import { plugins } from '../plugins'
+
 // Scenario: picking a Theme in `/ctui:theme` (MEMORY.md "Sidebar colors
 // inherit the Claude Code theme"). A write reloads the mod with the new
 // `theme` option; the Sidebar then draws with that Theme's role hexes, read
@@ -89,7 +91,7 @@ const pane = ($: Engine, requestId: string) =>
 // The Sidebar, the color of its `Context` title, and its root's background.
 async function sidebar($: Engine) {
   const drawn = await pane($, 'sidebar')
-  const title = (await drawn.find({ type: 'Text', text: /^ ?Context$/ }))?.props.color
+  const title = (await drawn.find({ type: 'Text', text: /^ ?Context$/, in: 'foldrow-context' }))?.props.color
   const root = (await drawn.drawn()) as { props: { backgroundColor?: string } }
   return { drawn, title, background: root.props.backgroundColor }
 }
@@ -128,7 +130,10 @@ test('with a Theme selected the Sidebar draws its role hexes', { options: { them
   expect(title).toBe(EVERFOREST.overrides.text)
   // No Text keeps a role's key name.
   const keys = ['text', 'inactive', 'subtle', 'success', 'warning', 'error', 'suggestion']
-  const colors = (await drawn.findAll({ type: 'Text' })).map((text) => text.props.color)
+  const sections = plugins.filter((plugin) => plugin.slot === 'section')
+  const rows = sections.map(({ id }) => drawn.findAll({ type: 'Text', in: `foldrow-${id}` }))
+  const texts = [...(await drawn.findAll({ type: 'Text' })), ...(await Promise.all(rows)).flat()]
+  const colors = texts.map((text) => text.props.color)
   expect(colors.filter((color) => keys.includes(color as string))).toEqual([])
 })
 

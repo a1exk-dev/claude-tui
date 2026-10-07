@@ -197,8 +197,8 @@ test('session.measure moves the context and limits rows', async ($, on) => {
   // Folded, each section reads its summary.
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-context' })
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-limits' })
-  expect(await pane.find({ text: '9% · $0.21' })).toBeDefined()
-  expect(await pane.find({ text: '5h 34% · wk 81%' })).toBeDefined()
+  expect(await pane.find({ text: '9% · $0.21', in: 'foldrow-context' })).toBeDefined()
+  expect(await pane.find({ text: '5h 34% · wk 81%', in: 'foldrow-limits' })).toBeDefined()
 })
 
 // `/clear` empties `$.state` with no `session.start`; the test empties the
