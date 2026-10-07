@@ -193,7 +193,7 @@ Guidance:
 - ctui draws nothing for the prompt box or the main background. The build spec lists both as known differences from the renders in `docs/design/`: Claude Code's prompt is a `─` rule above and below a `❯` line, with no round box and no "Ask anything", and the transcript shows the terminal's own background.
 - The example CLI theme in `docs/configuration` sets `promptBorder`, the color of the prompt's rules.
 - `docs/configuration` has a "Main background" section: Claude Code shows the terminal's background behind the transcript, so set it to `#0a0a0a` to match the renders. Give a config example for each common terminal (Ghostty, Kitty, Alacritty, WezTerm, foot, iTerm2, Windows Terminal). With a ctui Theme, set it to the Theme's background instead, for the glass look; the section's generated table lists each Theme's mode and background, and the same snippets apply.
-- Don't fake the box in the `AbovePrompt` band, and don't paint ctui's rows with a background.
+- Don't fake the box in the `AbovePrompt` band, and don't paint ctui's main-column rows with a background. The Sidebar body is the one exception, as "Sidebar colors inherit the Claude Code theme" says: one flat color on its root Box, never per-row backgrounds or gradients.
 
 Reason: The human chose this in #20. On 2.1.288 the prompt input is not a render site, and no setting changes its shape or placeholder (the placeholder is Claude Code's own `Try "…"`). The theme key list has no main-background key: the `background` key colors text such as "running" (binary check). An `AbovePrompt` box can't join the input, keeps its text while the person types, and is shared with other mods. Row backgrounds leave stripes between the engine's rows.
 

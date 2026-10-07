@@ -1,7 +1,7 @@
 import type { CommandRunResult, EngineInterface, Register } from 'claude-code'
 
 import { plugins } from '../plugins'
-import { type Colors, colors } from '../plugins/colors'
+import { colors } from '../plugins/colors'
 import type { GitSnapshot, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { deniedText, gated, type Outcome, pluginsOutcome, themeOutcome } from './commands'
 import { type Config, readConfig } from './config'
@@ -9,7 +9,7 @@ import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } fr
 import { parseGit, tildify } from './git'
 import { mcpRows, segmentOf } from './mcp'
 import { picker } from './pickers'
-import { sidebar } from './sidebar'
+import { sidebar, type SidebarInput } from './sidebar'
 import { assistantMessage } from './skin/assistant'
 import { promptLabelRow } from './skin/prompt'
 import { hasToolRow, toolLine, toolRow } from './skin/tool'
@@ -374,12 +374,13 @@ function onNotification($: EngineInterface, text: string) {
 const textOf = (content: readonly { type: string; text?: string }[]) =>
   content.map((block) => (block.type === 'text' ? (block.text ?? '') : '')).join('\n')
 
-// The Sidebar's role colors: under `inherit` each role's theme key, else the
-// selected Theme's overrides from `themes/<slug>.json`.
-async function themeColors($: EngineInterface, theme: string): Promise<Colors> {
-  if (theme === 'inherit') return colors()
-  const file = JSON.parse(await $.fs.read(`${$.plugin.root}/themes/${theme}.json`))
-  return colors(file.overrides)
+// The Sidebar's role colors and background: under `inherit` each role's theme
+// key and no background, else the selected Theme's overrides and its glass,
+// from `themes/<slug>.json`.
+async function themeLook($: EngineInterface, theme: string): Promise<Pick<SidebarInput, 'colors' | 'background'>> {
+  if (theme === 'inherit') return { colors: colors() }
+  const { overrides } = JSON.parse(await $.fs.read(`${$.plugin.root}/themes/${theme}.json`))
+  return { colors: colors(overrides), background: overrides.composerSidebarBackground }
 }
 
 // The manifest's `theme` options: under `claude -p` no `/config` row lists them.
@@ -488,7 +489,7 @@ export const register: Register = (on, options) => {
   // Tasks feed the Sidebar section and the toasts.
   const tracking = needs.has('tasks') || config.agents.toasts
   toastsOn = config.agents.toasts
-  let palette: Promise<Colors> | undefined // read once per load: a `theme` change reloads
+  let look: ReturnType<typeof themeLook> | undefined // read once per load: a `theme` change reloads
 
   on('session.start', async ($, e, next) => {
     await setTodoEnv($, config.todo.tools)
@@ -782,7 +783,7 @@ export const register: Register = (on, options) => {
         tasks: tasks.value,
       },
       config,
-      colors: await (palette ??= themeColors($, config.theme)),
+      ...(await (look ??= themeLook($, config.theme))),
       folded: folded.value ?? {},
       expanded: expanded.value ?? {},
       scroll: scroll.value ?? 0,

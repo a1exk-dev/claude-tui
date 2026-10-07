@@ -86,11 +86,12 @@ const pane = ($: Engine, requestId: string) =>
     },
   })
 
-// The Sidebar and the color of its `Context` title.
+// The Sidebar, the color of its `Context` title, and its root's background.
 async function sidebar($: Engine) {
   const drawn = await pane($, 'sidebar')
   const title = (await drawn.find({ type: 'Text', text: /^ ?Context$/ }))?.props.color
-  return { drawn, title }
+  const root = (await drawn.drawn()) as { props: { backgroundColor?: string } }
+  return { drawn, title, background: root.props.backgroundColor }
 }
 
 test('a typed slug writes the theme and prints nothing', async ($, on) => {
@@ -135,6 +136,18 @@ test('under inherit the Sidebar draws with key names', async ($, on) => {
   mock.clock(on)
   files(on)
   expect((await sidebar($)).title).toBe('text')
+})
+
+test("with a Theme selected the Sidebar's root paints the Theme's glass", { options: { theme: 'everforest' } }, async ($, on) => {
+  mock.clock(on)
+  files(on)
+  expect((await sidebar($)).background).toBe(EVERFOREST.overrides.composerSidebarBackground)
+})
+
+test('under inherit the Sidebar paints no background', async ($, on) => {
+  mock.clock(on)
+  files(on)
+  expect((await sidebar($)).background).toBeUndefined()
 })
 
 test('an unknown slug lists the options', async ($, on) => {
