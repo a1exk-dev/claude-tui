@@ -130,8 +130,8 @@ test('a wheel tick scrolls the sections and the engine’s window stays', async 
     requestId: 'sidebar',
     offset: 1,
     by: 1,
-    bodyRows: 6,
-    contentRows: 6,
+    bodyRows: 8,
+    contentRows: 8,
     origin: { kind: 'person' },
   })
   expect(moved).toEqual({})
@@ -207,8 +207,9 @@ test('a title row lights as one with its fold arrow', async ($) => {
 })
 
 test('after a wheel tick, a click on a moved title folds that section', async ($) => {
-  // 6 body rows leave 4 for the 5 section headers; a tick drops Context.
-  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 6) })
+  // 8 body rows leave 6 for the sections, each title after the first 2.83
+  // rows with its spacers; a tick drops Context.
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 8) })
   const titles = async () =>
     (await pane.findAll({ type: 'Client' })).map((client) => client.key).filter((key) => key?.startsWith('foldrow-'))
   await $.ui.scroll({
@@ -216,8 +217,8 @@ test('after a wheel tick, a click on a moved title folds that section', async ($
     requestId: 'sidebar',
     offset: 1,
     by: 1,
-    bodyRows: 6,
-    contentRows: 6,
+    bodyRows: 8,
+    contentRows: 8,
     origin: { kind: 'person' },
   })
   await pane.redraw()
