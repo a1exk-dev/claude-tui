@@ -27,11 +27,15 @@ const MEASURED: Usage = {
 // A section row is 36 cells wide at the Sidebar's 42 columns.
 const WIDTH = 36
 
+// The `limits` settings as `readConfig` regroups them, `limits_cost` on.
+const CFG = { enable: true, cost: true }
+const NO_COST = { enable: true, cost: false }
+
 // Draws one plugin's view rows in a test Pane, as the Sidebar does.
-async function draw($: Engine, on: On, plugin: SidebarPlugin, data: SidebarData) {
+async function draw($: Engine, on: On, plugin: SidebarPlugin, data: SidebarData, cfg = CFG, width = WIDTH) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
     const ui = $.ui.resolve(e)
-    return <ui.Box flexDirection="column">{plugin.view(data, ui, { enable: true }, WIDTH, colors())}</ui.Box>
+    return <ui.Box flexDirection="column">{plugin.view(data, ui, cfg, width, colors())}</ui.Box>
   })
   return $.ui.mount({
     plugin: 'test',
@@ -65,11 +69,11 @@ async function barOf(pane: Pane, percent: RegExp) {
   }
 }
 
-test('context draws the fill bar, tokens and cost', async ($, on) => {
+test('context draws the fill bar and tokens, and no cost', async ($, on) => {
   const pane = await draw($, on, context, { usage: MEASURED })
   expect(await barOf(pane, /9%$/)).toEqual({ filled: 3, empty: 28, colors: ['success', 'subtle', 'text'] })
   expect((await pane.find({ type: 'Text', text: '18,402 / 200k tokens' }))?.props.color).toBe('inactive')
-  expect((await pane.find({ type: 'Text', text: '$0.21' }))?.props.color).toBe('inactive')
+  expect(await pane.find({ text: /\$/ })).toBeUndefined()
 })
 
 test('before the first response context reads 0%', async ($, on) => {
@@ -113,19 +117,59 @@ test('a spend limit past 100 draws a full bar in error; no reset time, no reset 
   expect(await pane.find({ text: /resets/ })).toBeUndefined()
 })
 
-test('with no windows limits says so', async ($, on) => {
+// The cost row: `cost` in the label column, the value right-aligned with the percents.
+async function costRow(pane: Pane) {
+  const row = await pane.find({ type: 'Text', text: /^cost/ })
+  const value = (row?.children ?? []).at(-1) as { props: { color?: string }; children: string[] } | undefined
+  return { text: row?.text, colors: [row?.props.color, value?.props.color] }
+}
+
+for (const [columns, width] of [
+  [42, 36],
+  [53, 47],
+] as const) {
+  test(`at ${columns} columns the cost row ends limits, its value under the percents`, async ($, on) => {
+    const pane = await draw($, on, limits, { usage: MEASURED, now: NOW }, CFG, width)
+    const rows = await pane.findAll({ type: 'Text', text: /^(5h|week|cost|\s+resets)/ })
+    expect(rows.at(-1)?.text).toMatch(/^cost/)
+    expect(await costRow(pane)).toEqual({
+      text: 'cost'.padEnd(width - 5) + '$0.21',
+      colors: ['text', 'inactive'],
+    })
+    expect((await pane.find({ type: 'Text', text: /34%$/ }))?.text).toHaveLength(width)
+  })
+}
+
+test('with no windows the cost row alone replaces no limits reported', async ($, on) => {
   const pane = await draw($, on, limits, { usage: FRESH, now: NOW })
-  const row = await pane.find({ type: 'Text', text: 'no limits reported' })
-  expect(row?.props.color).toBe('inactive')
+  expect((await costRow(pane)).text).toBe('cost'.padEnd(WIDTH - 5) + '$0.00')
+  expect(await pane.find({ text: 'no limits reported' })).toBeUndefined()
+})
+
+for (const [name, usage, cfg] of [
+  ['no cost reported', { ...FRESH, cost: undefined }, CFG],
+  ['limits_cost off', FRESH, NO_COST],
+] as const) {
+  test(`with no windows and ${name} limits says so`, async ($, on) => {
+    const pane = await draw($, on, limits, { usage, now: NOW }, cfg)
+    const row = await pane.find({ type: 'Text', text: 'no limits reported' })
+    expect(row?.props.color).toBe('inactive')
+    expect(await pane.find({ text: /^cost/ })).toBeUndefined()
+  })
+}
+
+test('with limits_cost off the windows show without a cost row', async ($, on) => {
+  const pane = await draw($, on, limits, { usage: MEASURED, now: NOW }, NO_COST)
+  expect(await pane.find({ text: /^5h/ })).toBeDefined()
+  expect(await pane.find({ text: /^cost|\$/ })).toBeUndefined()
 })
 
 test('folded summaries', () => {
   const ui = {} as never
-  const cfg = { enable: true }
-  expect(context.summary?.({ usage: MEASURED }, ui, cfg, WIDTH, colors())).toBe('9% · $0.21')
-  expect(context.summary?.({ usage: FRESH }, ui, cfg, WIDTH, colors())).toBe('0% · $0.00')
-  expect(limits.summary?.({ usage: MEASURED }, ui, cfg, WIDTH, colors())).toBe('5h 34% · wk 81%')
-  expect(limits.summary?.({ usage: FRESH }, ui, cfg, WIDTH, colors())).toBeUndefined()
+  expect(context.summary?.({ usage: MEASURED }, ui, CFG, WIDTH, colors())).toBe('9%')
+  expect(context.summary?.({ usage: FRESH }, ui, CFG, WIDTH, colors())).toBe('0%')
+  expect(limits.summary?.({ usage: MEASURED }, ui, CFG, WIDTH, colors())).toBe('5h 34% · wk 81%')
+  expect(limits.summary?.({ usage: FRESH }, ui, CFG, WIDTH, colors())).toBeUndefined()
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.
@@ -174,17 +218,17 @@ test('session.measure moves the context and limits rows', async ($, on) => {
   const pane = await $.ui.mount(SIDEBAR)
   expect(await pane.find({ type: 'Text', text: /^─+ +0%$/ })).toBeDefined()
   expect(await pane.find({ text: '0 / 200k tokens' })).toBeDefined()
-  expect(await pane.find({ text: 'no limits reported' })).toBeDefined()
+  expect(await pane.find({ text: /^cost +\$0\.00$/ })).toBeDefined()
+  expect(await pane.find({ text: 'no limits reported' })).toBeUndefined()
 
   const measured: SessionMeasureInput = { ...MEASURED, changed: ['context', 'rateLimits', 'cost'] }
   await $.session.measure(measured)
   await pane.redraw()
   expect(await pane.find({ type: 'Text', text: /^━+─+ +9%$/ })).toBeDefined()
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()
-  expect(await pane.find({ text: '$0.21' })).toBeDefined()
   expect(await pane.find({ text: /^5h +━+─+ +34%$/ })).toBeDefined()
   expect(await pane.find({ text: /resets in 2h 17m$/ })).toBeDefined()
-  expect(await pane.find({ text: 'no limits reported' })).toBeUndefined()
+  expect(await pane.find({ text: /^cost +\$0\.21$/ })).toBeDefined()
 
   // The reset times count down with the tick, to the second.
   await clock.advance(30_000)
@@ -197,8 +241,19 @@ test('session.measure moves the context and limits rows', async ($, on) => {
   // Folded, each section reads its summary.
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-context' })
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-limits' })
-  expect(await pane.find({ text: '9% · $0.21', in: 'foldrow-context' })).toBeDefined()
+  expect(await pane.find({ text: '9%', in: 'foldrow-context' })).toBeDefined()
   expect(await pane.find({ text: '5h 34% · wk 81%', in: 'foldrow-limits' })).toBeDefined()
+  expect(await pane.find({ text: /\$/ })).toBeUndefined()
+})
+
+test('with Limits cost off in /config, Limits draws no cost row', { options: { limits_cost: false } }, async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  host(on, { startedAt: NOW, ...MEASURED })
+  await $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  const pane = await $.ui.mount(SIDEBAR)
+  expect(await pane.find({ text: /^5h +━+─+ +34%$/ })).toBeDefined()
+  expect(await pane.find({ text: /^cost|\$/ })).toBeUndefined()
 })
 
 // `/clear` empties `$.state` with no `session.start`; the test empties the

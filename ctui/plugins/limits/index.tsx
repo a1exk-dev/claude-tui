@@ -1,8 +1,9 @@
-import { bar, formatPercent, formatReset, level } from '../../hooks/format'
+import { bar, formatPercent, formatReset, formatUsd, level } from '../../hooks/format'
 import type { Usage } from '../../types'
 import type { SidebarPlugin } from '../plugin'
 
-// Each rate-limit window: label, bar and percent, then when it resets.
+// Each rate-limit window: label, bar and percent, then when it resets. With
+// `limits_cost` on, the session cost ends the section, under the percents.
 const WINDOWS: Record<string, { label: string; short: string }> = {
   five_hour: { label: '5h', short: '5h' },
   seven_day: { label: 'week', short: 'wk' },
@@ -20,10 +21,19 @@ const plugin: SidebarPlugin = {
   title: 'Limits',
   slot: 'section',
   needs: ['usage', 'now'],
-  view: ({ usage, now }, { Text }, _cfg, width, c) => {
+  view: ({ usage, now }, { Text }, cfg, width, c) => {
     if (!usage) return []
-    if (!usage.rateLimits.length) return [<Text color={c.muted}>no limits reported</Text>]
-    return sorted(usage).flatMap(({ kind, percentUsed, resetsAt }) => {
+    const usd = cfg.cost && usage.cost && formatUsd(usage.cost.usd)
+    const costRow = usd
+      ? [
+          <Text color={c.main}>
+            {'cost'.padEnd(width - usd.length)}
+            <Text color={c.muted}>{usd}</Text>
+          </Text>,
+        ]
+      : []
+    if (!usage.rateLimits.length) return costRow.length ? costRow : [<Text color={c.muted}>no limits reported</Text>]
+    const windows = sorted(usage).flatMap(({ kind, percentUsed, resetsAt }) => {
       const cells = bar(percentUsed, width - LABEL_WIDTH - 5)
       return [
         <Text color={c.main}>
@@ -42,6 +52,7 @@ const plugin: SidebarPlugin = {
           : []),
       ]
     })
+    return [...windows, ...costRow]
   },
   summary: ({ usage }) =>
     usage?.rateLimits.length
