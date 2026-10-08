@@ -54,6 +54,8 @@ function rows(tree: RenderElement): Row[] {
 const B = 1
 // The `─` rule between two sections, the body width at 42 columns.
 const R = '─'.repeat(38)
+// The `═` double rule under the git header, with a blank row on each side (#135).
+const D = '═'.repeat(38)
 function layout(tree: RenderElement): (string | number)[] {
   const root = tree as unknown as { children: ({ props: { height?: number }; children?: unknown[] } | null)[] }
   const all = root.children.filter((child) => child !== null)
@@ -115,7 +117,9 @@ test('header, sections and the footer on the last row', async ($, on) => {
   expect(layout(tree)).toEqual([
     '~/x',
     '⎇ main',
-    '',
+    B,
+    D,
+    B,
     '▼ mcp:3',
     B,
     'mcp 1',
@@ -126,7 +130,7 @@ test('header, sections and the footer on the last row', async ($, on) => {
     'claude-cli 2.1.288',
   ])
   // The flexible space before the footer pushes it to the last row.
-  expect(rows(tree)[8]?.props).toEqual({ flexGrow: 1 })
+  expect(rows(tree)[10]?.props).toEqual({ flexGrow: 1 })
   expect(maxScroll).toBe(0)
 })
 
@@ -164,7 +168,18 @@ test('one section, expanded, has no rule', async ($, on) => {
 
 test('one section, folded, has no rule above or below it', async ($, on) => {
   const { tree } = await draw($, on, { folded: { mcp: true } })
-  expect(layout(tree)).toEqual(['~/x', '⎇ main', '', '▶\uFE0E mcp:sum 3', '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
+  expect(layout(tree)).toEqual(['~/x', '⎇ main', B, D, B, '▶\uFE0E mcp:sum 3', '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
+})
+
+// #135: the double rule shows only when the header and a section both show.
+test('no double rule without a header', async ($, on) => {
+  const { tree } = await draw($, on, { plugins: [list('mcp', 1), footer] })
+  expect(layout(tree)).toEqual(['▼ mcp:1', B, 'mcp 1', '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
+})
+
+test('no double rule without sections', async ($, on) => {
+  const { tree } = await draw($, on, { plugins: [header, footer] })
+  expect(layout(tree)).toEqual(['~/x', '⎇ main', '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
 })
 
 for (const [columns, cells] of [
@@ -174,6 +189,11 @@ for (const [columns, cells] of [
   test(`a rule is the body width, ${cells} cells at ${columns} columns`, async ($, on) => {
     const { tree } = await draw($, on, { plugins: three, folded: { mcp: true }, bodyColumns: columns })
     expect(layout(tree)[1]).toBe('─'.repeat(cells))
+  })
+
+  test(`the double rule is the body width, ${cells} cells at ${columns} columns`, async ($, on) => {
+    const { tree } = await draw($, on, { bodyColumns: columns })
+    expect(layout(tree)[3]).toBe('═'.repeat(cells))
   })
 }
 
@@ -214,40 +234,50 @@ test('a list of 4 has no toggle', async ($, on) => {
 })
 
 test('sections taller than the free rows scroll in a window', async ($, on) => {
-  // 12 body rows: 2 padding, 2 header, 1 gap, 1 gap, 2 footer leave 4 for 6 section rows.
+  // 14 body rows: 2 padding, 2 header, 3 under it, 1 gap, 2 footer leave 4 for 6 section rows.
   const plugins = [header, list('mcp', 4), footer]
-  const top = await draw($, on, { plugins, bodyRows: 12 })
+  const top = await draw($, on, { plugins, bodyRows: 14 })
   // From `mcp 2` (stop 2) the rest fits under `↑ more`.
   expect(top.maxScroll).toBe(2)
   // 4 free rows: `↓ more` leaves 3, which hold the title, its spacer and `mcp 1`.
-  expect(layout(top.tree).slice(3, 8)).toEqual(['▼ mcp:4', B, 'mcp 1', '↓ more', ''])
+  expect(windowOf(layout(top.tree))).toEqual(['▼ mcp:4', B, 'mcp 1', '↓ more'])
+  // The footer stays on the last row: the rows fill the body, the flexible
+  // space taking the footer's gap.
   expect(rows(top.tree).at(-1)?.text).toBe('claude-cli 2.1.288')
+  expect(height(layout(top.tree))).toBe(14 - 2)
 })
 
 test('scrolled to the end, only ↑ more shows', async ($, on) => {
   const plugins = [header, list('mcp', 4), footer]
-  const end = await draw($, on, { plugins, bodyRows: 12, scroll: 99 })
-  expect(layout(end.tree).slice(3, 8)).toEqual(['↑ more', 'mcp 2', 'mcp 3', 'mcp 4', ''])
+  const end = await draw($, on, { plugins, bodyRows: 14, scroll: 99 })
+  expect(windowOf(layout(end.tree))).toEqual(['↑ more', 'mcp 2', 'mcp 3', 'mcp 4'])
 })
+
+for (const scroll of [1, 99]) {
+  test(`scrolled to ${scroll}, the header, its double rule and blank rows stay put`, async ($, on) => {
+    const { tree } = await draw($, on, { plugins: [header, list('mcp', 4), footer], bodyRows: 14, scroll })
+    expect(layout(tree).slice(0, 6)).toEqual(['~/x', '⎇ main', B, D, B, '↑ more'])
+  })
+}
 
 // #130: a title's stop holds the blank row and the rule above it.
 const two = [header, list('mcp', 2), list('todo', 2), footer]
 
 test('a title at the top keeps its blank row and rule under ↑ more', async ($, on) => {
-  // 14 body rows: 2 padding, 2 header, 1 gap, 1 gap, 2 footer leave 6 for 10 section rows.
-  const { tree, maxScroll } = await draw($, on, { plugins: two, bodyRows: 14, scroll: 3 })
+  // 16 body rows: 2 padding, 2 header, 3 under it, 1 gap, 2 footer leave 6 for 10 section rows.
+  const { tree, maxScroll } = await draw($, on, { plugins: two, bodyRows: 16, scroll: 3 })
   expect(maxScroll).toBe(4)
   expect(windowOf(layout(tree))).toEqual(['↑ more', B, R, '▼ todo:2', B, '↓ more'])
 })
 
 test('the window never ends on a rule or the blank row before it', async ($, on) => {
   // 6 free rows: `↓ more` leaves 5, which hold mcp (4 rows) but not todo's 4.
-  const { tree } = await draw($, on, { plugins: two, bodyRows: 14 })
+  const { tree } = await draw($, on, { plugins: two, bodyRows: 16 })
   expect(windowOf(layout(tree))).toEqual(['▼ mcp:2', B, 'mcp 1', 'mcp 2', '↓ more'])
 })
 
 test('scrolled to the end past a rule, only ↑ more shows', async ($, on) => {
-  const { tree } = await draw($, on, { plugins: two, bodyRows: 14, scroll: 99 })
+  const { tree } = await draw($, on, { plugins: two, bodyRows: 16, scroll: 99 })
   expect(windowOf(layout(tree))).toEqual(['↑ more', 'todo 1', 'todo 2'])
 })
 
@@ -272,29 +302,29 @@ const BUSY: SidebarData = {
   versions: { ctui: '0.3.0', claude: '2.1.292' },
 }
 
-// The sections window: from after the header's gap to the flexible space before the footer.
-const windowOf = (sizes: (string | number)[]) => sizes.slice(sizes.indexOf('') + 1, sizes.lastIndexOf(''))
+// The sections window: from after the double rule's blank row to the flexible space before the footer.
+const windowOf = (sizes: (string | number)[]) => sizes.slice(sizes.indexOf(D) + 2, sizes.lastIndexOf(''))
 const busy = ($: Engine, on: On, scroll: number) => draw($, on, { plugins, data: BUSY, bodyRows: 34, scroll })
 
-test("#85's busy data at 34 body rows: 37 section rows overflow 26 free rows", async ($, on) => {
+test("#85's busy data at 34 body rows: 37 section rows overflow 24 free rows", async ($, on) => {
   const top = await busy($, on, 0)
   const window = windowOf(layout(top.tree))
-  // `↓ more` leaves 25 rows, which hold Context, Limits and MCP (22 rows) but
+  // `↓ more` leaves 23 rows, which hold Context, Limits and MCP (22 rows) but
   // not Todo's blank row, rule, title and spacer (4 more).
   expect(window.slice(-4)).toEqual(['● server 23 tools', '● server 33 tools', '▸ 3 more', '↓ more'])
   expect(height(window)).toBe(23)
   expect(window.filter((size) => size === B)).toHaveLength(5)
   expect(window.filter((size) => size === R)).toHaveLength(2)
-  // One stop per row: from Limits' last row (stop 8) the rest, 25 rows, fills
-  // the 25 under `↑ more`; from its row before it is 26.
-  expect(top.maxScroll).toBe(8)
+  // One stop per row: from MCP's first row (stop 10) the rest, 20 rows, fits
+  // the 23 under `↑ more`; from MCP's title stop (4 rows) before it is 24.
+  expect(top.maxScroll).toBe(10)
 })
 
 test("#85's busy data scrolled to the end", async ($, on) => {
   const window = windowOf(layout((await busy($, on, 99)).tree))
-  expect(window.slice(0, 5)).toEqual(['↑ more', 'spend ━────────────────────────   5%', B, R, '▼ MCP:7/7'])
+  expect(window.slice(0, 2)).toEqual(['↑ more', '● server 03 tools'])
   expect(window.at(-1)).toBe('◐ Plan · plan0s')
-  expect(height(window)).toBe(26)
+  expect(height(window)).toBe(21)
 })
 
 test('scrollWindow marks hidden rows on both sides', () => {

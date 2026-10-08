@@ -154,13 +154,18 @@ test('a rule between every two sections draws faint across the body', async ($, 
   expect(colorOf(all, '─'.repeat(38))).toEqual(Array(4).fill('subtle'))
 })
 
+test('the double rule under the git header draws faint across the body', async ($, on) => {
+  const { runs: all } = await draw($, on)
+  expect(colorOf(all, '═'.repeat(38))).toEqual(['subtle'])
+})
+
 test('a section header draws its count muted', async ($, on) => {
   const { runs: all } = await draw($, on)
   expect(colorOf(all, '1/2')).toEqual(['inactive'])
 })
 
 test('scroll marks draw muted', async ($, on) => {
-  const { runs: all } = await draw($, on, { bodyRows: 12, scroll: 2 })
+  const { runs: all } = await draw($, on, { bodyRows: 14, scroll: 2 })
   expect(colorOf(all, '↑ more')).toEqual(['inactive'])
   expect(colorOf(all, '↓ more')).toEqual(['inactive'])
 })
@@ -187,6 +192,7 @@ test("a Theme's overrides reach every role", async ($, on) => {
   expect(colorOf(all, 'Context:')).toEqual(['#d3c6aa'])
   expect(colorOf(all, '⎇')).toEqual(['#918c7e'])
   expect(colorOf(all, '│')).toEqual(['#475258'])
+  expect(colorOf(all, '═'.repeat(38))).toEqual(['#475258'])
   expect(colorOf(all, '▼')).toEqual(Array(5).fill('#918c7e'))
   expect(all.some((run) => ['text', 'inactive', 'subtle'].includes(run.color ?? ''))).toBe(false)
 })

@@ -14,7 +14,8 @@
   were first drawn in: 8.4px columns, 20.25px rows. The Sidebar's spacing is in
   whole rows, as Claude Code lays it out: a faint `─` rule across the body
   between every two sections, 1 row under an expanded title and 1 row after an
-  expanded section before the rule, none after a folded one.
+  expanded section before the rule, none after a folded one. A faint `═` rule
+  with 1 blank row on each side parts the git header from the sections.
 -->
 <html lang="en">
 <head>
@@ -95,7 +96,7 @@
     position: absolute; left: 17px; width: calc(38 * var(--col)); top: 36.5px; bottom: 9px;
     display: flex; flex-direction: column;
   }
-  .sections { flex: 1; overflow: hidden; }
+  .fill { flex: 1; }
   .gap { height: var(--row); }
   .indent { padding-left: calc(2 * var(--col)); }
   .more { text-align: right; }
@@ -188,27 +189,38 @@
   const CAP = 4
   // The `─` rule between two sections, across the body's 38 columns.
   const RULE = row(span('f', '─'.repeat(38)))
+  // The sections window's rows above `↓ more`: 37 body rows less the header
+  // (4), the double rule's 3, `↓ more`, the footer's gap and the footer (2).
+  const ROOM = 37 - 4 - 3 - 1 - 1 - 2
 
+  // The sections as scroll stops, as `sidebar()` builds them: a title's stop
+  // holds the blank row and rule before it and its own blank row. With
+  // `↓ more`, only the stops that fit `ROOM` whole show.
   function sections(render) {
-    let html = ''
+    const stops = []
     let previous = 'none'
     for (const section of SECTIONS) {
       const expanded = render.expanded.includes(section.id)
-      if (previous === 'expanded') html += '<div class="gap"></div>'
-      if (previous !== 'none') html += RULE
+      let title = ''
+      let height = 1
+      if (previous === 'expanded') (title += '<div class="gap"></div>'), height++
+      if (previous !== 'none') (title += RULE), height++
       previous = expanded ? 'expanded' : 'folded'
       const right = expanded ? (section.count ?? '') : section.summary
-      html += split(`${span('m', expanded ? '▼' : '▶\uFE0E')} <b>${section.title}:</b>`, right)
+      title += split(`${span('m', expanded ? '▼' : '▶\uFE0E')} <b>${section.title}:</b>`, right)
+      if (expanded) (title += '<div class="gap"></div>'), height++
+      stops.push({ html: title, height })
       if (!expanded) continue
-      html += '<div class="gap"></div>'
       let body = section.body ? section.body() : section.list
       if (section.list) {
         if (render.lists?.includes(section.id)) body = [...body, row(span('m', '▾ show less'))]
         else if (body.length > CAP) body = [...body.slice(0, CAP), row(span('m', `▸ ${body.length - CAP} more`))]
       }
-      html += `<div class="indent">${body.join('')}</div>`
+      stops.push(...body.map((html) => ({ html: `<div class="indent">${html}</div>`, height: 1 })))
     }
-    return html
+    let used = 0
+    const shown = render.more ? stops.filter((stop) => (used += stop.height) <= ROOM) : stops
+    return shown.map((stop) => stop.html).join('')
   }
 
   const TRANSCRIPT = `
@@ -250,8 +262,11 @@
           ${row(`⇡2  ⇣0  ${span('g', '+1')}  ${span('o', '!3')}  ${span('m', '?2')}  ${span('v', '≡1')}`)}
           ${row(`${span('g', '+24')} ${span('r', '-1')} ${span('m', 'lines changed')}`)}
           ${row('')}
-          <div class="sections">${sections(render)}</div>
+          ${row(span('f', '═'.repeat(38)))}
+          ${row('')}
+          ${sections(render)}
           ${render.more ? row(span('m', '↓ more'), 'more') : ''}
+          <div class="fill"></div>
           ${row('')}
           ${split(`${span('m', 'claude-tui')} 0.1.1<i class="rule"></i>`, `${span('m', 'opencode')} 1.0`)}
           ${row(`${span('m', 'claude-cli')} 2.1.288`)}
