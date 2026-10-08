@@ -1,0 +1,192 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway (#151): how does the `limits` section look with the month cost row?
+  Three variants, switchable with ←/→ (or ?variant=A..C); `c` flips 42 / 53 columns (?cols=),
+  `t` flips inherit / Tokyo Night (?paint=). Each page draws the section in every case it
+  can take, folded and expanded, the way ctui lays it out: `▶ Limits:` with the summary in
+  muted at the right; expanded, a blank row, then the body indented 2 columns, each bar row
+  `label` padded to 6, a bar, the percent in 5 columns, and a muted line under it.
+  Fixed by earlier tickets: cost row first, its muted line `$62.00 of $100`, over the limit a
+  full error bar and the real percent, `limits_cost_monthly: 0` shows the total with no bar.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Limits cost row</title>
+<style>
+  :root { --row: 20.25px; --col: 8.4px; }
+  .inherit { --text: #eeeeee; --inactive: #808080; --subtle: #484848; --success: #7fd88f; --warning: #f5a742; --error: #e06c75; --pane: #141414; }
+  .tokyo { --text: #a9b1d6; --inactive: #707590; --subtle: #414868; --success: #b9f27c; --warning: #e0af68; --error: #f7768e; --pane: #232431; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #050505; color: #ccc; }
+  body { font: 14px/var(--row) 'JetBrainsMono Nerd Font', monospace; font-variant-ligatures: none; -webkit-font-smoothing: antialiased; padding: 20px 20px 90px; }
+  h1 { font-size: 16px; color: #eee; margin-bottom: 4px; }
+  .about { color: #999; max-width: 1200px; margin-bottom: 18px; white-space: normal; }
+  .grid { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+  .cap { color: #999; font-size: 12px; margin-bottom: 4px; white-space: normal; }
+  .panel { background: var(--pane); color: var(--text); padding: var(--row) calc(2 * var(--col)); border-left: 1px solid #2a2a2a; }
+  .row { height: var(--row); white-space: pre; overflow: hidden; }
+  .split { display: flex; justify-content: space-between; }
+  .split > span:first-child { flex-shrink: 0; }
+  /* The right side truncates with `…`, as ctui's Text wrap="truncate-end" does. */
+  .split > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .title > span:last-child { padding-left: var(--col); }
+  .indent { padding-left: calc(2 * var(--col)); }
+  .t { color: var(--text); } .i { color: var(--inactive); } .s { color: var(--subtle); }
+  .success { color: var(--success); } .warning { color: var(--warning); } .error { color: var(--error); }
+  b { font-weight: 700; }
+  #switcher {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center;
+    background: #fff; color: #111; border-radius: 999px; padding: 6px 10px; box-shadow: 0 4px 18px rgba(0,0,0,.6);
+    font: 13px system-ui, sans-serif;
+  }
+  #switcher button { border: 0; background: #e8e8e8; border-radius: 999px; padding: 5px 11px; font: inherit; cursor: pointer; }
+  #switcher .label { min-width: 260px; text-align: center; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="page"></div>
+<div id="switcher">
+  <button id="prev">←</button><span class="label" id="label"></span><button id="next">→</button>
+  <button id="cols"></button><button id="paint"></button>
+</div>
+<script>
+  const span = (cls, text) => `<span class="${cls}">${text}</span>`
+  const row = (html, cls = '') => `<div class="row ${cls}">${html}</div>`
+  const split = (left, right, cls = '') => row(`<span>${left}</span><span>${right}</span>`, `split ${cls}`)
+  const level = (p) => (p < 60 ? 'success' : p < 85 ? 'warning' : 'error')
+  const usd = (n) => `$${n.toFixed(2)}`
+  const dollars = (n) => `$${Math.round(n)}`
+  const pct = (p) => `${Math.round(p)}%`
+  const meter = (p, n) => {
+    const filled = Math.round((n * Math.min(Math.max(p, 0), 100)) / 100)
+    return span(level(p), '━'.repeat(filled)) + span('s', '─'.repeat(n - filled))
+  }
+
+  // The cases the section can take. Rows in display order: the cost row first.
+  // A cost row has `usd` and `limit` (0 = no limit); a window has `p` and `reset`.
+  const FIVE = { kind: '5h', short: '5h', p: 34, reset: 'resets in 2h 17m' }
+  const WEEK = { kind: 'week', short: 'wk', p: 81, reset: 'resets in 3d 4h, Mon 09:00' }
+  const SPEND = { kind: 'spend', short: 'spend', p: 41, reset: 'resets in 23d 14h, Sun 02:00' }
+  const cost = (u, limit = 100) => ({ kind: 'cost', usd: u, limit, p: limit ? (u / limit) * 100 : undefined })
+  const CASES = [
+    { name: 'Plan, cost auto (hidden)', note: 'today\'s look, the baseline', rows: [FIVE, WEEK] },
+    { name: 'Plan, limits_cost: on', note: 'windows and the cost row', rows: [cost(62), FIVE, WEEK] },
+    { name: 'API key', note: 'the cost row is the only row', rows: [cost(12.3)] },
+    { name: 'API key, over the limit', note: '$134 of $100', rows: [cost(134)] },
+    { name: 'API key, no limit', note: 'limits_cost_monthly: 0', rows: [cost(62, 0)] },
+    { name: 'Plan + on, no limit', note: 'limits_cost_monthly: 0', rows: [cost(62, 0), FIVE, WEEK] },
+    { name: 'Gateway', note: 'cost row first, then spend', rows: [cost(62), SPEND] },
+  ]
+
+  // A window's or a limited cost row's bar row, then its muted line, as ctui draws them.
+  const barRows = (label, p, under, w) => [
+    row(`${label.padEnd(6)}${meter(p, w - 11)}${pct(p).padStart(5)}`),
+    row(span('i', `${' '.repeat(6)}${under}`)),
+  ]
+  const windowRows = (r, w) => barRows(r.kind, r.p, r.reset, w)
+
+  const VARIANTS = {
+    A: {
+      name: 'Rows in order',
+      about: 'Folded: every row\'s short label and percent, in row order, all in muted; the cost row reads `cost 62%`, or `cost $62.00` with no limit. On a plan it looks like today; the cost row adds a `cost` entry in front. No-limit row expanded: today\'s `cost` row, the total at the right in muted, then a muted line `this month`.',
+      summary: (rows) => span('i', rows.map((r) => r.kind === 'cost'
+        ? (r.limit ? `cost ${pct(r.p)}` : `cost ${usd(r.usd)}`)
+        : `${r.short} ${pct(r.p)}`).join(' · ')),
+      cost: (r, w) => r.limit
+        ? barRows('cost', r.p, `${usd(r.usd)} of ${dollars(r.limit)}`, w)
+        : [split('cost', span('i', usd(r.usd))), row(span('i', `${' '.repeat(6)}this month`))],
+    },
+    B: {
+      name: 'Dollars for the cost',
+      about: 'Folded: the cost row shows as dollars, never a percent, so it can\'t be mistaken for a window: `$62 of $100 · 5h 34% · wk 81%` on a plan with `on`, `$12.30 of $100` alone on an API key, `$62.00` with no limit. Windows stay `5h 34%`. No-limit row expanded: one row, `cost` then the total in main at the right, no muted line.',
+      summary: (rows) => {
+        const costs = rows.filter((r) => r.kind === 'cost')
+        const windows = rows.filter((r) => r.kind !== 'cost')
+        const money = costs.map((r) => r.limit
+          ? (windows.length ? `${dollars(r.usd)} of ${dollars(r.limit)}` : `${usd(r.usd)} of ${dollars(r.limit)}`)
+          : usd(r.usd))
+        return span('i', [...money, ...windows.map((r) => `${r.short} ${pct(r.p)}`)].join(' · '))
+      },
+      cost: (r, w) => r.limit
+        ? barRows('cost', r.p, `${usd(r.usd)} of ${dollars(r.limit)}`, w)
+        : [split('cost', usd(r.usd))],
+    },
+    C: {
+      name: 'Colored, cost as a mini bar',
+      about: 'Folded: each percent takes its bar\'s color (success / warning / error), so a section near a limit shows it folded. With windows, the list as today plus `cost 62%` in front. With the cost row alone (API key), a 10-cell mini bar and the percent, so it reads like a meter rather than a list; with no limit, `$62.00 this month`. No-limit row expanded: `cost`, the total in main, then a muted line `this month, no limit`.',
+      summary: (rows) => {
+        if (rows.length === 1 && rows[0].kind === 'cost') {
+          const r = rows[0]
+          return r.limit ? `${meter(r.p, 10)} ${span(level(r.p), pct(r.p))}` : `${usd(r.usd)}${span('i', ' this month')}`
+        }
+        return rows.map((r) => r.kind === 'cost' && !r.limit
+          ? `${span('i', 'cost ')}${usd(r.usd)}`
+          : `${span('i', `${r.kind === 'cost' ? 'cost' : r.short} `)}${span(level(r.p), pct(r.p))}`).join(span('i', ' · '))
+      },
+      cost: (r, w) => r.limit
+        ? barRows('cost', r.p, `${usd(r.usd)} of ${dollars(r.limit)}`, w)
+        : [split('cost', usd(r.usd)), row(span('i', `${' '.repeat(6)}this month, no limit`))],
+    },
+    D: {
+      name: 'Human\'s pointers: `62$`, empty bar with no limit',
+      about: 'From the human (2026-10-08). Folded: the cost row is always `62$`, whole dollars then the sign, limit or not, in front of any windows: `62$ · 5h 34% · wk 81%`. No-limit row expanded: the bar stays, always empty, with the percent column blank and the muted line `62.00$` (no `of`). Every amount puts `$` after the digits: `62.00$ of 100$`.',
+      summary: (rows) => span('i', rows.map((r) => (r.kind === 'cost' ? `${Math.round(r.usd)}$` : `${r.short} ${pct(r.p)}`)).join(' · ')),
+      cost: (r, w) => r.limit
+        ? barRows('cost', r.p, `${r.usd.toFixed(2)}$ of ${Math.round(r.limit)}$`, w)
+        : [row(`${'cost'.padEnd(6)}${meter(0, w - 11)}`), row(span('i', `${' '.repeat(6)}${r.usd.toFixed(2)}$`))],
+    },
+  }
+
+  const title =(folded, right) => split(`${span('i', folded ? '▶' : '▼')} <b>Limits:</b>`, right, 'title')
+  function section(v, c, folded, w) {
+    if (folded) return title(true, v.summary(c.rows))
+    const body = c.rows.flatMap((r) => (r.kind === 'cost' ? v.cost(r, w - 2) : windowRows(r, w - 2)))
+    return [title(false, ''), row(''), ...body.map((b) => `<div class="indent">${b}</div>`)].join('')
+  }
+
+  const KEYS = Object.keys(VARIANTS)
+  const params = new URLSearchParams(location.search)
+  const state = {
+    variant: KEYS.includes(params.get('variant')) ? params.get('variant') : 'A',
+    cols: params.get('cols') === '53' ? 53 : 42,
+    paint: params.get('paint') === 'tokyo' ? 'tokyo' : 'inherit',
+  }
+  function draw() {
+    const v = VARIANTS[state.variant]
+    const w = state.cols - 4
+    history.replaceState(null, '', `?variant=${state.variant}&cols=${state.cols}&paint=${state.paint}`)
+    document.getElementById('page').innerHTML = `
+      <h1>${state.variant}: ${v.name} · ${state.cols} columns · ${state.paint}</h1>
+      <p class="about">${v.about}</p>
+      <div class="grid">${CASES.map((c) => `
+        <div>
+          <div class="cap">${c.name} <span style="color:#666">· ${c.note}</span></div>
+          <div class="panel ${state.paint}" style="width:calc(${state.cols} * var(--col) + 2px)">
+            ${section(v, c, true, w)}${row('')}${row(span('s', '─'.repeat(w)))}${row('')}${section(v, c, false, w)}
+          </div>
+        </div>`).join('')}
+      </div>`
+    document.getElementById('label').textContent = `${state.variant} — ${v.name}`
+    document.getElementById('cols').textContent = `${state.cols} cols (c)`
+    document.getElementById('paint').textContent = `${state.paint} (t)`
+  }
+  const stepVariant = (d) => { state.variant = KEYS[(KEYS.indexOf(state.variant) + d + KEYS.length) % KEYS.length]; draw() }
+  const flipCols = () => { state.cols = state.cols === 42 ? 53 : 42; draw() }
+  const flipPaint = () => { state.paint = state.paint === 'tokyo' ? 'inherit' : 'tokyo'; draw() }
+  document.getElementById('prev').onclick = () => stepVariant(-1)
+  document.getElementById('next').onclick = () => stepVariant(1)
+  document.getElementById('cols').onclick = flipCols
+  document.getElementById('paint').onclick = flipPaint
+  addEventListener('keydown', (e) => {
+    if (e.target.closest('input, textarea, [contenteditable]')) return
+    if (e.key === 'ArrowLeft') stepVariant(-1)
+    if (e.key === 'ArrowRight') stepVariant(1)
+    if (e.key === 'c') flipCols()
+    if (e.key === 't') flipPaint()
+  })
+  draw()
+</script>
+</body>
+</html>
