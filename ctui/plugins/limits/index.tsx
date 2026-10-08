@@ -1,7 +1,8 @@
 import { bar, formatDollars, formatPercent, formatReset, formatUsd, level } from '../../hooks/format'
 import type { CostChoice } from '../../hooks/config'
+import { showsCost } from '../../hooks/month'
 import type { Usage } from '../../types'
-import type { SidebarPlugin } from '../plugin'
+import type { SidebarData, SidebarPlugin } from '../plugin'
 
 // The cost row opens the section: the cost against `limits_cost_monthly`, the
 // way each rate-limit window after it shows its use. Each row is the label,
@@ -19,20 +20,19 @@ const order = (kind: string) => {
 }
 const sorted = (usage: Usage) => [...usage.rateLimits].sort((a, b) => order(a.kind) - order(b.kind))
 
-// A Claude plan reports a 5-hour or a weekly window; a gateway's `spend_limit`
-// alone isn't one.
-const onPlan = (usage: Usage) => usage.rateLimits.some(({ kind }) => kind === 'five_hour' || kind === 'seven_day')
-
-// The cost the row shows, or undefined when it's hidden: `auto` hides it on a plan.
-const cost = (usage: Usage | undefined, choice: CostChoice = 'auto') =>
-  usage?.cost && (choice === 'on' || (choice === 'auto' && !onPlan(usage))) ? usage.cost.usd : undefined
+// The month's cost the row shows: the ended sessions' total plus the live
+// session's. Undefined, the row is hidden: until the first scan, and where
+// `auto` hides it on a plan.
+const cost = ({ usage, monthCost }: SidebarData, choice: CostChoice | undefined) =>
+  monthCost !== undefined && showsCost(usage, choice) ? monthCost + (usage?.cost?.usd ?? 0) : undefined
 
 const plugin: SidebarPlugin = {
   id: 'limits',
   title: 'Limits',
   slot: 'section',
-  needs: ['usage', 'now'],
-  view: ({ usage, now }, { Text }, cfg, width, c) => {
+  needs: ['usage', 'now', 'monthCost'],
+  view: (data, { Text }, cfg, width, c) => {
+    const { usage, now } = data
     if (!usage) return []
     // With no `percent`, the bar stays empty and the percent column blank.
     const meter = (label: string, percent: number | undefined, under: string | undefined) => {
@@ -54,7 +54,7 @@ const plugin: SidebarPlugin = {
           : []),
       ]
     }
-    const usd = cost(usage, cfg.cost)
+    const usd = cost(data, cfg.cost)
     const limit = cfg.monthly ?? 100
     const costRows =
       usd === undefined
@@ -73,8 +73,9 @@ const plugin: SidebarPlugin = {
     return rows.length ? rows : [<Text color={c.muted}>no limits reported</Text>]
   },
   // The cost in whole dollars, then each window's percent.
-  summary: ({ usage }, ui, cfg) => {
-    const usd = cost(usage, cfg.cost)
+  summary: (data, ui, cfg) => {
+    const { usage } = data
+    const usd = cost(data, cfg.cost)
     const parts = [
       ...(usd === undefined ? [] : [formatDollars(usd)]),
       ...(usage ? sorted(usage).map(({ kind, percentUsed }) => `${WINDOWS[kind]?.short ?? kind} ${Math.round(percentUsed)}%`) : []),

@@ -8,6 +8,18 @@ import { type Config, readConfig } from './config'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
 import { mcpRows, segmentOf } from './mcp'
+import {
+  type Cached,
+  COST_PREFIX,
+  costKey,
+  lastCosts,
+  monthOf,
+  monthStart,
+  monthTotal,
+  showsCost,
+  staleTranscripts,
+  type Transcript,
+} from './month'
 import { inheritGlass, themeFile } from './glass'
 import { picker } from './pickers'
 import { type Control, controlKey, foldRowKey, sidebar, type SidebarInput } from './sidebar'
@@ -37,6 +49,7 @@ const GIT = { plugin: 'ctui', key: 'git' } as const
 const VERSIONS = { plugin: 'ctui', key: 'versions' } as const
 const USAGE = { plugin: 'ctui', key: 'usage' } as const
 const NOW = { plugin: 'ctui', key: 'now' } as const
+const MONTH = { plugin: 'ctui', key: 'month' } as const
 const MCP = { plugin: 'ctui', key: 'mcp' } as const
 const TODO = { plugin: 'ctui', key: 'todo' } as const
 const ACTIVE_FORMS = { plugin: 'ctui', key: 'activeForms' } as const
@@ -65,6 +78,9 @@ const GIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'Bash'])
 // What `/effort <args>` sets for the session.
 const EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'xhigh', 'max'])
 
+// The month total rescans this often while the cost row shows.
+const SCAN_MS = 60_000
+
 // Toasts come at most this often: the engine drops one within 2 s of the last.
 const TOAST_GAP_MS = 2100
 
@@ -76,6 +92,8 @@ let checking = false // a viewport check is queued
 let waiting = false // opened unasked and not placed: open again on the person's prompt
 let requested: number | undefined // the columns last asked for
 let maxScroll = 0 // the sections window's last offset, as last drawn
+let monthRunning = false
+let lastScan = -Infinity // when the month total last scanned
 let mcpRunning = false
 let mcpTimeout: number | undefined // MCP_TIMEOUT, read once
 let claudeJson: { path: string; project: string; mtimeMs?: number; disabled: string[] } | undefined
@@ -167,6 +185,84 @@ async function setNow($: EngineInterface) {
   const { value } = await $.state.get(NOW)
   if (value === undefined || resets.some((at) => formatReset(at, now) !== formatReset(at, value))) {
     await $.state.set(NOW, now)
+  }
+}
+
+// The main transcripts written since `since`, the current session's left out:
+// `<config dir>/projects/<project>/<session id>.jsonl`.
+async function listTranscripts($: EngineInterface, since: number, current: string) {
+  const dir = (await $.env.get('CLAUDE_CONFIG_DIR')) || `${await $.env.get('HOME')}/.claude`
+  const projects = (await $.fs.list(`${dir}/projects`)).filter((entry) => entry.kind === 'dir')
+  const lists = await Promise.all(
+    projects.map(async ({ name }) => {
+      const path = `${dir}/projects/${name}`
+      return (await $.fs.list(path)).flatMap(({ name, kind, mtimeMs, size }): Transcript[] => {
+        const session = name.endsWith('.jsonl') ? name.slice(0, -'.jsonl'.length) : ''
+        return kind === 'file' && session && session !== current && mtimeMs >= since
+          ? [{ session, path: `${path}/${name}`, mtimeMs, size }]
+          : []
+      })
+    }),
+  )
+  return lists.flat()
+}
+
+// The ended sessions' cost this month (#147): each transcript's last
+// `cost-state`, cached per session in `$.store` so unchanged transcripts aren't
+// read again and totals outlive the 30-day transcript sweep. A failed scan
+// keeps the cached totals; the next one retries.
+async function scanMonth($: EngineInterface) {
+  if (monthRunning) return
+  monthRunning = true
+  try {
+    const [now, current] = await Promise.all([$.clock.now(), $.session.id()])
+    lastScan = now
+    const month = monthOf(now)
+    const prefix = costKey(month, '')
+    const keys = await $.store.keys()
+    const cached: Record<string, Cached> = {}
+    for (const key of keys) {
+      if (key.startsWith(prefix)) cached[key.slice(prefix.length)] = (await $.store.get(key)) as Cached
+      // Earlier months' totals go.
+      else if (key.startsWith(COST_PREFIX)) await $.store.delete(key).catch(() => undefined)
+    }
+    try {
+      const stale = staleTranscripts(await listTranscripts($, monthStart(now), current), cached)
+      if (stale.length) {
+        const grep = ['grep', '-h', '-F', '"type":"cost-state"', '--', ...stale.map((t) => t.path)]
+        const { exitCode, stdout, isStdoutTruncated } = await $.process.run(grep)
+        // 1 is no line found.
+        if (exitCode > 1 || isStdoutTruncated) throw new Error(`grep exited ${exitCode}`)
+        const costs = lastCosts(stdout)
+        for (const { session, mtimeMs, size } of stale) {
+          const entry = { usd: costs[session] ?? 0, mtimeMs, size }
+          await $.store.set(costKey(month, session), entry)
+          cached[session] = entry
+        }
+      }
+    } catch {
+      // Failed: the cached totals stand until the next scan.
+    }
+    const total = { month, session: current, usd: monthTotal(cached, current) }
+    const { value } = await $.state.get(MONTH)
+    if (JSON.stringify(value) !== JSON.stringify(total)) await $.state.set(MONTH, total)
+  } catch {
+    // The store can't be read: the last total stands.
+  } finally {
+    monthRunning = false
+  }
+}
+
+// Scans while the cost row shows: once the usage says it does, each SCAN_MS,
+// at the local month's turn, and when `/clear` or `/resume` changed the
+// session, a scan running across the switch included.
+async function refreshMonth($: EngineInterface, choice: Config['limits']['cost']) {
+  const [usage, total, now] = await Promise.all([$.state.get(USAGE), $.state.get(MONTH), $.clock.now()])
+  if (!showsCost(usage.value, choice)) return
+  const session = await $.session.id()
+  const value = total.value
+  if (!value || value.month !== monthOf(now) || value.session !== session || now - lastScan >= SCAN_MS) {
+    await scanMonth($)
   }
 }
 
@@ -535,7 +631,12 @@ export const register: Register = (on, options) => {
     if (needs.has('todo')) void loadTodo($)
     if (needs.has('git')) void refreshGit($)
     if (needs.has('versions')) void loadVersions($)
-    if (needs.has('usage')) void loadUsage($).then(() => (needs.has('now') ? setNow($) : undefined))
+    if (needs.has('usage')) {
+      void loadUsage($).then(() => {
+        if (needs.has('now')) void setNow($)
+        if (needs.has('monthCost')) void refreshMonth($, config.limits.cost).catch(() => undefined)
+      })
+    }
     if (inherit) void refreshGlass($).catch(() => undefined)
     let ticks = 0
     tick?.cancel()
@@ -543,7 +644,10 @@ export const register: Register = (on, options) => {
       ticks++
       void refreshModel($).catch(() => undefined)
       if (ticks % 5 === 0 && needs.has('git')) void refreshGit($)
-      if (needs.has('usage')) void refillUsage($)
+      // The usage says whether the cost row shows: refilled first after `/clear`.
+      if (needs.has('usage')) {
+        void refillUsage($).then(() => (needs.has('monthCost') ? refreshMonth($, config.limits.cost) : undefined)).catch(() => undefined)
+      }
       if (needs.has('versions')) void refillVersions($)
       if (needs.has('mcp')) void refreshMcp($)
       if (needs.has('todo')) void refreshTodo($)
@@ -797,12 +901,13 @@ export const register: Register = (on, options) => {
         $.clock.after(0, () => void openSidebar($, columns))
       }
     }
-    const [folded, expanded, scroll, git, usage, now, mcp, todo, versions, tasks, glass] = await Promise.all([
+    const [folded, expanded, scroll, git, usage, month, now, mcp, todo, versions, tasks, glass] = await Promise.all([
       $.state.get(FOLDED),
       $.state.get(EXPANDED),
       $.state.get(SCROLL),
       $.state.get(GIT),
       $.state.get(USAGE),
+      $.state.get(MONTH),
       $.state.get(NOW),
       $.state.get(MCP),
       $.state.get(TODO),
@@ -818,6 +923,7 @@ export const register: Register = (on, options) => {
       data: {
         git: git.value,
         usage: usage.value,
+        monthCost: month.value?.usd,
         now: now.value,
         mcp: mcp.value,
         todo: todo.value,

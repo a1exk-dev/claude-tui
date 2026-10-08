@@ -75,6 +75,7 @@ declare module 'claude-code' {
       now?: number // written by the tick while a timer shows
       git?: GitSnapshot
       usage?: Usage
+      month?: { month: string; session: string; usd: number } // the ended sessions' cost in the local month `2026-10`, the current session left out
       mcp: McpRow[] // first-seen order
       todo?: Todo
       activeForms: Record<string, string> // Task id → activeForm, from TaskCreate/TaskUpdate inputs
