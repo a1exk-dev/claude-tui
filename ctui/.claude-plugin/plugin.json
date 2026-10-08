@@ -1,7 +1,7 @@
 {
   "name": "ctui",
   "displayName": "ctui",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A skin for the Claude Code TUI: a docked sidebar with git, context, limits, MCP, todo and agent sections, plus agent and shell toasts.",
   "author": {
     "name": "Aliaksandr Katkou"
@@ -48,10 +48,22 @@
       "default": false
     },
     "limits_cost": {
-      "type": "boolean",
+      "type": "string",
       "title": "Limits cost",
-      "description": "Show the session cost in the Limits section",
-      "default": true
+      "description": "Show this month's cost against your limit; auto hides it on a Claude plan",
+      "options": [
+        "auto",
+        "on",
+        "off"
+      ],
+      "default": "auto"
+    },
+    "limits_cost_monthly": {
+      "type": "number",
+      "title": "Limits monthly cost",
+      "description": "Monthly cost limit in USD; 0 shows the total with no limit",
+      "default": 100,
+      "min": 0
     },
     "mcp_enable": {
       "type": "boolean",

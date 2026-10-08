@@ -10,6 +10,7 @@ export type SidebarId = 'git' | 'context' | 'limits' | 'mcp' | 'todo' | 'agents'
 export type SidebarData = {
   git?: GitSnapshot
   usage?: Usage
+  monthCost?: number // the ended sessions' cost this month, without the live session's
   now?: number
   mcp?: McpRow[]
   todo?: Todo

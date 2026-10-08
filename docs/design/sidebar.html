@@ -12,8 +12,12 @@
 
   The grid is 14px JetBrainsMono Nerd Font, the installed font the renders
   were first drawn in: 8.4px columns, 20.25px rows. The Sidebar's spacing is in
-  whole rows, as Claude Code lays it out: 1 row under an expanded title, 2 rows
-  after an expanded section, none after a folded one.
+  whole rows, as Claude Code lays it out: a faint `─` rule across the body
+  between every two sections, 1 row under an expanded title and 1 row after an
+  expanded section before the rule, none after a folded one. A faint `═` rule
+  with 1 blank row on each side parts the git header from the sections. In
+  the header, 1 blank row parts the path from the git rows, each led by its
+  Devicons glyph in muted: U+E725 branch, U+E702 changeset, U+E728 lines.
 -->
 <html lang="en">
 <head>
@@ -94,9 +98,8 @@
     position: absolute; left: 17px; width: calc(38 * var(--col)); top: 36.5px; bottom: 9px;
     display: flex; flex-direction: column;
   }
-  .sections { flex: 1; overflow: hidden; }
-  .title-gap { height: var(--row); }
-  .section-gap { height: calc(var(--row) * 2); }
+  .fill { flex: 1; }
+  .gap { height: var(--row); }
   .indent { padding-left: calc(2 * var(--col)); }
   .more { text-align: right; }
   .rule { position: absolute; left: 176px; margin-top: -0.5px; width: 1px; height: 21px; background: var(--faint); }
@@ -134,13 +137,14 @@
     },
     {
       id: 'limits', title: 'Limits',
-      summary: span('m', '5h 34% · wk 81%'),
+      summary: span('m', '62$ · 5h 34% · wk 81%'),
       body: () => [
+        split(`cost   ${bar(62, 20, 'o')}`, '62%'),
+        row(span('m', '       62.00$ of 100$')),
         split(`5h     ${bar(34, 20, 'g')}`, '34%'),
         row(span('m', '       resets in 2h 17m')),
         split(`week   ${bar(81, 20, 'o')}`, '81%'),
         row(span('m', '       resets in 3d 4h, Mon 09:00')),
-        split('cost', span('m', '$0.21')),
       ],
     },
     {
@@ -186,26 +190,40 @@
     },
   ]
   const CAP = 4
+  // The `─` rule between two sections, across the body's 38 columns.
+  const RULE = row(span('f', '─'.repeat(38)))
+  // The sections window's rows above `↓ more`: 37 body rows less the header
+  // (5), the double rule's 3, `↓ more`, the footer's gap and the footer (2).
+  const ROOM = 37 - 5 - 3 - 1 - 1 - 2
 
+  // The sections as scroll stops, as `sidebar()` builds them: a title's stop
+  // holds the blank row and rule before it and its own blank row. With
+  // `↓ more`, only the stops that fit `ROOM` whole show.
   function sections(render) {
-    let html = ''
-    let gap = false
+    const stops = []
+    let previous = 'none'
     for (const section of SECTIONS) {
       const expanded = render.expanded.includes(section.id)
-      if (gap) html += '<div class="section-gap"></div>'
-      gap = expanded
+      let title = ''
+      let height = 1
+      if (previous === 'expanded') (title += '<div class="gap"></div>'), height++
+      if (previous !== 'none') (title += RULE), height++
+      previous = expanded ? 'expanded' : 'folded'
       const right = expanded ? (section.count ?? '') : section.summary
-      html += split(`${span('m', expanded ? '▾' : '▸')} <b>${section.title}</b>`, right)
+      title += split(`${span('m', expanded ? '▼' : '▶\uFE0E')} <b>${section.title}:</b>`, right)
+      if (expanded) (title += '<div class="gap"></div>'), height++
+      stops.push({ html: title, height })
       if (!expanded) continue
-      html += '<div class="title-gap"></div>'
       let body = section.body ? section.body() : section.list
       if (section.list) {
         if (render.lists?.includes(section.id)) body = [...body, row(span('m', '▾ show less'))]
         else if (body.length > CAP) body = [...body.slice(0, CAP), row(span('m', `▸ ${body.length - CAP} more`))]
       }
-      html += `<div class="indent">${body.join('')}</div>`
+      stops.push(...body.map((html) => ({ html: `<div class="indent">${html}</div>`, height: 1 })))
     }
-    return html
+    let used = 0
+    const shown = render.more ? stops.filter((stop) => (used += stop.height) <= ROOM) : stops
+    return shown.map((stop) => stop.html).join('')
   }
 
   const TRANSCRIPT = `
@@ -243,12 +261,16 @@
         <div class="mode split row"><span>claude-opus-5-5 ${span('m', '· high effort')}</span>${span('g', '⏵⏵ accept edits')}</div>
         <div class="sidebar"><div class="body">
           ${row('<b>~/Projects/open-claude-mod</b>')}
-          ${row('⎇ main')}
-          ${row(`⇡2  ⇣0  ${span('g', '+1')}  ${span('o', '!3')}  ${span('m', '?2')}  ${span('v', '≡1')}`)}
-          ${row(`${span('g', '+24')} ${span('r', '-1')} ${span('m', 'lines changed')}`)}
           ${row('')}
-          <div class="sections">${sections(render)}</div>
+          ${row(`${span('m', '\ue725')} main`)}
+          ${row(`${span('m', '\ue702')} ⇡2  ⇣0  ${span('g', '+1')}  ${span('o', '!3')}  ${span('m', '?2')}  ${span('v', '≡1')}`)}
+          ${row(`${span('m', '\ue728')} ${span('g', '+24')} ${span('r', '-1')} ${span('m', 'lines changed')}`)}
+          ${row('')}
+          ${row(span('f', '═'.repeat(38)))}
+          ${row('')}
+          ${sections(render)}
           ${render.more ? row(span('m', '↓ more'), 'more') : ''}
+          <div class="fill"></div>
           ${row('')}
           ${split(`${span('m', 'claude-tui')} 0.1.1<i class="rule"></i>`, `${span('m', 'opencode')} 1.0`)}
           ${row(`${span('m', 'claude-cli')} 2.1.288`)}

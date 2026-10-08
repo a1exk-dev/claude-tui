@@ -141,29 +141,29 @@ test('a wheel tick scrolls the sections and the engine’s window stays', async 
 
 test('a section starts from <id>_folded and folds on a press', { options: { mcp_folded: true } }, async ($) => {
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
-  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▸')
-  expect((await pane.find({ in: 'fold-todo' }))?.text).toBe('▾')
+  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▶\uFE0E')
+  expect((await pane.find({ in: 'fold-todo' }))?.text).toBe('▼')
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-mcp' })
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-todo' })
-  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▾')
-  expect((await pane.find({ in: 'fold-todo' }))?.text).toBe('▸')
+  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▼')
+  expect((await pane.find({ in: 'fold-todo' }))?.text).toBe('▶\uFE0E')
 })
 
-test('a fold arrow draws muted, and main under the pointer', async ($) => {
+test('a fold arrow draws muted, and accent under the pointer', async ($) => {
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
   const color = async () => (await pane.find({ in: 'fold-mcp' }))?.props.color
   expect(await color()).toBe('inactive')
   await pane.pointer({ type: 'enter', x: 0, y: 0, in: 'fold-mcp' })
-  expect(await color()).toBe('text')
+  expect(await color()).toBe('suggestion')
   await pane.pointer({ type: 'leave', x: 0, y: 0, in: 'fold-mcp' })
   expect(await color()).toBe('inactive')
 })
 
 test('while the Sidebar holds the focus, fold arrows are Buttons the keyboard reaches', async ($) => {
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 30, true) })
-  expect(await pane.find({ type: 'Button', key: 'fold-mcp' })).toBeDefined()
+  expect((await pane.find({ type: 'Button', key: 'fold-mcp' }))?.props).toMatchObject({ label: '▼', dimColor: true })
   await pane.press({ key: 'fold-mcp' })
-  expect((await pane.find({ key: 'fold-mcp' }))?.text).toBe('▸')
+  expect((await pane.find({ key: 'fold-mcp' }))?.text).toBe('▶\uFE0E')
 })
 
 // #110: a click anywhere on a title row folds its section. The title and the
@@ -171,11 +171,11 @@ test('while the Sidebar holds the focus, fold arrows are Buttons the keyboard re
 // or not the Sidebar holds the focus.
 test('a click on a title row folds and unfolds its section', async ($) => {
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
-  expect((await pane.find({ in: 'foldrow-mcp', type: 'Text' }))?.text).toBe(' MCP')
+  expect((await pane.find({ in: 'foldrow-mcp', type: 'Text' }))?.text).toBe(' MCP:')
   await pane.pointer({ type: 'down', x: 20, y: 0, button: 'left', in: 'foldrow-mcp' })
-  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▸')
+  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▶\uFE0E')
   await pane.pointer({ type: 'down', x: 2, y: 0, button: 'left', in: 'foldrow-mcp' })
-  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▾')
+  expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▼')
 })
 
 // Left to `flexGrow`, the region took the arrow's cell too and pushed the
@@ -190,25 +190,31 @@ test('while the Sidebar holds the focus, the first click on a title row folds', 
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 30, true) })
   expect((await pane.find({ key: 'foldrow-todo' }))?.type).toBe('Client')
   await pane.pointer({ type: 'down', x: 2, y: 0, button: 'left', in: 'foldrow-todo' })
-  expect((await pane.find({ key: 'fold-todo' }))?.text).toBe('▸')
+  expect((await pane.find({ key: 'fold-todo' }))?.text).toBe('▶\uFE0E')
   expect((await pane.find({ key: 'foldrow-todo' }))?.type).toBe('Client')
 })
 
-test('a title row lights as one with its fold arrow', async ($) => {
+test('a title row lights in accent as one with its fold arrow, with no underline', async ($) => {
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
   // The surface applies a `hover` while the pointer is anywhere in its scope.
   const scope = 'foldrow-mcp'
-  expect(await pane.drawn({ in: 'foldrow-mcp' })).toMatchObject({
+  const row = (await pane.drawn({ in: 'foldrow-mcp' })) as { hover: unknown; children: { hover: unknown }[] }
+  expect(row).toMatchObject({
     type: 'Box',
-    hover: { scope },
-    children: [{ type: 'Text', hover: { scope, underline: true } }, { type: 'Box' }],
+    children: [{ type: 'Text', props: { bold: true, color: 'text' } }, { type: 'Box' }],
   })
-  expect(await pane.drawn({ in: 'fold-mcp' })).toMatchObject({ type: 'Text', hover: { scope, color: 'text' } })
+  expect(row.hover).toEqual({ scope })
+  expect(row.children[0]?.hover).toEqual({ scope, color: 'suggestion' })
+  expect(await pane.drawn({ in: 'fold-mcp' })).toMatchObject({
+    type: 'Text',
+    props: { color: 'inactive' },
+    hover: { scope, color: 'suggestion' },
+  })
 })
 
 test('after a wheel tick, a click on a moved title folds that section', async ($) => {
-  // 8 body rows leave 6 for the sections, each title after the first 2.83
-  // rows with its spacers; a tick drops Context.
+  // 8 body rows leave 6 for the sections, each title after the first 4 rows
+  // with its blank rows and rule; a tick drops Context.
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 8) })
   const titles = async () =>
     (await pane.findAll({ type: 'Client' })).map((client) => client.key).filter((key) => key?.startsWith('foldrow-'))
@@ -227,7 +233,7 @@ test('after a wheel tick, a click on a moved title folds that section', async ($
   // Only Limits folded.
   const arrows = (await pane.findAll({ type: 'Client' })).filter((client) => client.key?.startsWith('fold-'))
   const folded = await Promise.all(arrows.map(async ({ key }) => [key, (await pane.find({ in: key! }))?.text]))
-  expect(folded.filter(([, arrow]) => arrow === '▸')).toEqual([['fold-limits', '▸']])
+  expect(folded.filter(([, arrow]) => arrow === '▶\uFE0E')).toEqual([['fold-limits', '▶\uFE0E']])
 })
 
 const STATUS = [
@@ -260,6 +266,9 @@ function host(on: On, git: { runs: string[][]; status: string; exitCode?: number
   })
 }
 
+// The branch row's Devicons glyph, `dev-git_branch` (#136).
+const BRANCH = '\ue725'
+
 const statusRuns = (runs: string[][]) => runs.filter((argv) => argv.includes('status')).length
 
 test('git refreshes at session start, every 5 s and after a file-changing tool', async ($, on) => {
@@ -273,7 +282,7 @@ test('git refreshes at session start, every 5 s and after a file-changing tool',
 
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
   expect(await pane.find({ text: '~/Projects/x' })).toBeDefined()
-  expect(await pane.find({ text: '⎇ main' })).toBeDefined()
+  expect(await pane.find({ text: `${BRANCH} main` })).toBeDefined()
   expect(await pane.find({ text: 'ctui 0.0.0' })).toBeDefined()
   expect(await pane.find({ text: 'claude-cli 2.1.288' })).toBeDefined()
 
@@ -290,7 +299,7 @@ test('git refreshes at session start, every 5 s and after a file-changing tool',
   await clock.settle()
   expect(statusRuns(git.runs)).toBe(3)
   await pane.redraw()
-  expect(await pane.find({ text: '⎇ next' })).toBeDefined()
+  expect(await pane.find({ text: `${BRANCH} next` })).toBeDefined()
 })
 
 test('outside a repo the header is the path alone', async ($, on) => {
@@ -300,7 +309,27 @@ test('outside a repo the header is the path alone', async ($, on) => {
   await clock.settle()
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
   expect(await pane.find({ text: '~/Projects/x' })).toBeDefined()
-  expect(await pane.find({ text: /⎇/ })).toBeUndefined()
+  expect(await pane.find({ text: /[\ue725\ue702\ue728]/ })).toBeUndefined()
+})
+
+test('on a detached HEAD the branch row shows the glyph and the short sha', async ($, on) => {
+  const clock = mock.clock(on)
+  const status = '# branch.oid 63568e2e396d887fc74b6f1d1f21f4c539c12044\n# branch.head (detached)'
+  host(on, { runs: [], status })
+  await $.session.start({ cwd: '/home/a/Projects/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+  expect(await pane.find({ text: `${BRANCH} 63568e2` })).toBeDefined()
+})
+
+test('a clean repo with no upstream shows the branch row alone, with no lone glyph', async ($, on) => {
+  const clock = mock.clock(on)
+  host(on, { runs: [], status: '# branch.oid c1e879e48fada468970e942e80559adfe77c8713\n# branch.head main' })
+  await $.session.start({ cwd: '/home/a/Projects/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+  expect(await pane.find({ text: `${BRANCH} main` })).toBeDefined()
+  expect(await pane.find({ text: /[\ue702\ue728]/ })).toBeUndefined()
 })
 
 test('a file change while git runs refreshes once that run ends', async ($, on) => {

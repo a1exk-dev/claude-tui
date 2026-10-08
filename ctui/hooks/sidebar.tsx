@@ -6,10 +6,13 @@ import type { Config } from './config'
 
 export const CAP = 4
 // Space under an expanded section's title, and after an expanded section
-// before the next title, in whole rows: Claude Code cuts layout down to
-// whole cells (#120).
-const TITLE_GAP = 1
-const SECTION_GAP = 2
+// before the rule, in whole rows: Claude Code cuts layout down to whole
+// cells (#120).
+const GAP = 1
+// A section's fold arrow, one cell wide. `\uFE0E` asks for the text
+// presentation, so no font draws `▶` as an emoji.
+const EXPANDED = '▼'
+const FOLDED = '▶\uFE0E'
 
 export type SidebarInput = {
   ui: ElementTable<'terminal' | 'desktop'> // the surfaces that draw a Client
@@ -44,7 +47,8 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   // A fold arrow or a list toggle. At rest a muted `Client`, whose click
   // `register.tsx` answers at `ui.message`. A Client is outside the focus
   // ring, so while the Pane holds the focus it is a dim Button instead.
-  // A fold arrow lights with its title row's hover `scope`.
+  // A fold arrow lights in accent with its title row's hover `scope`; a list
+  // toggle lights main.
   const control = (key: Control, label: string) =>
     input.focused ? (
       <Button key={controlKey(key)} plain dimColor label={label} onPress={() => input.onControl(key)} />
@@ -52,7 +56,11 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
       <Client
         key={controlKey(key)}
         module="./press.tsx"
-        props={{ label, color: c.muted, hover: c.main, ...(key.kind === 'fold' && { scope: foldRowKey(key.id) }) }}
+        props={{
+          label,
+          color: c.muted,
+          ...(key.kind === 'fold' ? { hover: c.accent, scope: foldRowKey(key.id) } : { hover: c.main }),
+        }}
       />
     )
   const row = (node: RenderNode, indent = 0) => (
@@ -72,10 +80,19 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   const rowsOf = (slot: SidebarPlugin['slot']) =>
     plugins.filter((p) => p.slot === slot).flatMap((p) => p.view(data, ui, config[p.id], width, c))
 
-  // One scroll stop per section row. A title carries the gap before it and
-  // the space under it, so each scroll step moves one row.
+  // A rule across the body: `─` between two sections, `═` under the header.
+  const ruleOf = (glyph: string) => (
+    <Box height={1} flexShrink={0}>
+      <Text color={c.faint}>{glyph.repeat(width)}</Text>
+    </Box>
+  )
+  const rule = ruleOf('─')
+
+  // One scroll stop per section row. A title after the first carries the
+  // space after an expanded section and the rule above it, and its own space
+  // under it, so each scroll step moves one row (#130).
   const sections: Stop<RenderElement>[] = []
-  let gap = false
+  let previous: 'none' | 'folded' | 'expanded' = 'none'
   for (const plugin of plugins.filter((p) => p.slot === 'section')) {
     const cfg = config[plugin.id]
     const folded = input.folded[plugin.id] ?? cfg.folded ?? false
@@ -87,21 +104,29 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     const key = foldRowKey(plugin.id)
     const title = (
       <Box height={1} flexShrink={0}>
-        {control({ kind: 'fold', id: plugin.id }, folded ? '▸' : '▾')}
+        {control({ kind: 'fold', id: plugin.id }, folded ? FOLDED : EXPANDED)}
         <Client
           key={key}
           module="./foldrow.tsx"
           width={width - 1}
           flexGrow={1}
-          props={{ title: plugin.title, right, main: c.main, muted: c.muted, scope: key }}
+          props={{ title: plugin.title, right, main: c.main, muted: c.muted, accent: c.accent, scope: key }}
         />
       </Box>
     )
+    // Each node with its height in rows.
+    const gap: [RenderElement, number] = [spacer(GAP), GAP]
+    const parts: [RenderElement, number][] = [
+      ...(previous === 'expanded' ? [gap] : []),
+      ...(previous === 'none' ? [] : [[rule, 1] satisfies [RenderElement, number]]),
+      [title, 1],
+      ...(folded ? [] : [gap]),
+    ]
     sections.push({
-      nodes: [...(gap ? [spacer(SECTION_GAP)] : []), title, ...(folded ? [] : [spacer(TITLE_GAP)])],
-      height: (gap ? SECTION_GAP : 0) + 1 + (folded ? 0 : TITLE_GAP),
+      nodes: parts.map(([node]) => node),
+      height: parts.reduce((sum, [, rows]) => sum + rows, 0),
     })
-    gap = !folded
+    previous = folded ? 'folded' : 'expanded'
     if (folded) continue
     const body = plugin.view(data, ui, cfg, width - 2, c)
     const expanded = input.expanded[plugin.id] ?? false
@@ -115,9 +140,18 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
 
   const header = rowsOf('header').map((node) => row(node))
   const footer = rowsOf('footer').map((node) => row(node))
-  // Padding takes 2 rows; a blank row parts the header and the footer from the sections.
-  const headerGap = header.length > 0 && sections.length > 0
-  const free = input.bodyRows - 2 - header.length - footer.length - (headerGap ? 1 : 0) - (footer.length ? 1 : 0)
+  // A blank row, the `═` rule and a blank row part the header from the
+  // sections, fixed with the header outside the window (#130).
+  const underHeader: [RenderElement, number][] =
+    header.length > 0 && sections.length > 0 ? [[spacer(GAP), GAP], [ruleOf('═'), 1], [spacer(GAP), GAP]] : []
+  // Padding takes 2 rows; a blank row parts the footer from the sections.
+  const free =
+    input.bodyRows -
+    2 -
+    header.length -
+    underHeader.reduce((sum, [, rows]) => sum + rows, 0) -
+    footer.length -
+    (footer.length ? 1 : 0)
   const { rows, maxScroll } = scrollWindow(sections, Math.max(free, 0), input.scroll, (text) => (
     <Box height={1} flexShrink={0} justifyContent="flex-end">
       <Text color={c.muted}>{text}</Text>
@@ -134,7 +168,7 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
       {...(input.background && { backgroundColor: input.background })}
     >
       {header}
-      {headerGap ? row('') : null}
+      {underHeader.map(([node]) => node)}
       {rows}
       <Box flexGrow={1} />
       {footer}
