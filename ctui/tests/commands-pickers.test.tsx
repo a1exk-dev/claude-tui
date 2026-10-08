@@ -83,8 +83,6 @@ test('already set, and unknown names, print one line and write nothing', { optio
   expect((await run($, 'plugins:enable', 'foo')).text).toBe(
     'Unknown plugin "foo". Plugins: context, limits, todo, mcp, agents',
   )
-  expect((await run($, 'theme', 'inherit')).text).toBe('Sidebar theme is already inherit')
-  expect((await run($, 'theme', 'x')).text).toBe('Unknown theme "x". Themes: inherit')
   expect(seen.sets).toEqual([])
   expect(seen.opens).toEqual([])
 })
@@ -99,9 +97,8 @@ test('under claude -p (no ctui.theme row) a write or picker prints the fixed lin
   const line = "Can't change ctui settings in claude -p. Use /config in an interactive session."
   expect((await run($, 'plugins:disable', 'mcp')).text).toBe(line)
   expect((await run($, 'plugins:disable')).text).toBe(line)
-  expect((await run($, 'theme')).text).toBe(line)
   // Unknown names still get their own line.
-  expect((await run($, 'theme', 'x')).text).toBe('Unknown theme "x". Themes: inherit')
+  expect((await run($, 'plugins:enable', 'foo')).text).toMatch(/^Unknown plugin "foo"/)
   expect(seen.sets).toEqual([])
   expect(seen.opens).toEqual([])
 })
@@ -139,21 +136,6 @@ test('bare enable lists the disabled plugins', { options: { mcp_enable: false, a
   await pane.select({ key: 'enable', value: 'agents' })
   await clock.settle()
   expect(seen.sets).toEqual([{ key: 'ctui.agents_enable', value: true }])
-})
-
-test('theme always opens its picker with the current value; picking it closes without a write', async ($, on) => {
-  const clock = mock.clock(on)
-  const seen = host(on)
-  expect(await run($, 'theme')).toEqual({})
-  expect(seen.opens.map((open) => open.id)).toEqual(['ctui-theme'])
-  const pane = await picker($, 'ctui-theme')
-  const [select] = await pane.findAll({ type: 'Select' })
-  expect(select?.props.options).toEqual([{ value: 'inherit' }])
-  expect(select?.props.value).toBe('inherit')
-  await pane.select({ key: 'theme', value: 'inherit' })
-  await clock.settle()
-  expect(seen.closes).toEqual(['ctui-theme'])
-  expect(seen.sets).toEqual([])
 })
 
 test('a refused pick toasts the deny, even with agent toasts off', { options: { agents_toasts: false } }, async ($, on) => {
