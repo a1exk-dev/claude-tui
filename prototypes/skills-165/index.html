@@ -1,0 +1,192 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway (#165): how does the `skills` section look expanded, folded and empty,
+  beside the `mcp` section? Six variants (A–C the Skills row; D–F add an MCP source on A, asked by the human), switchable with ←/→ (or ?variant=A..F); `c` flips
+  42 / 53 columns (?cols=), `t` flips inherit / Tokyo Night (?paint=). Each card draws the
+  section the way ctui lays one out: `▶ Skills:` folded, then the rule, then `▼ Skills:`
+  expanded with a blank row and the body indented 2 columns, then the MCP section under it
+  (the default order puts Skills right above MCP).
+  Fixed by "What does the Skills section list, and when does it reset?" (#164): one row per
+  skill, A–Z by name then source, name left without `plugin:`, source right; header count
+  the same open and folded; empty is `0` and a faint `no skills used yet`; 4 rows then
+  `▸ N more`. MCP rows A–Z with `off` last (map Notes).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skills section</title>
+<style>
+  :root { --row: 20.25px; --col: 8.4px; }
+  .inherit { --text: #eeeeee; --inactive: #808080; --subtle: #484848; --success: #7fd88f; --warning: #f5a742; --error: #e06c75; --pane: #141414; }
+  .tokyo { --text: #a9b1d6; --inactive: #707590; --subtle: #414868; --success: #b9f27c; --warning: #e0af68; --error: #f7768e; --pane: #232431; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #050505; color: #ccc; }
+  body { font: 14px/var(--row) 'JetBrainsMono Nerd Font', monospace; font-variant-ligatures: none; -webkit-font-smoothing: antialiased; padding: 20px 20px 90px; }
+  h1 { font-size: 16px; color: #eee; margin-bottom: 4px; }
+  .about { color: #999; max-width: 1200px; margin-bottom: 18px; white-space: normal; }
+  .grid { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+  .cap { color: #999; font-size: 12px; margin-bottom: 4px; white-space: normal; }
+  .panel { background: var(--pane); color: var(--text); padding: var(--row) calc(2 * var(--col)); border-left: 1px solid #2a2a2a; }
+  .row { height: var(--row); white-space: pre; overflow: hidden; }
+  .split { display: flex; justify-content: space-between; gap: var(--col); }
+  /* The left side truncates with `…` and the right keeps its width, as ctui's
+     mcp rows do (Text wrap="truncate-end", the right Box flexShrink 0). */
+  .split > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .split > span:last-child { flex-shrink: 0; }
+  .indent { padding-left: calc(2 * var(--col)); }
+  .t { color: var(--text); } .i { color: var(--inactive); } .s { color: var(--subtle); }
+  .success { color: var(--success); } .warning { color: var(--warning); } .error { color: var(--error); }
+  b { font-weight: 700; }
+  #switcher {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center;
+    background: #fff; color: #111; border-radius: 999px; padding: 6px 10px; box-shadow: 0 4px 18px rgba(0,0,0,.6);
+    font: 13px system-ui, sans-serif;
+  }
+  #switcher button { border: 0; background: #e8e8e8; border-radius: 999px; padding: 5px 11px; font: inherit; cursor: pointer; }
+  #switcher .label { min-width: 260px; text-align: center; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="page"></div>
+<div id="switcher">
+  <button id="prev">←</button><span class="label" id="label"></span><button id="next">→</button>
+  <button id="cols"></button><button id="paint"></button>
+</div>
+<script>
+  const span = (cls, text) => `<span class="${cls}">${text}</span>`
+  const row = (html, cls = '') => `<div class="row ${cls}">${html}</div>`
+  const split = (left, right, cls = '') => row(`<span>${left}</span><span>${right}</span>`, `split ${cls}`)
+  const CAP = 4
+
+  // Skills as `skill.prompt` would collect them: name (no `plugin:` prefix) and source.
+  const sk = (name, source) => ({ name, source })
+  const CASES = [
+    { name: 'Empty chat', note: 'a new chat, or after /clear', skills: [] },
+    { name: 'One skill', note: 'a typed /grilling', skills: [sk('grilling', 'user')] },
+    { name: 'Four skills', note: 'fits the cap, no `▸ more`', skills: [
+      sk('grilling', 'user'), sk('domain-modeling', 'user'), sk('prototype', 'user'), sk('deploy', 'project'),
+    ] },
+    { name: 'Seven skills, every source', note: 'user, project, plugin, built-in, synced', skills: [
+      sk('wayfinder', 'user'), sk('deploy', 'project'), sk('docs', 'anthropic-skills'), sk('simplify', 'built-in'),
+      sk('grilling', 'user'), sk('team-style', 'synced'), sk('pdf', 'anthropic-skills'),
+    ] },
+    { name: 'Long names, same name twice', note: 'truncation, and `review` from two plugins', skills: [
+      sk('artifact-capabilities', 'anthropic-skills'), sk('git-guardrails-claude-code', 'user'),
+      sk('review', 'pr-kit'), sk('review', 'code-tools'), sk('workflow-authoring', 'built-in'),
+    ] },
+  ]
+  const sorted = (skills) => [...skills].sort((a, b) => a.name.localeCompare(b.name) || a.source.localeCompare(b.source))
+
+  // The MCP section under it, as today: A–Z by label, `off` rows last.
+  const MCP = [
+    { label: 'playwright', state: 'ok', tools: 22, source: 'user' }, { label: 'Claude Docs', state: 'ok', tools: 9, source: 'claude.ai' },
+    { label: 'sentry', state: 'down', source: 'project' }, { label: 'github', state: 'off', source: 'local' },
+    { label: 'context7', state: 'ok', tools: 2, source: 'context7' }, { label: 'linear', state: 'ok', tools: 31, source: 'claude.ai' },
+    { label: 'postgres', state: 'ok', tools: 6, source: 'project' },
+  ]
+  const MCP_STATES = {
+    ok: ['●', 'success', (r) => `${r.tools} tools`, 'i'], down: ['✕', 'error', () => 'down', 'error'],
+    off: ['○', 's', () => 'off', 'i'],
+  }
+  // Today's MCP row; a variant's `mcp` adds the source. Sources: user, project, local (from
+  // ~/.claude.json and .mcp.json), claude.ai (connector name), the plugin's name (`plugin:<p>:`).
+  const MCP_TODAY = (r, g, role, text, tr) => split(`${span(role, g)} ${r.label}`, span(tr, text))
+  const mcpRows = (v) => [...MCP]
+    .sort((a, b) => +(a.state === 'off') - +(b.state === 'off') || a.label.localeCompare(b.label))
+    .map((r) => { const [g, role, text, tr] = MCP_STATES[r.state]; return (v.mcp ?? MCP_TODAY)(r, g, role, text(r), tr) })
+
+  const VARIANTS = {
+    A: {
+      name: 'MCP twin: name, source muted',
+      about: 'Each row reads like an MCP row without the glyph: the skill name in text, the source at the right in muted (the same role as `22 tools`). A long name truncates with `…`; the source never does. Header count in muted.',
+      row: (s) => split(s.name, span('i', s.source)),
+    },
+    B: {
+      name: 'Slash name, source faint',
+      about: 'The name with a leading `/`, the way the person types it, so the rows read as commands at a glance. The source sits back in faint (the rule\'s role), quieter than MCP\'s muted tool counts. Header count in muted.',
+      row: (s) => split(`${span('i', '/')}${s.name}`, span('s', s.source)),
+    },
+    C: {
+      name: 'Glyph column, source muted',
+      about: 'A muted `◆` leads each row, so names line up with MCP names one cell in (MCP has `●`/`✕`/`○` there). The glyph carries no state: a skill is used or not listed. Source in muted as A.',
+      row: (s) => split(`${span('i', '◆')} ${s.name}`, span('i', s.source)),
+    },
+    D: {
+      name: 'A + MCP source before the status',
+      about: 'Skills rows as A. Each MCP row keeps its glyph and name; the right side becomes `source · status`, both muted (a failing status keeps its color): `user · 22 tools`, `project · down`. Source matches a Skills row\'s right side, the status stays last.',
+      row: (s) => split(s.name, span('i', s.source)),
+      mcp: (r, g, role, text, tr) => split(`${span(role, g)} ${r.label}`, `${span('i', `${r.source} · `)}${span(tr, text)}`),
+    },
+    E: {
+      name: 'A + MCP source after the name',
+      about: 'Skills rows as A. Each MCP row puts the source right after the name in muted, `● playwright user`, and keeps the status alone at the right as today. A long name and its source truncate together; the status never does.',
+      row: (s) => split(s.name, span('i', s.source)),
+      mcp: (r, g, role, text, tr) => split(`${span(role, g)} ${r.label} ${span('i', r.source)}`, span(tr, text)),
+    },
+    F: {
+      name: 'A + MCP source column, status column',
+      about: 'Skills rows as A. The MCP right side has two aligned columns: the source in muted, then the status padded to 8 cells (`31 tools`), so sources line up down the list as they do in Skills, and the status reads as its own column.',
+      row: (s) => split(s.name, span('i', s.source)),
+      mcp: (r, g, role, text, tr) => split(`${span(role, g)} ${r.label}`, `${span('i', r.source)} ${span(tr, text.padStart(8))}`),
+    },
+  }
+
+  const title = (folded, label, right) => split(`${span('i', folded ? '▶' : '▼')} <b>${label}:</b>`, right)
+  const rule = (w) => row(span('s', '─'.repeat(w)))
+  const indent = (rows) => rows.map((r) => `<div class="indent">${r}</div>`).join('')
+  const capped = (rows) => rows.length > CAP ? [...rows.slice(0, CAP), row(span('i', `▸ ${rows.length - CAP} more`))] : rows
+
+  function card(v, c, w) {
+    const count = span('i', String(c.skills.length))
+    const body = c.skills.length ? capped(sorted(c.skills).map(v.row)) : [row(span('s', 'no skills used yet'))]
+    const mcpCount = span('i', `${MCP.filter((r) => r.state === 'ok').length}/${MCP.length}`)
+    return [
+      title(true, 'Skills', count), rule(w),
+      title(false, 'Skills', count), row(''), indent(body), row(''), rule(w),
+      title(false, 'MCP', mcpCount), row(''), indent(capped(mcpRows(v))),
+    ].join('')
+  }
+
+  const KEYS = Object.keys(VARIANTS)
+  const params = new URLSearchParams(location.search)
+  const state = {
+    variant: KEYS.includes(params.get('variant')) ? params.get('variant') : 'A',
+    cols: params.get('cols') === '53' ? 53 : 42,
+    paint: params.get('paint') === 'tokyo' ? 'tokyo' : 'inherit',
+  }
+  function draw() {
+    const v = VARIANTS[state.variant]
+    const w = state.cols - 4
+    history.replaceState(null, '', `?variant=${state.variant}&cols=${state.cols}&paint=${state.paint}`)
+    document.getElementById('page').innerHTML = `
+      <h1>${state.variant}: ${v.name} · ${state.cols} columns · ${state.paint}</h1>
+      <p class="about">${v.about}</p>
+      <div class="grid">${CASES.map((c) => `
+        <div>
+          <div class="cap">${c.name} <span style="color:#666">· ${c.note}</span></div>
+          <div class="panel ${state.paint}" style="width:calc(${state.cols} * var(--col) + 2px)">${card(v, c, w)}</div>
+        </div>`).join('')}
+      </div>`
+    document.getElementById('label').textContent = `${state.variant} — ${v.name}`
+    document.getElementById('cols').textContent = `${state.cols} cols (c)`
+    document.getElementById('paint').textContent = `${state.paint} (t)`
+  }
+  const stepVariant = (d) => { state.variant = KEYS[(KEYS.indexOf(state.variant) + d + KEYS.length) % KEYS.length]; draw() }
+  const flipCols = () => { state.cols = state.cols === 42 ? 53 : 42; draw() }
+  const flipPaint = () => { state.paint = state.paint === 'tokyo' ? 'inherit' : 'tokyo'; draw() }
+  document.getElementById('prev').onclick = () => stepVariant(-1)
+  document.getElementById('next').onclick = () => stepVariant(1)
+  document.getElementById('cols').onclick = flipCols
+  document.getElementById('paint').onclick = flipPaint
+  addEventListener('keydown', (e) => {
+    if (e.target.closest('input, textarea, [contenteditable]')) return
+    if (e.key === 'ArrowLeft') stepVariant(-1)
+    if (e.key === 'ArrowRight') stepVariant(1)
+    if (e.key === 'c') flipCols()
+    if (e.key === 't') flipPaint()
+  })
+  draw()
+</script>
+</body>
+</html>
