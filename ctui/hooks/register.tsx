@@ -7,7 +7,7 @@ import { deniedText, gated, type Outcome, pluginsOutcome, themeOutcome } from '.
 import { type Config, readConfig } from './config'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
-import { mcpRows, segmentOf } from './mcp'
+import { mcpRows, serverName } from './mcp'
 import {
   type Cached,
   COST_PREFIX,
@@ -97,6 +97,7 @@ let lastScan = -Infinity // when the month total last scanned
 let mcpRunning = false
 let mcpTimeout: number | undefined // MCP_TIMEOUT, read once
 let claudeJson: { path: string; project: string; mtimeMs?: number; disabled: string[] } | undefined
+let cwdMoved = false // since the last MCP tick: drop the old project's off rows
 let themeSeen: { path?: string; mtimeMs?: number } = {} // the active custom /theme file, last read
 const mcpNames: Record<string, string> = {} // segment → /mcp name, from `tool.describe`
 let todoRunning = false
@@ -322,13 +323,16 @@ async function refreshMcp($: EngineInterface) {
   mcpRunning = true
   try {
     mcpTimeout ??= Number(await $.env.get('MCP_TIMEOUT')) || 30_000
+    const moved = cwdMoved
+    cwdMoved = false
     const [tools, disabled, now, { value: rows = [] }] = await Promise.all([
       $.tool.list(),
       readDisabled($),
       $.clock.now(),
       $.state.get(MCP),
     ])
-    const next = mcpRows({ rows, tools, disabled, names: mcpNames, now, timeoutMs: mcpTimeout })
+    const kept = moved ? rows.filter((row) => row.state !== 'off') : rows
+    const next = mcpRows({ rows: kept, tools, disabled, names: mcpNames, now, timeoutMs: mcpTimeout })
     if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
   } finally {
     mcpRunning = false
@@ -666,8 +670,16 @@ export const register: Register = (on, options) => {
 
   // Names a server's row as /mcp does. Observe only.
   on('tool.describe', ($, e, next) => {
-    const server = /^mcp:(.+)$/.exec(e.provider.plugin)?.[1]
-    if (server) mcpNames[segmentOf(server)] = server
+    const [segment, name] = serverName(e.tool, e.provider.plugin) ?? []
+    if (segment && name) mcpNames[segment] = name
+    return next(e)
+  })
+
+  // After /cd the disabled list is another project's: re-derive its key, and
+  // drop the off rows the old list made. Observe only.
+  on('classic.CwdChanged', ($, e, next) => {
+    claudeJson = undefined
+    cwdMoved = true
     return next(e)
   })
 

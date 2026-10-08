@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { type McpInput, mcpRows } from '../hooks/mcp'
+import { type McpInput, mcpRows, serverName } from '../hooks/mcp'
 import type { McpRow } from '../types'
 
 // Tool names as `$.tool.list()` gave them on 2.1.288 (MEMORY.md "The `mcp`
@@ -25,8 +25,8 @@ const input = (over: Partial<McpInput>): McpInput => ({
 
 test('servers with tools, counted', () => {
   expect(mcpRows(input({ tools: [...BUILTIN, ...PLAYWRIGHT, ...tools('context7', 'docs')] }))).toEqual([
-    { server: 'playwright', label: 'playwright', state: 'ok', tools: 2 },
     { server: 'context7', label: 'context7', state: 'ok', tools: 1 },
+    { server: 'playwright', label: 'playwright', state: 'ok', tools: 2 },
   ])
 })
 
@@ -48,12 +48,12 @@ test('a disabled server reads off under its /mcp name, also unseen this session'
   ])
 })
 
-test('/mcp disable turns a listed server off in place; its label stays', () => {
+test('/mcp disable turns a listed server off, last; its label stays', () => {
   const names = { claude_ai_Claude_Docs: 'claude.ai Claude Docs' }
   const rows = mcpRows(input({ tools: [...DOCS, ...PLAYWRIGHT], names }))
   expect(mcpRows(input({ rows, tools: PLAYWRIGHT, disabled: ['claude.ai Claude Docs'] }))).toEqual([
-    { server: 'claude_ai_Claude_Docs', label: 'Claude Docs', state: 'off' },
     { server: 'playwright', label: 'playwright', state: 'ok', tools: 2 },
+    { server: 'claude_ai_Claude_Docs', label: 'Claude Docs', state: 'off' },
   ])
 })
 
@@ -85,12 +85,34 @@ test('a re-enabled server needing auth gets no pseudo-tools: connecting, then do
   expect(mcpRows(input({ rows: connecting, now: 2000 + TIMEOUT }))[0]?.state).toBe('down')
 })
 
-test('first-seen order: new servers after the listed ones, disabled ones after those', () => {
-  const rows = mcpRows(input({ tools: PLAYWRIGHT }))
-  const next = mcpRows(input({ rows, tools: [...DOCS, ...PLAYWRIGHT], disabled: ['github'] }))
-  expect(next.map((row) => row.server)).toEqual([
-    'playwright',
-    'claude_ai_Claude_Docs',
-    'github',
+test('A–Z by label, off rows last and A–Z too; one label on two servers by server', () => {
+  const rows = mcpRows(
+    input({
+      tools: [...PLAYWRIGHT, ...DOCS, ...AUTHY, ...tools('plugin_b_linear', 'list'), ...tools('plugin_a_linear', 'list')],
+      disabled: ['zeta', 'github'],
+      names: { claude_ai_Claude_Docs: 'claude.ai Claude Docs' },
+    }),
+  )
+  expect(rows.map((row) => `${row.label}:${row.server}`)).toEqual([
+    'authy:authy',
+    'Claude Docs:claude_ai_Claude_Docs',
+    'linear:plugin_a_linear',
+    'linear:plugin_b_linear',
+    'playwright:playwright',
+    'github:github',
+    'zeta:zeta',
   ])
+})
+
+test('a tool.describe provider names its server as /mcp does', () => {
+  expect(serverName('mcp__claude_ai_Claude_Docs__read', 'mcp:claude.ai Claude Docs')).toEqual([
+    'claude_ai_Claude_Docs',
+    'claude.ai Claude Docs',
+  ])
+  // A plugin's server reads `<plugin>@<marketplace>`; its plugin name may hold `_`.
+  expect(serverName('mcp__plugin_my_kit_linear__list', 'my_kit@market')).toEqual([
+    'plugin_my_kit_linear',
+    'plugin:my_kit:linear',
+  ])
+  expect(serverName('Bash', 'engine')).toBeUndefined()
 })
