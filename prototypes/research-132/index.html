@@ -1,0 +1,247 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throwaway (#132): which icon and role color lead each git header row?
+  The header is #129's: path, 1 blank row (the human's given), branch, changeset and
+  lines-changed rows, 1 blank row, the subtle `═` rule, 1 blank row. Sections keep
+  #127's plain rules. Six icon sets (O is today's), switchable with ←/→ (or
+  ?style=O,A..F); F is the human's pick, P is a picker to mix a glyph and a color per row. `c` flips 42 / 53
+  columns (?cols=). Each page shows the three fold states under `inherit` and Tokyo Night.
+  Every Nerd Font glyph here is one cell (advance 600, like a letter) in the
+  installed JetBrainsMono Nerd Font; `⎇` is not in that font and falls back.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidebar header icons</title>
+<style>
+  :root { --row: 20.25px; --col: 8.4px; }
+  /* The 7 role keys, plus the pane's background. */
+  .inherit { --text: #eeeeee; --inactive: #808080; --subtle: #484848; --success: #7fd88f; --warning: #f5a742; --error: #e06c75; --suggestion: #9d7cd8; --pane: #141414; }
+  .tokyo { --text: #a9b1d6; --inactive: #707590; --subtle: #414868; --success: #b9f27c; --warning: #e0af68; --error: #f7768e; --suggestion: #7aa2f7; --pane: #232431; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #050505; color: #ccc; }
+  body { font: 14px/var(--row) 'JetBrainsMono Nerd Font', monospace; font-variant-ligatures: none; -webkit-font-smoothing: antialiased; padding: 20px 20px 90px; }
+  h1 { font-size: 16px; color: #eee; margin-bottom: 4px; }
+  .about { color: #999; max-width: 1100px; margin-bottom: 18px; white-space: normal; }
+  .paint { color: #999; margin: 14px 0 6px; }
+  .grid { display: flex; gap: 24px; flex-wrap: wrap; }
+  .cap { color: #777; font-size: 12px; margin-bottom: 4px; }
+  .panel { background: var(--pane); color: var(--text); padding: var(--row) calc(2 * var(--col)); border-left: 1px solid #2a2a2a; }
+  .body { display: flex; flex-direction: column; height: calc(37 * var(--row)); }
+  .sections { flex: 1; overflow: hidden; }
+  .row { height: var(--row); white-space: pre; overflow: hidden; }
+  .split { display: flex; justify-content: space-between; gap: var(--col); }
+  .split > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+  .split > span:last-child { flex-shrink: 0; }
+  .flex { display: flex; }
+  .indent { padding-left: calc(2 * var(--col)); }
+  .more { text-align: right; }
+  .t { color: var(--text); } .i { color: var(--inactive); } .s { color: var(--subtle); }
+  .ok { color: var(--success); } .warn { color: var(--warning); } .err { color: var(--error); } .sug { color: var(--suggestion); }
+  .bar { background: var(--subtle); }
+  b { font-weight: 700; }
+  .vrule { display: inline-block; width: 1px; height: var(--row); vertical-align: top; background: var(--subtle); margin: 0 calc(var(--col) * 0.5 - 0.5px); }
+  #switcher {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center;
+    background: #fff; color: #111; border-radius: 999px; padding: 6px 10px; box-shadow: 0 4px 18px rgba(0,0,0,.6);
+    font: 13px system-ui, sans-serif;
+  }
+  #picker { display: flex; gap: 18px; margin-bottom: 10px; flex-wrap: wrap; font: 13px system-ui, sans-serif; }
+  #picker label { color: #bbb; } #picker select { font: 14px 'JetBrainsMono Nerd Font', monospace; margin-left: 4px; }
+  #switcher button { border: 0; background: #e8e8e8; border-radius: 999px; padding: 5px 11px; font: inherit; cursor: pointer; }
+  #switcher .label { min-width: 260px; text-align: center; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="page"></div>
+<div id="switcher">
+  <button id="prev">←</button><span class="label" id="label"></span><button id="next">→</button>
+  <button id="cols"></button>
+</div>
+<script>
+  const span = (cls, text) => `<span class="${cls}">${text}</span>`
+  const row = (html, cls = '') => `<div class="row ${cls}">${html}</div>`
+  const split = (left, right, cls = '') => row(`<span>${left}</span><span>${right}</span>`, `split ${cls}`)
+  const blank = () => row('')
+  const cells = (html) => { const d = document.createElement('div'); d.innerHTML = html; return [...d.textContent].length }
+  const meter = (percent, n, color) => {
+    const filled = Math.round((percent / 100) * n)
+    return span(color, '━'.repeat(filled)) + span('s', '─'.repeat(n - filled))
+  }
+  const indent = (rows) => rows.map((r) => `<div class="indent">${r}</div>`)
+  // Wraps rows in a glyph border of `width` cells (Box borderStyle round).
+  const boxed = (rows, width, color = 's') => [
+    row(span(color, `╭${'─'.repeat(width - 2)}╮`)),
+    ...rows.map((r) => `<div class="row flex">${span(color, '│')}<div style="width:calc(${width - 2} * var(--col)); padding: 0 var(--col)">${r}</div>${span(color, '│')}</div>`),
+    row(span(color, `╰${'─'.repeat(width - 2)}╯`)),
+  ]
+  // Prefixes rows with a left bar (Box borderStyle quote), then a space.
+  const quoted = (rows, width, color) =>
+    rows.map((r) => `<div class="row flex">${span(color, '▎ ')}<div style="width:calc(${width - 2} * var(--col))">${r}</div></div>`)
+  // A rule of exactly `width` cells with `left` and `right` set into it.
+  const insetRule = (left, right, width, color = 's') => {
+    const fill = width - (left ? cells(left) + 4 : 0) - (right ? cells(right) + 1 : 0)
+    return row((left ? span(color, '──') + ` ${left} ` : '') + span(color, '─'.repeat(Math.max(fill, 0))) + (right ? ` ${right}` : ''))
+  }
+
+  const RENDERS = [
+    { name: '1 all folded', expanded: [] },
+    { name: '2 some folded', expanded: ['context', 'todo', 'agents'] },
+    { name: '3 all expanded', expanded: ['context', 'limits', 'mcp', 'todo', 'agents'], lists: ['mcp', 'todo'] },
+  ]
+  const SECTIONS = [
+    { id: 'context', title: 'Context', summary: span('i', '9%'),
+      body: () => [split(meter(9, 20, 'ok'), '9%'), row(span('i', '18,402 / 200k tokens'))] },
+    { id: 'limits', title: 'Limits', summary: span('i', '5h 34% · wk 81%'),
+      body: () => [
+        split(`5h     ${meter(34, 20, 'ok')}`, '34%'), row(span('i', '       resets in 2h 17m')),
+        split(`week   ${meter(81, 20, 'warn')}`, '81%'), row(span('i', '       resets in 3d 4h, Mon 09:00')),
+        split('cost', span('i', '$0.21')),
+      ] },
+    { id: 'mcp', title: 'MCP', summary: `${span('ok', '●')}${span('i', ' 5 ')}${span('err', '✕')}${span('i', ' 1 ○ 1')}`, count: span('i', '5/7'),
+      list: [
+        split(`${span('ok', '●')} playwright`, span('i', '22 tools')), split(`${span('ok', '●')} Claude Docs`, span('i', '9 tools')),
+        split(`${span('err', '✕')} sentry`, span('err', 'failed')), split(`${span('ok', '●')} context7`, span('i', '2 tools')),
+        split(`${span('ok', '●')} linear`, span('i', '31 tools')), split(`${span('ok', '●')} postgres`, span('i', '6 tools')),
+        split(`${span('i', '○')} github`, span('i', 'off')),
+      ] },
+    { id: 'todo', title: 'Todo', summary: `${span('i', '2/8 · ')}write the test`, count: span('i', '2/8'),
+      list: [
+        row(span('i', '✓ read sync command')), row(span('i', '✓ add the flag')), row(`${span('warn', '◖')} write the test`),
+        row(span('i', '○ update README')), row(span('i', '○ add --dry-run to help text')), row(span('i', '○ check Windows paths')),
+        row(span('i', '○ run full test suite')), row(span('i', '○ write changelog entry')),
+      ] },
+    { id: 'agents', title: 'Agents &amp; shells', summary: `${span('ok', '◖')}${span('i', ' 5 running')}`, count: span('i', '5 running'),
+      list: [
+        split(`${span('ok', '◖')} Explore ${span('i', '· map the auth fl…')}`, span('i', '1m 15s')),
+        split(`  ${span('i', '└')} ${span('ok', '◖')} general-purpose ${span('i', '· read M…')}`, span('i', '21s')),
+        split('$ bun test --watch', span('i', '5m 03s')), split('$ bun run dev --port 3000', span('i', '15m 03s')),
+        row(span('i', '○ bun run typecheck --watch')),
+      ] },
+  ]
+  const CAP = 4
+  // Each section as { expanded, arrow, title, right, body } for the styles to lay out.
+  const model = (render) => SECTIONS.map((s) => {
+    const expanded = render.expanded.includes(s.id)
+    let body = s.body ? s.body() : s.list
+    if (s.list) {
+      if (render.lists?.includes(s.id)) body = [...body, row(span('i', '▾ show less'))]
+      else if (body.length > CAP) body = [...body.slice(0, CAP), row(span('i', `▸ ${body.length - CAP} more`))]
+    }
+    return { expanded, arrow: span('i', expanded ? '▾' : '▸'), title: `<b>${s.title}</b>`, right: expanded ? (s.count ?? '') : s.summary, body: indent(body) }
+  })
+  const titleRow = (s) => split(`${s.arrow} ${s.title}`, s.right)
+
+  const PATH = row('<b>~/Projects/open-claude-mod</b>')
+  const BRANCH = 'main'
+  const CHANGES = `⇡2  ⇣0  ${span('ok', '+1')}  ${span('warn', '!3')}  ${span('i', '?2')}  ${span('sug', '≡1')}`
+  const LINES = `${span('ok', '+24')} ${span('err', '-1')} ${span('i', 'lines changed')}`
+
+  // Glyph candidates per row: [glyph, Nerd Font name].
+  const GLYPHS = {
+    branch: [['⎇', 'U+2387 (not in the font, falls back)'], ['', 'oct-git_branch'], ['', 'cod-git_branch'], ['\u{f062c}', 'md-source_branch'], ['', 'dev-git_branch'], ['', 'pl-branch (powerline)'], ['', 'fa-code_fork']],
+    changes: [['', 'none (today)'], ['', 'oct-diff'], ['', 'cod-git_branch_changes'], ['', 'cod-source_control'], ['\u{f02a2}', 'md-git'], ['', 'dev-git'], ['', 'oct-git_compare'], ['±', 'U+00B1 plus-minus']],
+    lines: [['', 'none (today)'], ['', 'oct-file_diff'], ['', 'cod-diff'], ['\u{f0992}', 'md-plus_minus'], ['\u{f01c2}', 'md-delta'], ['', 'dev-git_compare'], ['', 'oct-diff_modified'], ['Δ', 'U+0394 delta']],
+  }
+  const ROLES = { t: 'text', i: 'inactive', s: 'subtle', ok: 'success', warn: 'warning', err: 'error', sug: 'suggestion' }
+  const g = (rowKey, n) => GLYPHS[rowKey][n][0]
+
+  // Each icon set: [glyph, role] for branch, changeset and lines-changed.
+  const STYLES = {
+    O: { name: 'Today (no change)', note: '`⎇` in main text, falling back out of the font; no icon on the other rows',
+      icons: [[g('branch', 0), 't'], ['', 't'], ['', 't']] },
+    A: { name: 'Octicons, all accent', note: 'GitHub\'s own git glyphs (branch, diff, file diff), all three in suggestion',
+      icons: [[g('branch', 1), 'sug'], [g('changes', 1), 'sug'], [g('lines', 1), 'sug']] },
+    B: { name: 'Codicons, accent branch', note: 'VS Code\'s source-control glyphs; the branch in suggestion, the two count rows in inactive',
+      icons: [[g('branch', 2), 'sug'], [g('changes', 2), 'i'], [g('lines', 2), 'i']] },
+    C: { name: 'Material, signal colors', note: 'Material glyphs (source branch, git, plus-minus); branch in suggestion, changeset in warning (a dirty tree), lines in success',
+      icons: [[g('branch', 3), 'sug'], [g('changes', 4), 'warn'], [g('lines', 3), 'ok']] },
+    D: { name: 'Devicons, main text', note: 'Devicons (git branch, git, git compare), all in main text, as loud as the row\'s words',
+      icons: [[g('branch', 4), 't'], [g('changes', 5), 't'], [g('lines', 5), 't']] },
+    E: { name: 'Font-only, muted', note: 'no icon font needed: powerline branch, `±`, `Δ` (all in JetBrains Mono), in inactive',
+      icons: [[g('branch', 5), 'i'], [g('changes', 7), 'i'], [g('lines', 7), 'i']] },
+    F: { name: 'Devicons, muted (the human\'s pick)', note: 'set D\'s glyphs (git branch, git, git compare), all in inactive',
+      icons: [[g('branch', 4), 'i'], [g('changes', 5), 'i'], [g('lines', 5), 'i']] },
+    P: { name: 'Picker: mix your own', note: 'pick a glyph and a role color per row above; the URL keeps the pick', icons: null },
+  }
+
+  const params = new URLSearchParams(location.search)
+  const pick = {
+    branch: [+(params.get('bg') ?? 1), params.get('bc') ?? 'sug'],
+    changes: [+(params.get('cg') ?? 1), params.get('cc') ?? 'i'],
+    lines: [+(params.get('lg') ?? 1), params.get('lc') ?? 'i'],
+  }
+  const pickedIcons = () => ['branch', 'changes', 'lines'].map((k) => [g(k, pick[k][0]), pick[k][1]])
+  const lead = ([glyph, role], text) => row(glyph ? `${span(role, glyph)} ${text}` : text)
+  const header = (icons, w) => [
+    PATH, blank(),
+    lead(icons[0], BRANCH), lead(icons[1], CHANGES), lead(icons[2], LINES),
+    blank(), row(span('s', '═'.repeat(w))), blank(),
+  ]
+
+  const FOOTER = [
+    split(`${span('i', 'claude-tui')} 0.1.1`, `<i class="vrule"></i>${span('i', 'opencode')} 1.0`),
+    row(`${span('i', 'claude-cli')} 2.1.288`),
+  ]
+  const sections = (ss, w) => ss.flatMap((s, n) => [
+    ...(n ? [row(span('s', '─'.repeat(w)))] : []),
+    titleRow(s), ...(s.expanded ? [blank(), ...s.body, blank()] : []),
+  ])
+  const FOOTER_ROWS = [blank(), ...FOOTER]
+
+  const BODY_ROWS = 37
+  function sidebar(style, render, cols) {
+    const w = cols - 4
+    const head = header(style.icons ?? pickedIcons(), w)
+    let rows = sections(model(render), w)
+    const free = BODY_ROWS - head.length - FOOTER_ROWS.length
+    if (rows.length > free) rows = [...rows.slice(0, free - 1), row(span('i', '↓ more'), 'more')]
+    return `<div class="body" style="width:calc(${w} * var(--col))">${head.join('')}<div class="sections">${rows.join('')}</div>${FOOTER_ROWS.join('')}</div>`
+  }
+
+  const KEYS = Object.keys(STYLES)
+  let state = {
+    style: KEYS.includes(params.get('style')) ? params.get('style') : 'O',
+    cols: params.get('cols') === '53' ? 53 : 42,
+  }
+  function draw() {
+    const style = STYLES[state.style]
+    const q = state.style === 'P' ? `&bg=${pick.branch[0]}&bc=${pick.branch[1]}&cg=${pick.changes[0]}&cc=${pick.changes[1]}&lg=${pick.lines[0]}&lc=${pick.lines[1]}` : ''
+    history.replaceState(null, '', `?style=${state.style}&cols=${state.cols}${q}${params.has('export') ? '&export' : ''}`)
+    const paints = [['inherit', 'inherit (no paint)'], ['tokyo', 'Tokyo Night (painted)']]
+    document.getElementById('page').innerHTML = `
+      <h1>Header ${state.style}: ${style.name} · ${state.cols} columns</h1>
+      <p class="about">${style.note}.</p>
+      ${state.style === 'P' ? pickerHtml() : ''}
+      ${paints.map(([cls, label]) => `
+        <div class="paint">${label}</div>
+        <div class="grid">${RENDERS.map((r) => `
+          <div><div class="cap">${r.name}</div><div class="panel ${cls}">${sidebar(style, r, state.cols)}</div></div>`).join('')}
+        </div>`).join('')}`
+    document.querySelectorAll('#picker select').forEach((s) => s.onchange = () => {
+      const [k, part] = s.name.split('.'); pick[k][part === 'g' ? 0 : 1] = part === 'g' ? +s.value : s.value; draw()
+    })
+    document.getElementById('label').textContent = `${state.style} — ${style.name}`
+    document.getElementById('cols').textContent = `${state.cols} cols (c)`
+  }
+  const LABELS = { branch: 'Branch row', changes: 'Changeset row', lines: 'Lines-changed row' }
+  const pickerHtml = () => `<div id="picker">${Object.keys(LABELS).map((k) => `<label>${LABELS[k]}
+    <select name="${k}.g">${GLYPHS[k].map(([gl, n], i) => `<option value="${i}" ${i === pick[k][0] ? 'selected' : ''}>${gl || '·'}  ${n}</option>`).join('')}</select>
+    <select name="${k}.c">${Object.entries(ROLES).map(([c, n]) => `<option value="${c}" ${c === pick[k][1] ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`).join('')}</div>`
+  const step = (d) => { state.style = KEYS[(KEYS.indexOf(state.style) + d + KEYS.length) % KEYS.length]; draw() }
+  const flipCols = () => { state.cols = state.cols === 42 ? 53 : 42; draw() }
+  document.getElementById('prev').onclick = () => step(-1)
+  document.getElementById('next').onclick = () => step(1)
+  document.getElementById('cols').onclick = flipCols
+  addEventListener('keydown', (e) => {
+    if (e.target.closest('input, textarea, [contenteditable]')) return
+    if (e.key === 'ArrowLeft') step(-1)
+    if (e.key === 'ArrowRight') step(1)
+    if (e.key === 'c') flipCols()
+  })
+  if (params.has('export')) document.getElementById('switcher').style.display = 'none'
+  draw()
+</script>
+</body>
+</html>

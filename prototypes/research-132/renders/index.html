@@ -1,0 +1,17 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway (#132): every icon set's render on one page. -->
+<html lang="en"><head><meta charset="utf-8"><title>Sidebar header icon renders</title>
+<style>
+  body { background: #050505; color: #ddd; font: 14px system-ui, sans-serif; margin: 20px; }
+  nav { position: sticky; top: 0; background: #050505; padding: 8px 0; z-index: 1; }
+  nav a { color: #9d7cd8; margin-right: 14px; }
+  h2 { margin: 28px 0 8px; }
+  img { display: block; max-width: 100%; border: 1px solid #222; margin-bottom: 12px; }
+</style></head><body>
+<nav id="nav"></nav><div id="page"></div>
+<script>
+  const STYLES = [['O', 'Today (no change)'], ['A', 'Octicons, all accent'], ['B', 'Codicons, accent branch'], ['C', 'Material, signal colors'], ['D', 'Devicons, main text'], ['E', 'Font-only, muted'], ['F', 'Devicons, muted (the human\'s pick)']]
+  nav.innerHTML = STYLES.map(([k, n]) => `<a href="#${k}">${k} — ${n}</a>`).join('')
+  page.innerHTML = STYLES.map(([k, n]) => `<h2 id="${k}">${k} — ${n}</h2>` +
+    [42, 53].map((c) => `<img src="icons-${k}-${c}.png" alt="${k} at ${c} columns">`).join('')).join('')
+</script></body></html>
