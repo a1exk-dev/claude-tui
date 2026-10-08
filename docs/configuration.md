@@ -66,8 +66,8 @@ ctui draws with Claude Code's theme colors, so it follows the theme you pick in 
 | Key | Where ctui uses it |
 |---|---|
 | `text` | The Sidebar's main text: the path, the branch, `↑N ↓N`, section titles, bar percents, the Limits labels, MCP names, the task in progress, agent names, the versions. |
-| `success` | Git `+staged` and `+added` lines, a bar's fill below 60%, MCP `●`, a finished agent or shell `✓`. |
-| `warning` | Git `!modified`, a bar's fill from 60% to 85%, MCP `!` and `◐`, the in-progress task `◐`, a running agent or shell `◐`, an interrupted tool row. |
+| `success` | Git `+staged` and `+added` lines, a bar's fill below 50%, MCP `●`, a finished agent or shell `✓`. |
+| `warning` | Git `!modified`, a bar's fill from 50% to 85%, MCP `!` and `◐`, the in-progress task `◐`, a running agent or shell `◐`, an interrupted tool row. |
 | `error` | Git `-removed` lines, a bar's fill from 85%, MCP `✕`, a failed agent or shell `✗`, a failed tool row. |
 | `suggestion` | Git `≡stashes`. |
 | `inactive` | The Git glyphs leading the branch, changeset and lines-changed rows, Git `?untracked` and "lines changed", the fold arrows, section counts and folded summaries, tokens, cost and reset times, MCP `N tools` and `off`, done tasks and pending task text, agent details and elapsed times, `▸ N more` and `↑ more`/`↓ more`, the versions labels. |

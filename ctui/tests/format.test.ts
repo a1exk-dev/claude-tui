@@ -20,11 +20,11 @@ test('cost reads in dollars and cents, or whole dollars, the sign after the digi
   expect(formatDollars(133.5)).toBe('134$')
 })
 
-test('levels: below 60 success, below 85 warning, then error', () => {
+test('levels: below 50 success, below 85 warning, then error', () => {
   expect(level(0)).toBe('success')
-  expect(level(59.9)).toBe('success')
-  expect(level(60)).toBe('warning')
-  expect(level(84.9)).toBe('warning')
+  expect(level(49)).toBe('success')
+  expect(level(50)).toBe('warning')
+  expect(level(84)).toBe('warning')
   expect(level(85)).toBe('error')
   expect(level(112)).toBe('error')
 })
