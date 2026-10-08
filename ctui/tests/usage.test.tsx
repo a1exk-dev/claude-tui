@@ -155,6 +155,14 @@ test('over the limit the cost row fills in error and reads the real percent', as
   expect((await costRows(pane)).under?.text.trim()).toBe('134.00$ of 100$')
 })
 
+test('a percent wider than its column shortens the bar, one space before it', async ($, on) => {
+  const pane = await draw($, on, limits, { usage: { ...FRESH, cost: { usd: 1132.58 } }, now: NOW, monthCost: 0 })
+  const { row } = await costRows(pane)
+  expect(row?.text).toHaveLength(WIDTH)
+  expect(row?.text).toMatch(/━ 1133%$/)
+  expect(await barOf(pane, /^cost/)).toEqual({ filled: WIDTH - 12, empty: 0, colors: ['error', 'subtle', 'text'] })
+})
+
 test('a limit with cents reads as given', async ($, on) => {
   const pane = await draw($, on, limits, { usage: { ...FRESH, cost: { usd: 25 } }, now: NOW, monthCost: 0 }, { ...AUTO, monthly: 50.5 })
   expect((await costRows(pane)).under?.text.trim()).toBe('25.00$ of 50.5$')

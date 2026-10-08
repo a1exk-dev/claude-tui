@@ -44,8 +44,9 @@ export function bar(percent: number, width: number): { filled: string; empty: st
   return { filled: '━'.repeat(filled), empty: '─'.repeat(cells - filled) }
 }
 
-// A percent in the 5 columns right of a bar: `  9%`, ` 100%`.
-export const formatPercent = (percent: number) => `${Math.round(percent)}%`.padStart(5)
+// A percent right of a bar, at least 5 columns and always one space from it:
+// `   9%`, ` 100%`, ` 1133%`. The bar takes what is left of the row.
+export const formatPercent = (percent: number) => ` ${Math.round(percent)}%`.padStart(5)
 
 // `21s`, `1m 15s`, `15m 03s`, `1h 02m`.
 export function formatElapsed(ms: number): string {
