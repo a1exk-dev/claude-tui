@@ -36,13 +36,14 @@ const plugin: SidebarPlugin = {
     if (!usage) return []
     // With no `percent`, the bar stays empty and the percent column blank.
     const meter = (label: string, percent: number | undefined, under: string | undefined) => {
-      const cells = bar(percent ?? 0, width - LABEL_WIDTH - 5)
+      const shown = formatPercent(percent ?? 0)
+      const cells = bar(percent ?? 0, width - LABEL_WIDTH - shown.length)
       return [
         <Text color={c.main}>
           {label.padEnd(LABEL_WIDTH)}
           <Text color={c[level(percent ?? 0)]}>{cells.filled}</Text>
           <Text color={c.faint}>{cells.empty}</Text>
-          {percent !== undefined && <Text color={c.main}>{formatPercent(percent)}</Text>}
+          {percent !== undefined && <Text color={c.main}>{shown}</Text>}
         </Text>,
         ...(under
           ? [

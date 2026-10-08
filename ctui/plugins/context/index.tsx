@@ -11,12 +11,13 @@ const plugin: SidebarPlugin = {
   view: ({ usage }, { Text }, _cfg, width, c) => {
     if (!usage) return []
     const { tokens = 0, window, percent = 0 } = usage.context
-    const cells = bar(percent, width - 5)
+    const shown = formatPercent(percent)
+    const cells = bar(percent, width - shown.length)
     return [
       <Text>
         <Text color={c[level(percent)]}>{cells.filled}</Text>
         <Text color={c.faint}>{cells.empty}</Text>
-        <Text color={c.main}>{formatPercent(percent)}</Text>
+        <Text color={c.main}>{shown}</Text>
       </Text>,
       <Text color={c.muted} wrap="truncate-end">
         {formatTokens(tokens)} / {formatWindow(window)} tokens
