@@ -37,10 +37,10 @@ Every setting, the sidebar sections and their options, an example Claude Code th
 
 ## Commands
 
-- `/ctui:theme [theme]` switches the sidebar theme. `inherit`, the default, follows your Claude Code theme.
-- `/ctui:plugins:enable [plugin]` and `/ctui:plugins:disable [plugin]` turn a sidebar section on or off.
+- `/ctui` opens the ctui menu at once, even while Claude is replying. **Themes** lists `inherit` (the default, which follows your Claude Code theme) and every bundled theme by name, with a filter field: type to narrow the list, pick to switch. Esc goes back one level, and closes the menu at the top.
+- `/ctui:plugins:enable [plugin]` and `/ctui:plugins:disable [plugin]` turn a sidebar section on or off. With no argument, each opens a list to pick from.
 
-With no argument, each command opens a list to pick from. Each section and the toasts also have a row in `/config`. Settings are saved to your user `settings.json`, so a change applies to every session.
+If another command already holds `/ctui`, ctui says so in a toast once per session; change its settings in `/config` instead. Each section and the toasts also have a row in `/config`. Settings are saved to your user `settings.json`, so a change applies to every session.
 
 ## Task tools
 

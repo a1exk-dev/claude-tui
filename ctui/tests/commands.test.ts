@@ -1,10 +1,10 @@
 import { expect, test } from 'claude-code/testing'
 
-import { deniedText, gated, NO_CONFIG, pluginsOutcome, themeOutcome } from '../hooks/commands'
+import { deniedText, gated, NO_CONFIG, pluginsOutcome } from '../hooks/commands'
 import { sections } from '../plugins'
 
-// Every `/ctui:*` outcome in MEMORY.md "`/ctui:*` commands stay quiet on
-// success; a bare command opens a picker pane".
+// Every `/ctui:plugins:*` outcome in MEMORY.md "`/ctui:plugins:*` commands
+// stay quiet on success; a bare command opens a picker pane".
 
 // The sections, in registry order: the git header and versions footer are always on.
 const states = (off: string[] = []) => sections.map(({ id }) => ({ id, enable: !off.includes(id) }))
@@ -30,14 +30,6 @@ test('a bare toggle picks from the plugins it would change, or says none are lef
   expect(pluginsOutcome('enable', '', states())).toEqual({ text: 'All Sidebar plugins are already enabled' })
   const none = sections.map(({ id }) => id)
   expect(pluginsOutcome('disable', '', states(none))).toEqual({ text: 'All Sidebar plugins are already disabled' })
-})
-
-test('theme: a change writes, the current one or an unknown one gets a line, bare picks', () => {
-  const themes = ['inherit', 'tokyo']
-  expect(themeOutcome('tokyo', themes, 'inherit')).toEqual({ set: { key: 'ctui.theme', value: 'tokyo' } })
-  expect(themeOutcome('inherit', ['inherit'], 'inherit')).toEqual({ text: 'Sidebar theme is already inherit' })
-  expect(themeOutcome('x', ['inherit'], 'inherit')).toEqual({ text: 'Unknown theme "x". Themes: inherit' })
-  expect(themeOutcome('', ['inherit'], 'inherit')).toEqual({ pick: { options: ['inherit'], value: 'inherit' } })
 })
 
 test('a deny names the change and its reason', () => {

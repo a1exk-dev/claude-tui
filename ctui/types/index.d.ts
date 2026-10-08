@@ -64,6 +64,10 @@ export type Task = {
   listed?: string // agent only: the status $.agent.list() last gave
 }
 
+// The `/ctui` menu's level, its Theme filter, and the top level's last pick.
+export type MenuLevel = 'top' | 'plugins' | 'themes'
+export type Menu = { level: MenuLevel; filter: string; picks: Partial<Record<MenuLevel, string>> }
+
 // A finished main-loop turn, matched to its footer by `durationMs`.
 export type Turn = { durationMs: number; mode: string; model: string }
 
@@ -87,6 +91,8 @@ declare module 'claude-code' {
       effort?: string | null // the session's effort; null when the model takes none
       turns: Turn[] // every finished turn of the session: old footers redraw on scroll
       glass?: string | null // under `inherit`, the active custom /theme's glass; null or unset paints nothing
+      menu?: Menu // the open `/ctui` menu: it outlives each settings reload
+      menuTaken?: boolean // this session toasted that `/ctui` is taken
     }
   }
 }

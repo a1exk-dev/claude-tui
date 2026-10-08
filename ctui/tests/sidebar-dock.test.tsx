@@ -111,8 +111,8 @@ test('seated inline, the Sidebar draws nothing and closes', async ($, on) => {
 // straight to the plugin's hook.
 test('the person can’t close the Sidebar; a plugin close passes', async () => {
   let close: ((...args: unknown[]) => unknown) | undefined
-  const record = (event: string, _matcher: unknown, hook: (...args: unknown[]) => unknown) => {
-    if (event === 'ui.close') close = hook
+  const record = (event: string, matcher: { id?: string }, hook: (...args: unknown[]) => unknown) => {
+    if (event === 'ui.close' && matcher.id === 'sidebar') close = hook
   }
   register(record as unknown as On, {})
   const next = () => 'closed'

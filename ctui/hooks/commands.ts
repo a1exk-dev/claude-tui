@@ -1,8 +1,8 @@
 import type { SidebarId } from '../plugins/plugin'
 
-// What a `/ctui:*` command does (MEMORY.md "`/ctui:*` commands stay quiet on
-// success; a bare command opens a picker pane"): write one setting, print one
-// line, or open a picker of `options` with `value` selected.
+// What a `/ctui:plugins:*` command does (MEMORY.md "`/ctui:plugins:*` commands
+// stay quiet on success; a bare command opens a picker pane"): write one
+// setting, print one line, or open a picker of `options` with `value` selected.
 export type Outcome =
   | { text: string }
   | { set: { key: string; value: string | boolean } }
@@ -28,15 +28,6 @@ export function pluginsOutcome(
   if (!plugin) return { text: `Unknown plugin "${name}". Plugins: ${plugins.map((p) => p.id).join(', ')}` }
   if (plugin.enable === on) return { text: `${name} is already ${action}d` }
   return { set: { key: `ctui.${name}_enable`, value: on } }
-}
-
-// `/ctui:theme [theme]`: the picker always opens, the current theme selected.
-export function themeOutcome(args: string, themes: readonly string[], current: string): Outcome {
-  const name = args.trim()
-  if (!name) return { pick: { options: themes, value: current } }
-  if (!themes.includes(name)) return { text: `Unknown theme "${name}". Themes: ${themes.join(', ')}` }
-  if (name === current) return { text: `Sidebar theme is already ${name}` }
-  return { set: { key: 'ctui.theme', value: name } }
 }
 
 // Gates a write or a picker on the `ctui.theme` `/config` row: `claude -p`
