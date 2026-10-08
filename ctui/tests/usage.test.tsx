@@ -86,13 +86,21 @@ test('before the first response context reads 0%', async ($, on) => {
 })
 
 for (const [percent, color] of [
-  [60, 'warning'],
+  [49, 'success'],
+  [50, 'warning'],
+  [84, 'warning'],
   [85, 'error'],
 ] as const) {
   test(`context at ${percent}% fills in ${color}`, async ($, on) => {
     const usage: Usage = { context: { tokens: percent * 2000, window: 200000, percent }, rateLimits: [] }
     const pane = await draw($, on, context, { usage })
     expect((await barOf(pane, new RegExp(`${percent}%$`))).colors).toEqual([color, 'subtle', 'text'])
+  })
+
+  test(`a limits row at ${percent}% fills in ${color}`, async ($, on) => {
+    const usage: Usage = { context: FRESH.context, rateLimits: [{ kind: 'five_hour', percentUsed: percent, resetsAt: at(0, 2) }] }
+    const pane = await draw($, on, limits, { usage, now: NOW, monthCost: 0 })
+    expect((await barOf(pane, /^5h/)).colors).toEqual([color, 'subtle', 'text'])
   })
 }
 
