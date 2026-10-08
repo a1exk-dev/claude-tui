@@ -32,6 +32,7 @@ export type Usage = {
 export type McpRow = {
   server: string // the tool-name segment, `mcp__<server>__<tool>`
   label: string
+  source: string // `user`, `project`, `local`, `claude.ai`, a plugin's name, `managed`, `enterprise`, `dynamic`
   state: 'ok' | 'auth' | 'connecting' | 'down' | 'off'
   tools?: number
   since?: number
@@ -82,6 +83,7 @@ declare module 'claude-code' {
       usage?: Usage
       month?: { month: string; session: string; usd: number } // the ended sessions' cost in the local month `2026-10`, the current session left out
       mcp: McpRow[] // A–Z, off rows last
+      mcpObserved: Record<string, string> // tool segment → the source a run of its tool reported
       todo?: Todo
       activeForms: Record<string, string> // Task id → activeForm, from TaskCreate/TaskUpdate inputs
       todoEnvSet?: boolean // ctui set CLAUDE_CODE_ENABLE_TODO_TOOLS

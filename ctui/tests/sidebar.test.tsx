@@ -309,7 +309,7 @@ const BUSY: SidebarData = {
     ],
   },
   now: 0,
-  mcp: Array.from({ length: 7 }, (_, i) => ({ server: `s${i}`, label: `server ${i}`, state: 'ok' as const, tools: 3 })),
+  mcp: Array.from({ length: 7 }, (_, i) => ({ server: `s${i}`, label: `server ${i}`, source: 'user', state: 'ok' as const, tools: 3 })),
   todo: { tools: 'task', items: Array.from({ length: 8 }, (_, i) => ({ id: `${i}`, subject: `task ${i}`, status: 'pending' as const })) },
   tasks: {
     a: { id: 'a', kind: 'agent', type: 'Explore', label: 'map', status: 'running', startedAt: 0 },
@@ -331,7 +331,7 @@ test("#85's busy data at 34 body rows: 37 section rows overflow 22 free rows", a
   // A 4-row header (path, blank row, branch, counts) and the 2-row footer
   // leave 22 free rows. `↓ more` leaves 21, which hold Context, Limits and
   // MCP to its fourth server (21 rows) but not `▸ 3 more`.
-  expect(window.slice(-4)).toEqual(['● server 13 tools', '● server 23 tools', '● server 33 tools', '↓ more'])
+  expect(window.slice(-4)).toEqual(['● server 1user · 3 tools', '● server 2user · 3 tools', '● server 3user · 3 tools', '↓ more'])
   expect(height(window)).toBe(22)
   expect(window.filter((size) => size === B)).toHaveLength(5)
   expect(window.filter((size) => size === R)).toHaveLength(2)
@@ -342,7 +342,7 @@ test("#85's busy data at 34 body rows: 37 section rows overflow 22 free rows", a
 
 test("#85's busy data scrolled to the end", async ($, on) => {
   const window = windowOf(layout((await busy($, on, 99)).tree))
-  expect(window.slice(0, 2)).toEqual(['↑ more', '● server 03 tools'])
+  expect(window.slice(0, 2)).toEqual(['↑ more', '● server 0user · 3 tools'])
   expect(window.at(-1)).toBe('◐ Plan · plan0s')
   expect(height(window)).toBe(21)
 })
