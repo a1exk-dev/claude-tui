@@ -1,6 +1,8 @@
 import type { ConfigRow, ConfigSetInput, On } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
+import { plugins } from '../plugins'
+
 // Scenario: picking a Theme in `/ctui:theme` (MEMORY.md "Sidebar colors
 // inherit the Claude Code theme"). A write reloads the mod with the new
 // `theme` option; the Sidebar then draws with that Theme's role hexes, read
@@ -89,7 +91,7 @@ const pane = ($: Engine, requestId: string) =>
 // The Sidebar, the color of its `Context` title, and its root's background.
 async function sidebar($: Engine) {
   const drawn = await pane($, 'sidebar')
-  const title = (await drawn.find({ type: 'Text', text: /^ ?Context$/ }))?.props.color
+  const title = (await drawn.find({ type: 'Text', text: /^ ?Context:$/, in: 'foldrow-context' }))?.props.color
   const root = (await drawn.drawn()) as { props: { backgroundColor?: string } }
   return { drawn, title, background: root.props.backgroundColor }
 }
@@ -128,14 +130,42 @@ test('with a Theme selected the Sidebar draws its role hexes', { options: { them
   expect(title).toBe(EVERFOREST.overrides.text)
   // No Text keeps a role's key name.
   const keys = ['text', 'inactive', 'subtle', 'success', 'warning', 'error', 'suggestion']
-  const colors = (await drawn.findAll({ type: 'Text' })).map((text) => text.props.color)
+  const sections = plugins.filter((plugin) => plugin.slot === 'section')
+  const rows = sections.map(({ id }) => drawn.findAll({ type: 'Text', in: `foldrow-${id}` }))
+  const texts = [...(await drawn.findAll({ type: 'Text' })), ...(await Promise.all(rows)).flat()]
+  const colors = texts.map((text) => text.props.color)
   expect(colors.filter((color) => keys.includes(color as string))).toEqual([])
+})
+
+test("with a Theme selected a title row hovers in the Theme's accent", { options: { theme: 'everforest' } }, async ($, on) => {
+  mock.clock(on)
+  files(on)
+  const { drawn } = await sidebar($)
+  const hover = { scope: 'foldrow-context', color: EVERFOREST.overrides.suggestion }
+  expect(await drawn.drawn({ in: 'foldrow-context' })).toMatchObject({ children: [{ type: 'Text', hover }, { type: 'Box' }] })
+  expect(await drawn.drawn({ in: 'fold-context' })).toMatchObject({ type: 'Text', hover })
 })
 
 test('under inherit the Sidebar draws with key names', async ($, on) => {
   mock.clock(on)
   files(on)
   expect((await sidebar($)).title).toBe('text')
+})
+
+// #134: the rules between sections.
+const rules = async (drawn: Awaited<ReturnType<typeof pane>>) =>
+  (await drawn.findAll({ type: 'Text', text: '─'.repeat(38) })).map((text) => text.props.color)
+
+test('under inherit the rules between sections draw subtle', async ($, on) => {
+  mock.clock(on)
+  files(on)
+  expect(await rules((await sidebar($)).drawn)).toEqual(Array(4).fill('subtle'))
+})
+
+test("with a Theme selected the rules draw in the Theme's subtle", { options: { theme: 'everforest' } }, async ($, on) => {
+  mock.clock(on)
+  files(on)
+  expect(await rules((await sidebar($)).drawn)).toEqual(Array(4).fill(EVERFOREST.overrides.subtle))
 })
 
 test("with a Theme selected the Sidebar's root paints the Theme's glass", { options: { theme: 'everforest' } }, async ($, on) => {

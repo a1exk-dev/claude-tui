@@ -17,8 +17,11 @@ export const formatTokens = (tokens: number) => tokens.toLocaleString('en-US')
 export const formatWindow = (tokens: number) =>
   tokens >= 1_000_000 ? `${+(tokens / 1_000_000).toFixed(1)}M` : `${Math.round(tokens / 1000)}k`
 
-// `$0.21`
-export const formatUsd = (usd: number) => `$${usd.toFixed(2)}`
+// `0.21$`: the sign after the digits, as everywhere in the Limits section.
+export const formatUsd = (usd: number) => `${usd.toFixed(2)}$`
+
+// `62$`, in whole dollars.
+export const formatDollars = (usd: number) => `${Math.round(usd)}$`
 
 // `resets in 2h 17m`; past a day, `resets in 3d 4h, Mon 09:00` in local 24-hour time.
 export function formatReset(resetsAt: string, now: number): string {
@@ -41,8 +44,9 @@ export function bar(percent: number, width: number): { filled: string; empty: st
   return { filled: '━'.repeat(filled), empty: '─'.repeat(cells - filled) }
 }
 
-// A percent in the 5 columns right of a bar: `  9%`, ` 100%`.
-export const formatPercent = (percent: number) => `${Math.round(percent)}%`.padStart(5)
+// A percent right of a bar, at least 5 columns and always one space from it:
+// `   9%`, ` 100%`, ` 1133%`. The bar takes what is left of the row.
+export const formatPercent = (percent: number) => ` ${Math.round(percent)}%`.padStart(5)
 
 // `21s`, `1m 15s`, `15m 03s`, `1h 02m`.
 export function formatElapsed(ms: number): string {

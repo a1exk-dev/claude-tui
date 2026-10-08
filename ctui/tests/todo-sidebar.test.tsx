@@ -133,6 +133,8 @@ async function sidebarOf($: Engine) {
     pane,
     rows: async () => rowsOf(pane),
     text: async (text: string | RegExp) => (await pane.find({ type: 'Text', text }))?.text,
+    // The header's count or folded summary, drawn in its title row's Client.
+    count: async () => (await pane.findAll({ type: 'Text', in: 'foldrow-todo' }))[1]?.text,
   }
 }
 
@@ -142,9 +144,9 @@ test('TaskCreate and TaskUpdate draw rows, with activeForm from the inputs', asy
   host(on, world)
   await start($)
   await clock.settle()
-  const { pane, rows, text } = await sidebarOf($)
+  const { pane, rows, count } = await sidebarOf($)
   expect(await rows()).toEqual([])
-  expect(await text('0/0')).toBe('0/0')
+  expect(await count()).toBe('0/0')
 
   await $.tool.call({ tool: 'TaskCreate', subject: 'alpha', description: 'a', activeForm: 'Doing alpha' })
   await $.tool.call({ tool: 'TaskCreate', subject: 'beta', description: 'b' })
@@ -158,10 +160,10 @@ test('TaskCreate and TaskUpdate draw rows, with activeForm from the inputs', asy
   await clock.settle()
   await pane.redraw()
   expect(await rows()).toEqual(['✓ alpha', '◐ Doing beta'])
-  expect(await text('1/2')).toBe('1/2')
+  expect(await count()).toBe('1/2')
 
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-todo' })
-  expect(await text(/^1\/2 · /)).toBe('1/2 · Doing beta')
+  expect(await count()).toBe('1/2 · Doing beta')
 })
 
 test('a list held before session.start draws at once, as after --resume or a reload', async ($, on) => {

@@ -1,12 +1,12 @@
 import type { ElementTable, On } from 'claude-code'
 import { type Engine, expect, test } from 'claude-code/testing'
 
-import type { PressProps } from '../hooks/press'
 import { readConfig } from '../hooks/config'
 import { sidebar, type SidebarInput } from '../hooks/sidebar'
 import { plugins } from '../plugins'
 import { type Colors, colors } from '../plugins/colors'
 import type { SidebarData } from '../plugins/plugin'
+import { clientsAsTrees } from './clients'
 
 // The Sidebar's color roles (MEMORY.md "Sidebar colors inherit the Claude
 // Code theme"): every plugin and the Sidebar's own rows, with sample data.
@@ -68,24 +68,11 @@ function runs(node: unknown, color?: string): { text: string; color?: string }[]
   return out
 }
 
-// A test plugin loads no surface module, so each `press.tsx` Client draws as
-// the Text that module draws.
-function pressAsText(ui: ElementTable): SidebarInput['ui'] {
-  if (!('Client' in ui)) throw new Error('the Sidebar draws on the terminal')
-  return {
-    ...ui,
-    Client: ({ props }) => {
-      const { label, color } = props as PressProps
-      return <ui.Text color={color}>{label}</ui.Text>
-    },
-  }
-}
-
 // Draws the whole Sidebar with every plugin in a test Pane.
 async function draw($: Engine, on: On, input: Partial<SidebarInput> = {}, columns = 42) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
     return sidebar({
-      ui: pressAsText($.ui.resolve(e)),
+      ui: clientsAsTrees($.ui.resolve(e)),
       bodyRows: 60,
       bodyColumns: e.props.bodyColumns,
       plugins,
@@ -125,20 +112,23 @@ test('every run of text draws in a theme key; fold arrows draw muted', async ($,
   const { runs: all } = await draw($, on)
   const keys = Object.values(colors())
   expect(all.filter((run) => !keys.includes(run.color ?? ''))).toEqual([])
-  expect(colorOf(all, '▾')).toEqual(Array(5).fill('inactive'))
+  expect(colorOf(all, '▼')).toEqual(Array(5).fill('inactive'))
 })
 
 test('main text draws with the text key: path, branch, titles, labels, percents, versions', async ($, on) => {
   const { runs: all } = await draw($, on)
-  for (const text of ['~/Projects/claude-tui', 'Context', 'MCP', 'playwright', '9%', '34%', '0.2.0', '2.1.292']) {
+  for (const text of ['~/Projects/claude-tui', 'Context:', 'MCP:', 'playwright', '9%', '34%', '0.2.0', '2.1.292']) {
     expect(colorOf(all, text), text).toEqual(['text'])
   }
   expect(colorOf(all, 'Run the tests')).toEqual(['text'])
 })
 
-test('the git header: ⎇ muted, counts in their roles, lines changed muted', async ($, on) => {
+// #136: the Devicons glyphs leading the git rows: branch, changeset, lines changed.
+const GLYPHS = ['\ue725', '\ue702', '\ue728']
+
+test('the git header: glyphs muted, counts in their roles, lines changed muted', async ($, on) => {
   const { runs: all } = await draw($, on)
-  expect(colorOf(all, '⎇')).toEqual(['inactive'])
+  expect(GLYPHS.map((glyph) => colorOf(all, glyph))).toEqual([['inactive'], ['inactive'], ['inactive']])
   expect(colorOf(all, 'develop')).toEqual(['text'])
   expect(['↑1', '↓0', '+2', '!3', '?1', '≡1', '+12', '-4', 'lines changed'].map((t) => colorOf(all, t)[0])).toEqual([
     'text',
@@ -155,10 +145,21 @@ test('the git header: ⎇ muted, counts in their roles, lines changed muted', as
 
 test('bars: the empty part faint ─, the percent main; pending todo ○ faint with muted text', async ($, on) => {
   const { runs: all } = await draw($, on)
-  const empty = all.filter((run) => /^─+$/.test(run.text))
+  // Shorter than a rule between sections, which spans the body.
+  const empty = all.filter((run) => /^─+$/.test(run.text) && run.text.length < 38)
   expect(empty.map((run) => run.color)).toEqual(['subtle', 'subtle'])
   expect(colorOf(all, '○')).toEqual(['subtle', 'subtle'])
   expect(colorOf(all, 'Open the PR')).toEqual(['inactive'])
+})
+
+test('a rule between every two sections draws faint across the body', async ($, on) => {
+  const { runs: all } = await draw($, on)
+  expect(colorOf(all, '─'.repeat(38))).toEqual(Array(4).fill('subtle'))
+})
+
+test('the double rule under the git header draws faint across the body', async ($, on) => {
+  const { runs: all } = await draw($, on)
+  expect(colorOf(all, '═'.repeat(38))).toEqual(['subtle'])
 })
 
 test('a section header draws its count muted', async ($, on) => {
@@ -167,7 +168,7 @@ test('a section header draws its count muted', async ($, on) => {
 })
 
 test('scroll marks draw muted', async ($, on) => {
-  const { runs: all } = await draw($, on, { bodyRows: 12, scroll: 2 })
+  const { runs: all } = await draw($, on, { bodyRows: 14, scroll: 2 })
   expect(colorOf(all, '↑ more')).toEqual(['inactive'])
   expect(colorOf(all, '↓ more')).toEqual(['inactive'])
 })
@@ -191,9 +192,10 @@ for (const columns of [42, 53]) {
 test("a Theme's overrides reach every role", async ($, on) => {
   const theme: Colors = colors({ text: '#d3c6aa', inactive: '#918c7e', subtle: '#475258' })
   const { runs: all } = await draw($, on, { colors: theme })
-  expect(colorOf(all, 'Context')).toEqual(['#d3c6aa'])
-  expect(colorOf(all, '⎇')).toEqual(['#918c7e'])
+  expect(colorOf(all, 'Context:')).toEqual(['#d3c6aa'])
+  expect(GLYPHS.map((glyph) => colorOf(all, glyph))).toEqual([['#918c7e'], ['#918c7e'], ['#918c7e']])
   expect(colorOf(all, '│')).toEqual(['#475258'])
-  expect(colorOf(all, '▾')).toEqual(Array(5).fill('#918c7e'))
+  expect(colorOf(all, '═'.repeat(38))).toEqual(['#475258'])
+  expect(colorOf(all, '▼')).toEqual(Array(5).fill('#918c7e'))
   expect(all.some((run) => ['text', 'inactive', 'subtle'].includes(run.color ?? ''))).toBe(false)
 })

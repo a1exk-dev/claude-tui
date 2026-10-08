@@ -1,0 +1,286 @@
+<!doctype html>
+<!--
+  The source of the three Sidebar renders in this folder.
+
+  Open it with ?render=1, 2 or 3 for one render at its 1320×810 size; with no
+  query it shows all three. To re-export the PNGs after an edit, from the repo root:
+
+    for r in 1-all-folded 2-some-folded 3-all-expanded; do
+      npx -y playwright@1.63.0 screenshot --viewport-size=1320,810 \
+        "file://$PWD/docs/design/sidebar.html?render=${r%%-*}" "docs/design/sidebar-$r.png"
+    done
+
+  The grid is 14px JetBrainsMono Nerd Font, the installed font the renders
+  were first drawn in: 8.4px columns, 20.25px rows. The Sidebar's spacing is in
+  whole rows, as Claude Code lays it out: a faint `─` rule across the body
+  between every two sections, 1 row under an expanded title and 1 row after an
+  expanded section before the rule, none after a folded one. A faint `═` rule
+  with 1 blank row on each side parts the git header from the sections. In
+  the header, 1 blank row parts the path from the git rows, each led by its
+  Devicons glyph in muted: U+E725 branch, U+E702 changeset, U+E728 lines.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidebar renders</title>
+<style>
+  :root {
+    --row: 20.25px;
+    --col: 8.4px;
+    --outside: #050505;
+    --frame: #222222;
+    --titlebar: #111111;
+    --dot: #333333;
+    --bg: #0a0a0a;
+    --panel: #141414;
+    --border: #484848;
+    --main: #eeeeee;
+    --muted: #808080;
+    --faint: #484848;
+    --placeholder: #767676;
+    --chevron: #797979;
+    --line-number: #a0a0a0;
+    --green: #7fd88f;
+    --red: #e06c75;
+    --orange: #f5a742;
+    --peach: #fab283;
+    --purple: #9d7cd8;
+    --diff-del: #37222c;
+    --diff-add: #20303b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--outside); }
+  body {
+    font: 14px/var(--row) 'JetBrainsMono Nerd Font', monospace;
+    font-variant-ligatures: none;
+    color: var(--main);
+    -webkit-font-smoothing: antialiased;
+  }
+  body.all { display: flex; flex-direction: column; gap: 24px; padding: 24px; align-items: center; }
+
+  .window {
+    position: relative; width: 1320px; height: 810px; overflow: hidden;
+    background: var(--bg); border: 1px solid var(--frame); border-radius: 10px;
+  }
+  .titlebar {
+    position: absolute; left: 0; right: 0; top: 0; height: 28px; background: var(--titlebar);
+    font-size: 12px; line-height: 26px; letter-spacing: 0; color: var(--muted); padding-left: 71px;
+  }
+  .titlebar i { position: absolute; top: 9px; width: 11px; height: 11px; border-radius: 50%; background: var(--dot); }
+
+  .row { height: var(--row); white-space: pre; }
+  .split { display: flex; justify-content: space-between; }
+  .m { color: var(--muted); } .f { color: var(--faint); }
+  .g { color: var(--green); } .r { color: var(--red); } .o { color: var(--orange); }
+  .p { color: var(--peach); } .v { color: var(--purple); } .ln { color: var(--line-number); }
+  b { font-weight: 700; }
+
+  /* Transcript */
+  .transcript { position: absolute; left: 0; top: 57px; width: 965px; }
+  .transcript > .row { padding-left: 42px; }
+  .prompt {
+    width: 840px; margin-left: 17px; padding-left: 25px;
+    background: linear-gradient(var(--green), var(--green)) 2.5px 0 / 3px 100% no-repeat, var(--panel);
+  }
+  .code { margin-left: 59px; width: 789px; background: var(--panel); }
+  .code .del { background: var(--diff-del); } .code .add { background: var(--diff-add); }
+  .input {
+    position: absolute; left: 17px; top: 755px; width: 931px; height: 29px;
+    border: 1px solid var(--border); border-radius: 4px; padding-left: 10px;
+    line-height: 28px; color: var(--placeholder);
+  }
+  .mode { position: absolute; left: 25px; width: 915px; top: 784px; }
+
+  /* Sidebar */
+  .sidebar { position: absolute; left: 965px; right: 0; top: 0; bottom: 0; background: var(--panel); }
+  .body {
+    position: absolute; left: 17px; width: calc(38 * var(--col)); top: 36.5px; bottom: 9px;
+    display: flex; flex-direction: column;
+  }
+  .fill { flex: 1; }
+  .gap { height: var(--row); }
+  .indent { padding-left: calc(2 * var(--col)); }
+  .more { text-align: right; }
+  .rule { position: absolute; left: 176px; margin-top: -0.5px; width: 1px; height: 21px; background: var(--faint); }
+</style>
+</head>
+<body>
+<script>
+  // What each render shows: a fold state per Sidebar plugin, and whether the
+  // sections window overflows into `↓ more`.
+  const RENDERS = {
+    1: { name: 'all-folded', expanded: [] },
+    2: { name: 'some-folded', expanded: ['context', 'todo', 'agents'] },
+    3: { name: 'all-expanded', expanded: ['context', 'limits', 'mcp', 'todo', 'agents'], lists: ['mcp', 'todo'], more: true },
+  }
+
+  const span = (cls, text) => `<span class="${cls}">${text}</span>`
+  const row = (html, cls = '') => `<div class="row ${cls}">${html}</div>`
+  const split = (left, right, cls = '') => row(`<span>${left}</span><span>${right}</span>`, `split ${cls}`)
+  const bar = (percent, cells, color) => {
+    const filled = Math.round((percent / 100) * cells)
+    return span(color, '━'.repeat(filled)) + span('f', '─'.repeat(cells - filled))
+  }
+
+  // Each section: its title, the right side folded (summary) and expanded
+  // (count), and its body rows. A list shows its first 4 rows plus a
+  // `▸ N more` row unless the render expands it.
+  const SECTIONS = [
+    {
+      id: 'context', title: 'Context',
+      summary: span('m', '9%'),
+      body: () => [
+        split(bar(9, 20, 'g'), '9%'),
+        row(span('m', '18,402 / 200k tokens')),
+      ],
+    },
+    {
+      id: 'limits', title: 'Limits',
+      summary: span('m', '62$ · 5h 34% · wk 81%'),
+      body: () => [
+        split(`cost   ${bar(62, 20, 'o')}`, '62%'),
+        row(span('m', '       62.00$ of 100$')),
+        split(`5h     ${bar(34, 20, 'g')}`, '34%'),
+        row(span('m', '       resets in 2h 17m')),
+        split(`week   ${bar(81, 20, 'o')}`, '81%'),
+        row(span('m', '       resets in 3d 4h, Mon 09:00')),
+      ],
+    },
+    {
+      id: 'mcp', title: 'MCP',
+      summary: `${span('g', '●')}${span('m', ' 5 ')}${span('r', '✕')}${span('m', ' 1 ○ 1')}`,
+      count: span('m', '5/7'),
+      list: [
+        split(`${span('g', '●')} playwright`, span('m', '22 tools')),
+        split(`${span('g', '●')} Claude Docs`, span('m', '9 tools')),
+        split(`${span('r', '✕')} sentry`, span('r', 'failed')),
+        split(`${span('g', '●')} context7`, span('m', '2 tools')),
+        split(`${span('g', '●')} linear`, span('m', '31 tools')),
+        split(`${span('g', '●')} postgres`, span('m', '6 tools')),
+        split(`${span('m', '○')} github`, span('m', 'off')),
+      ],
+    },
+    {
+      id: 'todo', title: 'Todo',
+      summary: `${span('m', '2/8 · ')}write the test`,
+      count: span('m', '2/8'),
+      list: [
+        row(span('m', '✓ read sync command')),
+        row(span('m', '✓ add the flag')),
+        row(`${span('o', '◖')} write the test`),
+        row(span('m', '○ update README')),
+        row(span('m', '○ add --dry-run to help text')),
+        row(span('m', '○ check Windows paths')),
+        row(span('m', '○ run full test suite')),
+        row(span('m', '○ write changelog entry')),
+      ],
+    },
+    {
+      id: 'agents', title: 'Agents &amp; shells',
+      summary: `${span('g', '◖')}${span('m', ' 5 running')}`,
+      count: span('m', '5 running'),
+      list: [
+        split(`${span('g', '◖')} Explore ${span('m', '· map the auth fl…')}`, span('m', '1m 15s')),
+        split(`  ${span('m', '└')} ${span('g', '◖')} general-purpose ${span('m', '· read M…')}`, span('m', '21s')),
+        split('$ bun test --watch', span('m', '5m 03s')),
+        split('$ bun run dev --port 3000', span('m', '15m 03s')),
+        row(span('m', '○ bun run typecheck --watch')),
+      ],
+    },
+  ]
+  const CAP = 4
+  // The `─` rule between two sections, across the body's 38 columns.
+  const RULE = row(span('f', '─'.repeat(38)))
+  // The sections window's rows above `↓ more`: 37 body rows less the header
+  // (5), the double rule's 3, `↓ more`, the footer's gap and the footer (2).
+  const ROOM = 37 - 5 - 3 - 1 - 1 - 2
+
+  // The sections as scroll stops, as `sidebar()` builds them: a title's stop
+  // holds the blank row and rule before it and its own blank row. With
+  // `↓ more`, only the stops that fit `ROOM` whole show.
+  function sections(render) {
+    const stops = []
+    let previous = 'none'
+    for (const section of SECTIONS) {
+      const expanded = render.expanded.includes(section.id)
+      let title = ''
+      let height = 1
+      if (previous === 'expanded') (title += '<div class="gap"></div>'), height++
+      if (previous !== 'none') (title += RULE), height++
+      previous = expanded ? 'expanded' : 'folded'
+      const right = expanded ? (section.count ?? '') : section.summary
+      title += split(`${span('m', expanded ? '▼' : '▶\uFE0E')} <b>${section.title}:</b>`, right)
+      if (expanded) (title += '<div class="gap"></div>'), height++
+      stops.push({ html: title, height })
+      if (!expanded) continue
+      let body = section.body ? section.body() : section.list
+      if (section.list) {
+        if (render.lists?.includes(section.id)) body = [...body, row(span('m', '▾ show less'))]
+        else if (body.length > CAP) body = [...body.slice(0, CAP), row(span('m', `▸ ${body.length - CAP} more`))]
+      }
+      stops.push(...body.map((html) => ({ html: `<div class="indent">${html}</div>`, height: 1 })))
+    }
+    let used = 0
+    const shown = render.more ? stops.filter((stop) => (used += stop.height) <= ROOM) : stops
+    return shown.map((stop) => stop.html).join('')
+  }
+
+  const TRANSCRIPT = `
+    <div class="prompt">
+      ${row('')}${row('Add a --dry-run flag to the sync command and cover it with a test.')}${row('')}
+    </div>
+    ${row('')}
+    ${row('I\'ll check how the sync command parses its flags first.')}
+    ${row('')}
+    ${row(`→ Read  src/commands/sync.ts ${span('m', '· 212 lines')}`)}
+    ${row(`* Grep  "parseFlags" ${span('m', '· 3 matches')}`)}
+    ${row(`← Edit  src/commands/sync.ts ${span('m', '·')} ${span('g', '+2')} ${span('r', '-1')}`)}
+    <div class="code">
+      ${row(`${span('ln', ' 41')}    const flags = parseFlags(argv, {`)}
+      ${row(`${span('ln', ' 42')}  -   force: Boolean`, 'del')}
+      ${row(`${span('ln', ' 42')}  +   force: Boolean,`, 'add')}
+      ${row(`${span('ln', ' 43')}  +   dryRun: Boolean,`, 'add')}
+      ${row(`${span('ln', ' 44')}    })`)}
+    </div>
+    ${row(`$ Bash  bun test sync ${span('g', '· 14 passed')}`)}
+    ${row('')}
+    ${row(`Added ${span('p', '--dry-run')}. It prints the planned writes and exits before touching disk. The new test in`)}
+    ${row(`${span('p', 'sync.test.ts')} covers it.`)}
+    ${row('')}
+    ${row(`${span('g', '▣')} ${span('m', 'accept edits · claude-opus-5-5 · 12.3s')}`)}
+  `
+
+  function draw(n) {
+    const render = RENDERS[n]
+    return `
+      <div class="window" id="render-${n}" title="sidebar-${n}-${render.name}.png">
+        <div class="titlebar"><i style="left:10px"></i><i style="left:27px"></i><i style="left:44px"></i>~/Projects/open-claude-mod — claude</div>
+        <div class="transcript">${TRANSCRIPT}</div>
+        <div class="input"><span style="color:var(--chevron)">&gt;</span> Ask anything</div>
+        <div class="mode split row"><span>claude-opus-5-5 ${span('m', '· high effort')}</span>${span('g', '⏵⏵ accept edits')}</div>
+        <div class="sidebar"><div class="body">
+          ${row('<b>~/Projects/open-claude-mod</b>')}
+          ${row('')}
+          ${row(`${span('m', '\ue725')} main`)}
+          ${row(`${span('m', '\ue702')} ⇡2  ⇣0  ${span('g', '+1')}  ${span('o', '!3')}  ${span('m', '?2')}  ${span('v', '≡1')}`)}
+          ${row(`${span('m', '\ue728')} ${span('g', '+24')} ${span('r', '-1')} ${span('m', 'lines changed')}`)}
+          ${row('')}
+          ${row(span('f', '═'.repeat(38)))}
+          ${row('')}
+          ${sections(render)}
+          ${render.more ? row(span('m', '↓ more'), 'more') : ''}
+          <div class="fill"></div>
+          ${row('')}
+          ${split(`${span('m', 'claude-tui')} 0.1.1<i class="rule"></i>`, `${span('m', 'opencode')} 1.0`)}
+          ${row(`${span('m', 'claude-cli')} 2.1.288`)}
+        </div></div>
+      </div>`
+  }
+
+  const only = new URLSearchParams(location.search).get('render')
+  if (!only) document.body.classList.add('all')
+  document.body.innerHTML = (only ? [only] : Object.keys(RENDERS)).map(draw).join('')
+</script>
+</body>
+</html>
