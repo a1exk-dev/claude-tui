@@ -17,8 +17,11 @@ export const formatTokens = (tokens: number) => tokens.toLocaleString('en-US')
 export const formatWindow = (tokens: number) =>
   tokens >= 1_000_000 ? `${+(tokens / 1_000_000).toFixed(1)}M` : `${Math.round(tokens / 1000)}k`
 
-// `$0.21`
-export const formatUsd = (usd: number) => `$${usd.toFixed(2)}`
+// `0.21$`: the sign after the digits, as everywhere in the Limits section.
+export const formatUsd = (usd: number) => `${usd.toFixed(2)}$`
+
+// `62$`, in whole dollars.
+export const formatDollars = (usd: number) => `${Math.round(usd)}$`
 
 // `resets in 2h 17m`; past a day, `resets in 3d 4h, Mon 09:00` in local 24-hour time.
 export function formatReset(resetsAt: string, now: number): string {

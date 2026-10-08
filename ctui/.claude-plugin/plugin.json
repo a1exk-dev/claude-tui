@@ -48,10 +48,22 @@
       "default": false
     },
     "limits_cost": {
-      "type": "boolean",
+      "type": "string",
       "title": "Limits cost",
-      "description": "Show the session cost in the Limits section",
-      "default": true
+      "description": "Show this month's cost against your limit; auto hides it on a Claude plan",
+      "options": [
+        "auto",
+        "on",
+        "off"
+      ],
+      "default": "auto"
+    },
+    "limits_cost_monthly": {
+      "type": "number",
+      "title": "Limits monthly cost",
+      "description": "Monthly cost limit in USD; 0 shows the total with no limit",
+      "default": 100,
+      "min": 0
     },
     "mcp_enable": {
       "type": "boolean",
