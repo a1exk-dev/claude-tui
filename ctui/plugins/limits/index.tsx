@@ -2,8 +2,8 @@ import { bar, formatPercent, formatReset, formatUsd, level } from '../../hooks/f
 import type { Usage } from '../../types'
 import type { SidebarPlugin } from '../plugin'
 
-// Each rate-limit window: label, bar and percent, then when it resets. With
-// `limits_cost` on, the session cost ends the section, under the percents.
+// With `limits_cost` on, the session cost opens the section, its value under the
+// percents. Then each rate-limit window: label, bar and percent, then when it resets.
 const WINDOWS: Record<string, { label: string; short: string }> = {
   five_hour: { label: '5h', short: '5h' },
   seven_day: { label: 'week', short: 'wk' },
@@ -52,7 +52,7 @@ const plugin: SidebarPlugin = {
           : []),
       ]
     })
-    return [...windows, ...costRow]
+    return [...costRow, ...windows]
   },
   summary: ({ usage }) =>
     usage?.rateLimits.length
