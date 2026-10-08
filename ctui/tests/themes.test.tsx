@@ -152,6 +152,22 @@ test('under inherit the Sidebar draws with key names', async ($, on) => {
   expect((await sidebar($)).title).toBe('text')
 })
 
+// #134: the rules between sections.
+const rules = async (drawn: Awaited<ReturnType<typeof pane>>) =>
+  (await drawn.findAll({ type: 'Text', text: '─'.repeat(38) })).map((text) => text.props.color)
+
+test('under inherit the rules between sections draw subtle', async ($, on) => {
+  mock.clock(on)
+  files(on)
+  expect(await rules((await sidebar($)).drawn)).toEqual(Array(4).fill('subtle'))
+})
+
+test("with a Theme selected the rules draw in the Theme's subtle", { options: { theme: 'everforest' } }, async ($, on) => {
+  mock.clock(on)
+  files(on)
+  expect(await rules((await sidebar($)).drawn)).toEqual(Array(4).fill(EVERFOREST.overrides.subtle))
+})
+
 test("with a Theme selected the Sidebar's root paints the Theme's glass", { options: { theme: 'everforest' } }, async ($, on) => {
   mock.clock(on)
   files(on)

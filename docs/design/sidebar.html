@@ -12,8 +12,9 @@
 
   The grid is 14px JetBrainsMono Nerd Font, the installed font the renders
   were first drawn in: 8.4px columns, 20.25px rows. The Sidebar's spacing is in
-  whole rows, as Claude Code lays it out: 1 row under an expanded title, 2 rows
-  after an expanded section, none after a folded one.
+  whole rows, as Claude Code lays it out: a faint `─` rule across the body
+  between every two sections, 1 row under an expanded title and 1 row after an
+  expanded section before the rule, none after a folded one.
 -->
 <html lang="en">
 <head>
@@ -95,8 +96,7 @@
     display: flex; flex-direction: column;
   }
   .sections { flex: 1; overflow: hidden; }
-  .title-gap { height: var(--row); }
-  .section-gap { height: calc(var(--row) * 2); }
+  .gap { height: var(--row); }
   .indent { padding-left: calc(2 * var(--col)); }
   .more { text-align: right; }
   .rule { position: absolute; left: 176px; margin-top: -0.5px; width: 1px; height: 21px; background: var(--faint); }
@@ -186,18 +186,21 @@
     },
   ]
   const CAP = 4
+  // The `─` rule between two sections, across the body's 38 columns.
+  const RULE = row(span('f', '─'.repeat(38)))
 
   function sections(render) {
     let html = ''
-    let gap = false
+    let previous = 'none'
     for (const section of SECTIONS) {
       const expanded = render.expanded.includes(section.id)
-      if (gap) html += '<div class="section-gap"></div>'
-      gap = expanded
+      if (previous === 'expanded') html += '<div class="gap"></div>'
+      if (previous !== 'none') html += RULE
+      previous = expanded ? 'expanded' : 'folded'
       const right = expanded ? (section.count ?? '') : section.summary
       html += split(`${span('m', expanded ? '▼' : '▶\uFE0E')} <b>${section.title}:</b>`, right)
       if (!expanded) continue
-      html += '<div class="title-gap"></div>'
+      html += '<div class="gap"></div>'
       let body = section.body ? section.body() : section.list
       if (section.list) {
         if (render.lists?.includes(section.id)) body = [...body, row(span('m', '▾ show less'))]

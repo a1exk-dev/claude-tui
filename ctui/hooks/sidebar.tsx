@@ -6,10 +6,9 @@ import type { Config } from './config'
 
 export const CAP = 4
 // Space under an expanded section's title, and after an expanded section
-// before the next title, in whole rows: Claude Code cuts layout down to
-// whole cells (#120).
-const TITLE_GAP = 1
-const SECTION_GAP = 2
+// before the rule, in whole rows: Claude Code cuts layout down to whole
+// cells (#120).
+const GAP = 1
 // A section's fold arrow, one cell wide. `\uFE0E` asks for the text
 // presentation, so no font draws `▶` as an emoji.
 const EXPANDED = '▼'
@@ -81,10 +80,18 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   const rowsOf = (slot: SidebarPlugin['slot']) =>
     plugins.filter((p) => p.slot === slot).flatMap((p) => p.view(data, ui, config[p.id], width, c))
 
-  // One scroll stop per section row. A title carries the gap before it and
-  // the space under it, so each scroll step moves one row.
+  // The `─` rule between two sections, across the body.
+  const rule = (
+    <Box height={1} flexShrink={0}>
+      <Text color={c.faint}>{'─'.repeat(width)}</Text>
+    </Box>
+  )
+
+  // One scroll stop per section row. A title after the first carries the
+  // space after an expanded section and the rule above it, and its own space
+  // under it, so each scroll step moves one row (#130).
   const sections: Stop<RenderElement>[] = []
-  let gap = false
+  let previous: 'none' | 'folded' | 'expanded' = 'none'
   for (const plugin of plugins.filter((p) => p.slot === 'section')) {
     const cfg = config[plugin.id]
     const folded = input.folded[plugin.id] ?? cfg.folded ?? false
@@ -106,11 +113,19 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
         />
       </Box>
     )
+    // Each node with its height in rows.
+    const gap: [RenderElement, number] = [spacer(GAP), GAP]
+    const parts: [RenderElement, number][] = [
+      ...(previous === 'expanded' ? [gap] : []),
+      ...(previous === 'none' ? [] : [[rule, 1] satisfies [RenderElement, number]]),
+      [title, 1],
+      ...(folded ? [] : [gap]),
+    ]
     sections.push({
-      nodes: [...(gap ? [spacer(SECTION_GAP)] : []), title, ...(folded ? [] : [spacer(TITLE_GAP)])],
-      height: (gap ? SECTION_GAP : 0) + 1 + (folded ? 0 : TITLE_GAP),
+      nodes: parts.map(([node]) => node),
+      height: parts.reduce((sum, [, rows]) => sum + rows, 0),
     })
-    gap = !folded
+    previous = folded ? 'folded' : 'expanded'
     if (folded) continue
     const body = plugin.view(data, ui, cfg, width - 2, c)
     const expanded = input.expanded[plugin.id] ?? false

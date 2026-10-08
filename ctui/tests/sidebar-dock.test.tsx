@@ -213,8 +213,8 @@ test('a title row lights in accent as one with its fold arrow, with no underline
 })
 
 test('after a wheel tick, a click on a moved title folds that section', async ($) => {
-  // 8 body rows leave 6 for the sections, each title after the first 2.83
-  // rows with its spacers; a tick drops Context.
+  // 8 body rows leave 6 for the sections, each title after the first 4 rows
+  // with its blank rows and rule; a tick drops Context.
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 8) })
   const titles = async () =>
     (await pane.findAll({ type: 'Client' })).map((client) => client.key).filter((key) => key?.startsWith('foldrow-'))
