@@ -137,9 +137,10 @@
     },
     {
       id: 'limits', title: 'Limits',
-      summary: span('m', '5h 34% · wk 81%'),
+      summary: span('m', '62$ · 5h 34% · wk 81%'),
       body: () => [
-        split('cost', span('m', '$0.21')),
+        split(`cost   ${bar(62, 20, 'o')}`, '62%'),
+        row(span('m', '       62.00$ of 100$')),
         split(`5h     ${bar(34, 20, 'g')}`, '34%'),
         row(span('m', '       resets in 2h 17m')),
         split(`week   ${bar(81, 20, 'o')}`, '81%'),

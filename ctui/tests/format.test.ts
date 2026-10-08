@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { formatElapsed, formatReset, formatTokens, formatUsd, formatWindow, level } from '../hooks/format'
+import { formatElapsed, formatReset, formatDollars, formatTokens, formatUsd, formatWindow, level } from '../hooks/format'
 
 test('token counts group thousands', () => {
   expect(formatTokens(0)).toBe('0')
@@ -13,9 +13,11 @@ test('windows read in k or M', () => {
   expect(formatWindow(1000000)).toBe('1M')
 })
 
-test('cost reads in dollars and cents', () => {
-  expect(formatUsd(0.214)).toBe('$0.21')
-  expect(formatUsd(12)).toBe('$12.00')
+test('cost reads in dollars and cents, or whole dollars, the sign after the digits', () => {
+  expect(formatUsd(0.214)).toBe('0.21$')
+  expect(formatUsd(12)).toBe('12.00$')
+  expect(formatDollars(62.4)).toBe('62$')
+  expect(formatDollars(133.5)).toBe('134$')
 })
 
 test('levels: below 60 success, below 85 warning, then error', () => {
