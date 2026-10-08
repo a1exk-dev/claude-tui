@@ -17,11 +17,25 @@ const AUTH_TOOLS = new Set(['authenticate', 'complete_authentication'])
 // A /mcp name as it shows in tool names: `claude.ai Claude Docs` → `claude_ai_Claude_Docs`.
 export const segmentOf = (name: string) => name.replace(/[^A-Za-z0-9_-]/g, '_')
 
+// The server a `tool.describe` provider names, as its tool segment and /mcp
+// name: `mcp:<name>` for a configured server; `<plugin>@<marketplace>` for a
+// plugin's, whose /mcp name is `plugin:<plugin>:<server>`.
+export function serverName(tool: string, provider: string): [segment: string, name: string] | undefined {
+  const configured = /^mcp:(.+)$/.exec(provider)?.[1]
+  if (configured) return [segmentOf(configured), configured]
+  const [mcp, segment = ''] = tool.split('__')
+  const plugin = /^([^@]+)@/.exec(provider)?.[1]
+  const prefix = `plugin_${segmentOf(plugin ?? '')}_`
+  if (mcp === 'mcp' && plugin && segment.startsWith(prefix)) {
+    return [segment, `plugin:${plugin}:${segment.slice(prefix.length)}`]
+  }
+}
+
 const labelOf = (name: string) => name.replace(/^claude\.ai /, '').replace(/^plugin:[^:]+:/, '')
 const labelOfSegment = (segment: string) => segment.replace(/^claude_ai_/, '').replace(/^plugin_[^_]+_/, '')
 
-// The rows in first-seen order: servers seen with tools this session plus
-// disabled ones. A listed server with no tools connects for `timeoutMs` from
+// The rows A–Z by label, off rows last: servers seen with tools this session
+// plus disabled ones. A listed server with no tools connects for `timeoutMs` from
 // the tick it lost them or left the disabled list, then reads down.
 export function mcpRows({ rows, tools, disabled, names, now, timeoutMs }: McpInput): McpRow[] {
   const offered = new Map<string, string[]>()
@@ -31,7 +45,7 @@ export function mcpRows({ rows, tools, disabled, names, now, timeoutMs }: McpInp
   }
   const off = new Map(disabled.map((name) => [segmentOf(name), name]))
   const servers = [...new Set([...rows.map((row) => row.server), ...offered.keys(), ...off.keys()])]
-  return servers.map((server) => {
+  const all: McpRow[] = servers.map((server) => {
     const before = rows.find((row) => row.server === server)
     const name = off.get(server) ?? names[server]
     const label = name ? labelOf(name) : (before?.label ?? labelOfSegment(server))
@@ -46,4 +60,8 @@ export function mcpRows({ rows, tools, disabled, names, now, timeoutMs }: McpInp
     const since = before?.state === 'connecting' ? (before.since ?? now) : now
     return now - since >= timeoutMs ? { server, label, state: 'down' } : { server, label, state: 'connecting', since }
   })
+  return all.sort(
+    (a, b) =>
+      +(a.state === 'off') - +(b.state === 'off') || a.label.localeCompare(b.label) || a.server.localeCompare(b.server),
+  )
 }

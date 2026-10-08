@@ -76,7 +76,7 @@ declare module 'claude-code' {
       git?: GitSnapshot
       usage?: Usage
       month?: { month: string; session: string; usd: number } // the ended sessions' cost in the local month `2026-10`, the current session left out
-      mcp: McpRow[] // first-seen order
+      mcp: McpRow[] // A–Z, off rows last
       todo?: Todo
       activeForms: Record<string, string> // Task id → activeForm, from TaskCreate/TaskUpdate inputs
       todoEnvSet?: boolean // ctui set CLAUDE_CODE_ENABLE_TODO_TOOLS
