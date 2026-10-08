@@ -1,12 +1,13 @@
 import { expect, test } from 'claude-code/testing'
 
 import { deniedText, gated, NO_CONFIG, pluginsOutcome, themeOutcome } from '../hooks/commands'
-import { plugins } from '../plugins'
+import { sections } from '../plugins'
 
 // Every `/ctui:*` outcome in MEMORY.md "`/ctui:*` commands stay quiet on
 // success; a bare command opens a picker pane".
 
-const states = (off: string[] = []) => plugins.map(({ id }) => ({ id, enable: !off.includes(id) }))
+// The sections, in registry order: the git header and versions footer are always on.
+const states = (off: string[] = []) => sections.map(({ id }) => ({ id, enable: !off.includes(id) }))
 
 test('a plugin name that changes the setting writes it', () => {
   expect(pluginsOutcome('disable', 'mcp', states())).toEqual({ set: { key: 'ctui.mcp_enable', value: false } })
@@ -15,19 +16,19 @@ test('a plugin name that changes the setting writes it', () => {
 
 test('a plugin already set, or unknown, gets one line', () => {
   expect(pluginsOutcome('disable', 'mcp', states(['mcp']))).toEqual({ text: 'mcp is already disabled' })
-  expect(pluginsOutcome('enable', 'git', states())).toEqual({ text: 'git is already enabled' })
+  expect(pluginsOutcome('enable', 'todo', states())).toEqual({ text: 'todo is already enabled' })
   expect(pluginsOutcome('enable', 'foo', states())).toEqual({
-    text: 'Unknown plugin "foo". Plugins: git, context, limits, mcp, todo, agents, versions',
+    text: 'Unknown plugin "foo". Plugins: context, limits, todo, mcp, agents',
   })
 })
 
 test('a bare toggle picks from the plugins it would change, or says none are left', () => {
   expect(pluginsOutcome('disable', '', states(['mcp', 'todo']))).toEqual({
-    pick: { options: ['git', 'context', 'limits', 'agents', 'versions'] },
+    pick: { options: ['context', 'limits', 'agents'] },
   })
-  expect(pluginsOutcome('enable', '', states(['mcp', 'todo']))).toEqual({ pick: { options: ['mcp', 'todo'] } })
+  expect(pluginsOutcome('enable', '', states(['mcp', 'todo']))).toEqual({ pick: { options: ['todo', 'mcp'] } })
   expect(pluginsOutcome('enable', '', states())).toEqual({ text: 'All Sidebar plugins are already enabled' })
-  const none = plugins.map(({ id }) => id)
+  const none = sections.map(({ id }) => id)
   expect(pluginsOutcome('disable', '', states(none))).toEqual({ text: 'All Sidebar plugins are already disabled' })
 })
 

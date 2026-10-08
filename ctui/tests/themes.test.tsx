@@ -198,16 +198,24 @@ test('under claude -p a slug writes nothing', async ($, on) => {
 // no dock color, the Sidebar paints that theme's glass and follows a switch.
 
 const OFF = Object.fromEntries(
-  [...['git', 'context', 'limits', 'mcp', 'todo', 'agents', 'versions'].map((id) => `${id}_enable`), 'agents_toasts'].map(
-    (key) => [key, false],
-  ),
+  [...['context', 'limits', 'todo', 'mcp', 'agents'].map((id) => `${id}_enable`), 'agents_toasts'].map((key) => [key, false]),
 )
+
+// The always-on git header and versions footer: outside a repo, with a version.
+function headerFooter(on: On) {
+  on('session.cwd', () => ({ value: '/srv/x' }))
+  on('session.version', () => ({ value: { version: '2.1.292' } }))
+  on('process.run', () => ({
+    value: { exitCode: 128, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+  }))
+}
 const OMARCHY = '/home/a/.claude/themes/omarchy.json'
 // Omarchy's generated file, trimmed: `inverseText` is the background, `text` the foreground.
 const omarchy = (background: string, foreground: string) =>
   JSON.stringify({ name: 'Omarchy', base: 'dark', overrides: { text: foreground, inverseText: background } })
 
 function claudeHome(on: On, world: { theme: string; file: string; mtimeMs: number }) {
+  headerFooter(on)
   mock.env(on, { HOME: '/home/a' })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('env.set', () => ({ value: undefined }))
@@ -219,6 +227,7 @@ function claudeHome(on: On, world: { theme: string; file: string; mtimeMs: numbe
     return { value: { kind: 'file', size: world.file.length, mtimeMs: world.mtimeMs, isLink: false } }
   })
   on('fs.read', (_, e) => {
+    if (e.path.endsWith('/.claude-plugin/plugin.json')) return { value: '{ "version": "0.0.0" }' }
     if (e.path !== OMARCHY) throw new Error('ENOENT')
     return { value: world.file }
   })
@@ -271,6 +280,7 @@ test('after /clear empties $.state, the tick paints the glass again', { options:
 test('Claude Code keeps its themes in CLAUDE_CONFIG_DIR when that is set', { options: OFF }, async ($, on) => {
   const clock = mock.clock(on, { now: 0 })
   const file = omarchy('#2d353b', '#d3c6aa')
+  headerFooter(on)
   mock.env(on, { HOME: '/home/a', CLAUDE_CONFIG_DIR: '/cfg' })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('env.set', () => ({ value: undefined }))
