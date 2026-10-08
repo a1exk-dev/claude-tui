@@ -16,7 +16,7 @@ The Sidebar shows its Sidebar plugins in this order. Each one has an `<id>_enabl
 | `mcp` | MCP servers seen this session and the ones you turned off, with their state and tool count. | `mcp_enable` (MCP section), `mcp_folded` (MCP folded) |
 | `todo` | Claude's task list. | `todo_enable` (Todo section), `todo_folded` (Todo folded), `todo_tools` (Task tools) |
 | `agents` | "Agents & shells": running subagents, background shells and Workflow runs, with their elapsed time. | `agents_enable` (Agents & shells section), `agents_folded` (Agents & shells folded), `agents_toasts` (Agent and shell toasts) |
-| `versions` | Footer: the ctui and Claude Code versions. | `versions_enable` (Versions footer) |
+| `versions` | Footer: the Claude Code and ctui versions and the Theme's name (`inherit` with none), on one row where it fits, else two. | `versions_enable` (Versions footer) |
 
 ## Other settings
 

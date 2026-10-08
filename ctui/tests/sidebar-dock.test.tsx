@@ -283,8 +283,8 @@ test('git refreshes at session start, every 5 s and after a file-changing tool',
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
   expect(await pane.find({ text: '~/Projects/x' })).toBeDefined()
   expect(await pane.find({ text: `${BRANCH} main` })).toBeDefined()
-  expect(await pane.find({ text: 'ctui 0.0.0' })).toBeDefined()
-  expect(await pane.find({ text: 'claude-cli 2.1.288' })).toBeDefined()
+  expect(await pane.find({ text: 'ctui: 0.0.0, inherit' })).toBeDefined()
+  expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
 
   await clock.advance(4000)
   expect(statusRuns(git.runs)).toBe(1)

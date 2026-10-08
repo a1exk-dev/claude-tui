@@ -17,7 +17,8 @@ export type GitRepo = {
 // `repo` is absent outside a repo.
 export type GitSnapshot = { path: string; repo?: GitRepo }
 
-export type Versions = { ctui: string; claude: string }
+// `theme` is the selected Theme file's `name`, or `inherit`.
+export type Versions = { ctui: string; claude: string; theme: string }
 
 // `$.session.usage()`'s figures, as `session.measure` pushes them. The
 // contract is self-contained, so the engine's types are restated here.
