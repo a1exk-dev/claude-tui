@@ -25,8 +25,8 @@ const DATA: SidebarData = {
   },
   now: NOW,
   mcp: [
-    { server: 'playwright', label: 'playwright', state: 'ok', tools: 22 },
-    { server: 'github', label: 'github', state: 'off' },
+    { server: 'playwright', label: 'playwright', source: 'dynamic', state: 'ok', tools: 22 },
+    { server: 'github', label: 'github', source: 'dynamic', state: 'off' },
   ],
   todo: {
     tools: 'task',
@@ -174,7 +174,7 @@ test('scroll marks draw muted', async ($, on) => {
 })
 
 test('a capped list draws ▸ N more muted', async ($, on) => {
-  const mcp = Array.from({ length: 6 }, (_, i) => ({ server: `s${i}`, label: `s${i}`, state: 'ok' as const, tools: 1 }))
+  const mcp = Array.from({ length: 6 }, (_, i) => ({ server: `s${i}`, label: `s${i}`, source: 'user', state: 'ok' as const, tools: 1 }))
   const { runs: all } = await draw($, on, { data: { ...DATA, mcp } })
   expect(colorOf(all, '▸ 2 more')).toEqual(['inactive'])
 })

@@ -19,7 +19,7 @@ const STATES: Record<McpRow['state'], State> = {
 }
 const ORDER = Object.keys(STATES) as McpRow['state'][]
 
-// The MCP servers seen with tools this session plus disabled ones, each with its state.
+// The MCP servers seen with tools this session plus disabled ones, each with its source and state.
 const plugin: SidebarPlugin = {
   id: 'mcp',
   title: 'MCP',
@@ -35,7 +35,9 @@ const plugin: SidebarPlugin = {
             <Text color={c[role]}>{glyph}</Text> {row.label}
           </Text>
           <Box flexShrink={0}>
-            <Text color={c[textRole]}>{text(row)}</Text>
+            <Text color={c.muted}>
+              {row.source} · <Text color={c[textRole]}>{text(row)}</Text>
+            </Text>
           </Box>
         </Box>
       )

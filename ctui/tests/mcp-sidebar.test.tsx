@@ -9,12 +9,12 @@ import type { McpRow } from '../types'
 // `.claude.json`'s disabled list drives `off` through register.tsx's hooks.
 
 const ROWS: McpRow[] = [
-  { server: 'playwright', label: 'playwright', state: 'ok', tools: 22 },
-  { server: 'github', label: 'github', state: 'off' },
-  { server: 'claude_ai_Claude_Docs', label: 'Claude Docs', state: 'ok', tools: 1 },
-  { server: 'sentry', label: 'sentry', state: 'down' },
-  { server: 'authy', label: 'authy', state: 'auth' },
-  { server: 'linear', label: 'linear', state: 'connecting', since: 0 },
+  { server: 'playwright', label: 'playwright', source: 'user', state: 'ok', tools: 22 },
+  { server: 'github', label: 'github', source: 'user', state: 'off' },
+  { server: 'claude_ai_Claude_Docs', label: 'Claude Docs', source: 'claude.ai', state: 'ok', tools: 1 },
+  { server: 'sentry', label: 'sentry', source: 'project', state: 'down' },
+  { server: 'authy', label: 'authy', source: 'local', state: 'auth' },
+  { server: 'linear', label: 'linear', source: 'dynamic', state: 'connecting', since: 0 },
 ]
 
 const PANE = {
@@ -54,12 +54,12 @@ async function rowsOf(pane: Awaited<ReturnType<typeof draw>>) {
 test('each row: the glyph in its color, the label, the state at the right', async ($, on) => {
   const pane = await draw($, on, 'view', ROWS)
   expect(await rowsOf(pane)).toEqual([
-    '● playwright22 tools',
-    '○ githuboff',
-    '● Claude Docs1 tool',
-    '✕ sentrydown',
-    '! authyneeds auth',
-    '◐ linearconnecting',
+    '● playwrightuser · 22 tools',
+    '○ githubuser · off',
+    '● Claude Docsclaude.ai · 1 tool',
+    '✕ sentryproject · down',
+    '! authylocal · needs auth',
+    '◐ lineardynamic · connecting',
   ])
   const color = async (text: string) => {
     // A string query matches inside a longer text: match it whole.
@@ -91,7 +91,7 @@ test('the header counts ● rows over listed rows', () => {
 })
 
 test('folded, each state present with its count, in its color, in glyph order', async ($, on) => {
-  const pane = await draw($, on, 'summary', [...ROWS, { server: 'x', label: 'x', state: 'ok', tools: 3 }])
+  const pane = await draw($, on, 'summary', [...ROWS, { server: 'x', label: 'x', source: 'dynamic', state: 'ok', tools: 3 }])
   const parts = await pane.findAll({ type: 'Text', text: /^ ?[●!◐✕○] \d$/ })
   expect(parts.map((part) => [part.text.trim(), part.props.color])).toEqual([
     ['● 3', 'success'],
@@ -112,7 +112,17 @@ const tools = (server: string, count: number): ToolInfo[] =>
 
 // The world beneath the plugin: a session in /srv/x/app inside the repo
 // /srv/x, a tool list and a `~/.claude.json` the test changes.
-function host(on: On, world: { tools: ToolInfo[]; json: string; mtimeMs: number; cwd?: string }, path = CLAUDE_JSON) {
+type World = {
+  tools: ToolInfo[]
+  json: string
+  mtimeMs: number
+  cwd?: string
+  files?: Record<string, unknown> // other config files by path: `.mcp.json`, `managed-mcp.json`
+  settings?: Record<string, unknown> // the merged settings
+  policy?: Record<string, unknown> // the managed (policy) settings
+}
+
+function host(on: On, world: World, path = CLAUDE_JSON) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: world.cwd ?? '/srv/x/app' }))
   on('session.version', () => ({ value: { version: '2.1.288' } }))
@@ -128,7 +138,15 @@ function host(on: On, world: { tools: ToolInfo[]; json: string; mtimeMs: number;
     if (e.path !== path) throw new Error('ENOENT')
     return { value: { kind: 'file', size: world.json.length, mtimeMs: world.mtimeMs, isLink: false } }
   })
-  on('fs.read', (_, e) => ({ value: e.path === path ? world.json : '{ "version": "0.0.0" }' }))
+  on('fs.read', (_, e) => {
+    if (e.path === path) return { value: world.json }
+    const file = world.files?.[e.path]
+    if (file) return { value: JSON.stringify(file) }
+    if (e.path.endsWith('mcp.json')) throw new Error('ENOENT')
+    return { value: '{ "version": "0.0.0" }' }
+  })
+  on('settings.read', (_, e) => ({ value: (e.source === 'policy' ? world.policy : world.settings) ?? {} }))
+  on('classic.PostToolUse', () => ({}))
   on('tool.list', () => ({ value: [{ name: 'Bash', description: '', mcp: false }, ...world.tools] }))
   on('tool.describe', (_, e) => ({ description: e.description }))
   on('classic.CwdChanged', () => ({}))
@@ -165,7 +183,7 @@ test('/mcp disable and enable follow within a second, labels as /mcp names them'
   await clock.advance(1000)
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
   const rows = () => rowsOf(pane)
-  expect(await rows()).toEqual(['● Claude Docs2 tools', '● playwright22 tools', '○ githuboff'])
+  expect(await rows()).toEqual(['● Claude Docsclaude.ai · 2 tools', '● playwrightdynamic · 22 tools', '○ githubdynamic · off'])
   expect(await pane.find({ type: 'Text', text: '2/3', in: 'foldrow-mcp' })).toBeDefined()
 
   // `/mcp disable playwright`: its tools go and the file lists it.
@@ -174,27 +192,27 @@ test('/mcp disable and enable follow within a second, labels as /mcp names them'
   world.mtimeMs = 2
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rows()).toEqual(['● Claude Docs2 tools', '○ githuboff', '○ playwrightoff'])
+  expect(await rows()).toEqual(['● Claude Docsclaude.ai · 2 tools', '○ githubdynamic · off', '○ playwrightdynamic · off'])
 
   // `/mcp enable playwright`: it connects until its tools come back.
   world.json = claudeJson(['github'])
   world.mtimeMs = 3
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rows()).toEqual(['● Claude Docs2 tools', '◐ playwrightconnecting', '○ githuboff'])
+  expect(await rows()).toEqual(['● Claude Docsclaude.ai · 2 tools', '◐ playwrightdynamic · connecting', '○ githubdynamic · off'])
   world.tools = [...tools('playwright', 22), ...tools('claude_ai_Claude_Docs', 2)]
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rows()).toEqual(['● Claude Docs2 tools', '● playwright22 tools', '○ githuboff'])
+  expect(await rows()).toEqual(['● Claude Docsclaude.ai · 2 tools', '● playwrightdynamic · 22 tools', '○ githubdynamic · off'])
 
   // A server that drops its tools reads down after MCP_TIMEOUT.
   world.tools = tools('playwright', 22)
   await clock.advance(1000)
   await pane.redraw()
-  expect((await rows())[0]).toBe('◐ Claude Docsconnecting')
+  expect((await rows())[0]).toBe('◐ Claude Docsclaude.ai · connecting')
   await clock.advance(10_000)
   await pane.redraw()
-  expect((await rows())[0]).toBe('✕ Claude Docsdown')
+  expect((await rows())[0]).toBe('✕ Claude Docsclaude.ai · down')
 
   // A click on the title row folds it; the summary keeps its colors inside the row's Client.
   await pane.pointer({ type: 'down', x: 2, y: 0, button: 'left', in: 'foldrow-mcp' })
@@ -218,7 +236,7 @@ test("a plugin's server is labelled by its server name, its plugin name holding 
   })
   await clock.advance(1000)
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
-  expect(await rowsOf(pane)).toEqual(['● linear2 tools'])
+  expect(await rowsOf(pane)).toEqual(['● linearmy_kit · 2 tools'])
 })
 
 test('after /cd to another project, off rows follow that project', async ($, on) => {
@@ -232,14 +250,105 @@ test('after /cd to another project, off rows follow that project', async ($, on)
   await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
   await clock.advance(1000)
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
-  expect(await rowsOf(pane)).toEqual(['○ githuboff'])
+  expect(await rowsOf(pane)).toEqual(['○ githubdynamic · off'])
 
   // `/cd /srv/y`: the file is unchanged, the project key isn't.
   world.cwd = '/srv/y'
   await $.classic.CwdChanged({ old_cwd: '/srv/x/app', new_cwd: '/srv/y' })
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rowsOf(pane)).toEqual(['○ sentryoff'])
+  expect(await rowsOf(pane)).toEqual(['○ sentrydynamic · off'])
+})
+
+// Sources (#174), as `~/.claude.json`, `.mcp.json` files and the policy name them.
+test('each row reads its source · status, from the config files in Claude Code’s order', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  mock.env(on, { HOME })
+  const json = JSON.stringify({
+    mcpServers: { playwright: { command: 'npx' }, sentry: { command: 'npx' } },
+    projects: { '/srv/x': { mcpServers: { linear: { command: 'npx' } } } },
+  })
+  host(on, {
+    tools: ['playwright', 'linear', 'sentry', 'pending', 'policy', 'cli'].flatMap((server) => tools(server, 1)),
+    json,
+    mtimeMs: 1,
+    files: {
+      '/srv/x/app/.mcp.json': { mcpServers: { sentry: {} } },
+      '/srv/.mcp.json': { mcpServers: { pending: {} } },
+    },
+    settings: { enabledMcpjsonServers: ['sentry'] },
+    policy: { managedMcpServers: { policy: {} } },
+  })
+  await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
+  await clock.advance(1000)
+  const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
+  await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'more-mcp' })
+  expect(await rowsOf(pane)).toEqual([
+    '● clidynamic · 1 tool',
+    '● linearlocal · 1 tool',
+    // Unapproved in this project: it can't shadow, so it reads as nothing holds it.
+    '● pendingdynamic · 1 tool',
+    '● playwrightuser · 1 tool',
+    '● policymanaged · 1 tool',
+    '● sentryproject · 1 tool',
+  ])
+  // The source and its `·` are muted; the status keeps its role.
+  expect((await pane.find({ type: 'Text', text: /^dynamic · / }))?.props.color).toBe('inactive')
+})
+
+test('a tool run’s reported source corrects the guess', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  mock.env(on, { HOME })
+  const json = JSON.stringify({ mcpServers: { dup: { command: 'npx' } } })
+  host(on, { tools: tools('dup', 1), json, mtimeMs: 1 })
+  let cleared = false
+  on('state.get', async ($, e, next) =>
+    cleared && e.key === 'mcpObserved' ? { value: { value: undefined, version: 0 } } : next(e),
+  )
+  await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
+  await clock.advance(1000)
+  const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
+  expect(await rowsOf(pane)).toEqual(['● dupuser · 1 tool'])
+  // `--mcp-config` overrode the user server of that name.
+  await $.classic.PostToolUse({
+    tool_name: 'mcp__dup__t0',
+    tool_input: {},
+    tool_response: {},
+    tool_use_id: 'toolu_1',
+    mcp_server: { name: 'dup', source: 'dynamic' },
+  })
+  await clock.advance(1000)
+  await pane.redraw()
+  expect(await rowsOf(pane)).toEqual(['● dupdynamic · 1 tool'])
+
+  // `/clear` empties $.state, not the servers: the correction holds.
+  cleared = true
+  await clock.advance(1000)
+  await pane.redraw()
+  expect(await rowsOf(pane)).toEqual(['● dupdynamic · 1 tool'])
+})
+
+test('after /cd the project servers are the new directory’s', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  mock.env(on, { HOME })
+  const world: World = {
+    tools: tools('docs', 1),
+    json: '{}',
+    mtimeMs: 1,
+    cwd: '/srv/x/app',
+    files: { '/srv/y/.mcp.json': { mcpServers: { docs: {} } } },
+    settings: { enableAllProjectMcpServers: true },
+  }
+  host(on, world)
+  await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
+  await clock.advance(1000)
+  const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
+  expect(await rowsOf(pane)).toEqual(['● docsdynamic · 1 tool'])
+  world.cwd = '/srv/y'
+  await $.classic.CwdChanged({ old_cwd: '/srv/x/app', new_cwd: '/srv/y' })
+  await clock.advance(1000)
+  await pane.redraw()
+  expect(await rowsOf(pane)).toEqual(['● docsproject · 1 tool'])
 })
 
 test('with CLAUDE_CONFIG_DIR set, the disabled list comes from the .claude.json there', async ($, on) => {
@@ -249,7 +358,7 @@ test('with CLAUDE_CONFIG_DIR set, the disabled list comes from the .claude.json 
   await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
   await clock.advance(1000)
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
-  expect(await rowsOf(pane)).toEqual(['○ githuboff'])
+  expect(await rowsOf(pane)).toEqual(['○ githubdynamic · off'])
 })
 
 test('a click on ▸ N more lists every server, and ▾ show less caps them again', async ($, on) => {

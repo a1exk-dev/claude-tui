@@ -7,7 +7,7 @@ import { deniedText, gated, NO_CONFIG, type Outcome, pluginsOutcome } from './co
 import { type Config, readConfig } from './config'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
-import { mcpRows, serverName } from './mcp'
+import { type McpSources, mcpRows, segmentOf, serverName } from './mcp'
 import {
   type Cached,
   COST_PREFIX,
@@ -52,6 +52,7 @@ const USAGE = { plugin: 'ctui', key: 'usage' } as const
 const NOW = { plugin: 'ctui', key: 'now' } as const
 const MONTH = { plugin: 'ctui', key: 'month' } as const
 const MCP = { plugin: 'ctui', key: 'mcp' } as const
+const MCP_OBSERVED = { plugin: 'ctui', key: 'mcpObserved' } as const
 const TODO = { plugin: 'ctui', key: 'todo' } as const
 const ACTIVE_FORMS = { plugin: 'ctui', key: 'activeForms' } as const
 const TODO_ENV_SET = { plugin: 'ctui', key: 'todoEnvSet' } as const
@@ -78,6 +79,9 @@ const PICKERS = {
 } as const
 type Picker = keyof typeof PICKERS
 
+// The enterprise MCP file on Linux and macOS.
+const ENTERPRISE_MCP = ['/etc/claude-code/managed-mcp.json', '/Library/Application Support/ClaudeCode/managed-mcp.json']
+
 const GIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'Bash'])
 
 // What `/effort <args>` sets for the session.
@@ -101,7 +105,14 @@ let monthRunning = false
 let lastScan = -Infinity // when the month total last scanned
 let mcpRunning = false
 let mcpTimeout: number | undefined // MCP_TIMEOUT, read once
-let claudeJson: { path: string; project: string; mtimeMs?: number; disabled: string[] } | undefined
+// `.claude.json`'s disabled list and its user and local MCP server names.
+type ClaudeJson = { path: string; project: string; mtimeMs?: number; disabled: string[]; user: string[]; local: string[] }
+let claudeJson: ClaudeJson | undefined
+// The approved project, managed and enterprise MCP server names, read at start and on /cd.
+let mcpFiles: Pick<McpSources, 'project' | 'managed' | 'enterprise'> = { project: [], managed: [], enterprise: [] }
+// The sources tool runs reported, by segment, also kept in `$.state`: a reload
+// resets this, `/clear` and `/resume` empty that, and the servers outlive both.
+let mcpObserved: Record<string, string> = {}
 let cwdMoved = false // since the last MCP tick: drop the old project's off rows
 let themeSeen: { path?: string; mtimeMs?: number } = {} // the active custom /theme file, last read
 let themeNames: ThemeName[] | undefined // every Theme's slug and name, read once
@@ -285,23 +296,64 @@ async function projectOf($: EngineInterface) {
   return cwd
 }
 
-// `projects[<project>].disabledMcpServers`, re-read when the file's mtime changes.
-// Claude Code keeps the file in CLAUDE_CONFIG_DIR when that is set.
-async function readDisabled($: EngineInterface) {
+// `projects[<project>].disabledMcpServers`, and the user (`mcpServers`) and
+// local (`projects[<project>].mcpServers`) server names, re-read when the
+// file's mtime changes. Claude Code keeps the file in CLAUDE_CONFIG_DIR when that is set.
+async function readClaudeJson($: EngineInterface) {
   const dir = (await $.env.get('CLAUDE_CONFIG_DIR')) || (await $.env.get('HOME'))
-  claudeJson ??= { path: `${dir}/.claude.json`, project: await projectOf($), disabled: [] }
+  claudeJson ??= { path: `${dir}/.claude.json`, project: await projectOf($), disabled: [], user: [], local: [] }
   const file = claudeJson
   const stat = await $.fs.stat(file.path).catch(() => undefined)
   if (stat?.mtimeMs !== file.mtimeMs) {
     try {
       const json = stat ? JSON.parse(await $.fs.read(file.path)) : {}
-      file.disabled = json.projects?.[file.project]?.disabledMcpServers ?? []
+      const project = json.projects?.[file.project]
+      file.disabled = project?.disabledMcpServers ?? []
+      file.user = Object.keys(json.mcpServers ?? {})
+      file.local = Object.keys(project?.mcpServers ?? {})
       file.mtimeMs = stat?.mtimeMs
     } catch {
       // Caught mid-write: the next tick reads it again.
     }
   }
-  return file.disabled
+  return file
+}
+
+// The server names in an `{ mcpServers }` file, never their entries (they can hold secrets).
+async function serverNames($: EngineInterface, path: string) {
+  try {
+    return Object.keys(JSON.parse(await $.fs.read(path)).mcpServers ?? {})
+  } catch {
+    return [] // No such file.
+  }
+}
+
+// MEMORY.md "The `mcp` Sidebar plugin reads live tools and MCP config names;
+// it never probes": the approved project servers in `.mcp.json` from the cwd
+// up to (not including) `/`, the policy's `managedMcpServers`, and the
+// enterprise `managed-mcp.json`.
+async function readMcpFiles($: EngineInterface, cwd?: string) {
+  const [dir0, settings, policy] = await Promise.all([
+    cwd ?? $.session.cwd(),
+    $.settings.read() as Promise<Record<string, unknown>>,
+    $.settings.read({ source: 'policy' }) as Promise<Record<string, unknown>>,
+  ])
+  const dirs: string[] = []
+  for (let dir = dir0; dir; dir = dir.slice(0, dir.lastIndexOf('/'))) dirs.push(dir)
+  const listed = (key: string) => (Array.isArray(settings[key]) ? (settings[key] as string[]) : [])
+  const approved = (name: string) =>
+    !listed('disabledMcpjsonServers').includes(name) &&
+    (settings.enableAllProjectMcpServers === true || listed('enabledMcpjsonServers').includes(name))
+  const [project, enterprise] = await Promise.all([
+    Promise.all(dirs.map((dir) => serverNames($, `${dir}/.mcp.json`))),
+    Promise.all(ENTERPRISE_MCP.map((path) => serverNames($, path))),
+  ])
+  const managed = policy.managedMcpServers
+  mcpFiles = {
+    project: project.flat().filter(approved),
+    managed: managed && typeof managed === 'object' && !Array.isArray(managed) ? Object.keys(managed) : [],
+    enterprise: enterprise.flat(),
+  }
 }
 
 // Under `inherit`, the glass of the active `/theme` when it's a user custom
@@ -326,7 +378,7 @@ async function refreshGlass($: EngineInterface) {
   if (value !== glass) await $.state.set(GLASS, glass)
 }
 
-// MEMORY.md "The `mcp` Sidebar plugin reads live tools and the disabled list; it never probes".
+// MEMORY.md "The `mcp` Sidebar plugin reads live tools and MCP config names; it never probes".
 async function refreshMcp($: EngineInterface) {
   if (mcpRunning) return
   mcpRunning = true
@@ -334,14 +386,16 @@ async function refreshMcp($: EngineInterface) {
     mcpTimeout ??= Number(await $.env.get('MCP_TIMEOUT')) || 30_000
     const moved = cwdMoved
     cwdMoved = false
-    const [tools, disabled, now, { value: rows = [] }] = await Promise.all([
+    const [tools, file, now, { value: rows = [] }, { value: observed = {} }] = await Promise.all([
       $.tool.list(),
-      readDisabled($),
+      readClaudeJson($),
       $.clock.now(),
       $.state.get(MCP),
+      $.state.get(MCP_OBSERVED),
     ])
     const kept = moved ? rows.filter((row) => row.state !== 'off') : rows
-    const next = mcpRows({ rows: kept, tools, disabled, names: mcpNames, now, timeoutMs: mcpTimeout })
+    const sources = { ...mcpFiles, user: file.user, local: file.local, observed: { ...mcpObserved, ...observed } }
+    const next = mcpRows({ rows: kept, tools, disabled: file.disabled, names: mcpNames, now, timeoutMs: mcpTimeout, sources })
     if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
   } finally {
     mcpRunning = false
@@ -691,6 +745,7 @@ export const register: Register = (on, options) => {
     void refreshModel($).catch(() => undefined)
     if (needs.has('todo')) void loadTodo($)
     if (needs.has('git')) void refreshGit($)
+    if (needs.has('mcp')) void readMcpFiles($).catch(() => undefined)
     if (needs.has('versions')) void loadVersions($, config.theme)
     if (needs.has('usage')) {
       void loadUsage($).then(() => {
@@ -737,6 +792,24 @@ export const register: Register = (on, options) => {
   on('classic.CwdChanged', ($, e, next) => {
     claudeJson = undefined
     cwdMoved = true
+    // Another directory's servers of the same names may come from elsewhere.
+    mcpObserved = {}
+    if (needs.has('mcp')) {
+      void $.state.set(MCP_OBSERVED, {}).catch(() => undefined)
+      void readMcpFiles($, e.new_cwd).catch(() => undefined)
+    }
+    return next(e)
+  })
+
+  // A run of a server's tool names its source; it corrects the guess. Observe only.
+  on('classic.PostToolUse', async ($, e, next) => {
+    if (needs.has('mcp') && e.mcp_server) {
+      const { name, source } = e.mcp_server
+      const server = segmentOf(name)
+      mcpObserved = { ...mcpObserved, [server]: source }
+      const { value = {} } = await $.state.get(MCP_OBSERVED)
+      if (value[server] !== source) await $.state.set(MCP_OBSERVED, { ...value, [server]: source })
+    }
     return next(e)
   })
 
