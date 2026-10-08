@@ -1,0 +1,22 @@
+19:38:12.193 [8pb3] session.start options={"context_enable":true,"limits_enable":false,"mcp_enable":true,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[] menu=undefined
+19:38:12.275 [8pb3] register -> {"command":"r166"}
+19:38:23.972 [8pb3] run r166 pres={"isFullscreen":true,"columns":160}
+19:38:23.977 [8pb3] menu -> {"level":"top","filter":"","hl":{}}
+19:38:23.985 [8pb3] open -> {"isPlaced":true}
+19:38:23.994 [8pb3] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:38:25.857 [8pb3] select top=plugins
+19:38:25.859 [8pb3] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:38:27.269 [8pb3] select plugins=context
+19:38:27.271 [8pb3] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"context"}}
+19:38:27.318 [kxr3] session.start options={"context_enable":false,"limits_enable":false,"mcp_enable":true,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"context"}}
+19:38:27.323 [kxr3] register -> {"command":"r166"}
+19:38:29.181 [kxr3] select plugins=mcp
+19:38:29.183 [kxr3] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"mcp"}}
+19:38:29.225 [iise] session.start options={"context_enable":false,"limits_enable":false,"mcp_enable":false,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"mcp"}}
+19:38:29.230 [iise] register -> {"command":"r166"}
+19:38:31.497 [iise] select plugins=context
+19:38:31.498 [iise] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"context"}}
+19:38:31.539 [uzdz] session.start options={"context_enable":true,"limits_enable":false,"mcp_enable":false,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"context"}}
+19:38:31.543 [uzdz] register -> {"command":"r166"}
+19:38:34.968 [uzdz] ui.close {"id":"menu","origin":{"kind":"person"}} level=plugins
+19:38:34.970 [uzdz] menu -> {"level":"top","filter":"","hl":{"top":"plugins","plugins":"context"}}

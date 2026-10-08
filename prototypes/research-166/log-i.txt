@@ -1,0 +1,44 @@
+19:44:09.420 [s9rq] session.start options={"context_enable":true,"limits_enable":true,"mcp_enable":false,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"kanagawa"} panes=[] menu=undefined
+19:44:09.476 [s9rq] register -> {"command":"r166"}
+19:44:21.551 [s9rq] run r166 pres={"isFullscreen":false,"columns":120}
+19:44:21.555 [s9rq] menu -> {"level":"top","filter":"","hl":{}}
+19:44:21.561 [s9rq] open -> {"isPlaced":true}
+19:44:21.563 [s9rq] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:44:23.243 [s9rq] select top=plugins
+19:44:23.245 [s9rq] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:44:24.948 [s9rq] select plugins=context
+19:44:24.950 [s9rq] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"context"}}
+19:44:25.008 [bt1p] session.start options={"context_enable":false,"limits_enable":true,"mcp_enable":false,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"kanagawa"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"context"}}
+19:44:25.015 [bt1p] register -> {"command":"r166"}
+19:44:30.769 [bt1p] select plugins=mcp
+19:44:30.771 [bt1p] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"mcp"}}
+19:44:30.815 [nm76] session.start options={"context_enable":false,"limits_enable":true,"mcp_enable":true,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"kanagawa"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"mcp"}}
+19:44:30.819 [nm76] register -> {"command":"r166"}
+19:44:34.539 [nm76] ui.close {"id":"menu","origin":{"kind":"person"}} refused sync from plugins
+19:44:34.541 [nm76] menu -> {"level":"top","filter":"","hl":{"top":"plugins","plugins":"mcp"}}
+19:44:34.542 [nm76] refocus top -> {"deny":"that site does not hold the keyboard"}
+19:44:34.543 [nm76] panes [{"id":"menu","title":"ctui","isShown":true,"isFocused":false,"isPlaced":true}]
+19:44:34.545 [nm76] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:44:34.851 [nm76] after refused close panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}]
+19:44:42.956 [nm76] select top=themes
+19:44:42.957 [nm76] menu -> {"level":"themes","filter":"","hl":{"top":"themes","plugins":"mcp"}}
+19:44:44.659 [nm76] input filter change "ro"
+19:44:44.661 [nm76] menu -> {"level":"themes","filter":"ro","hl":{"top":"themes","plugins":"mcp"}}
+19:44:45.360 [nm76] focus {"element":"themes","origin":{"kind":"person"}}
+19:44:46.076 [nm76] select themes=rose-pine
+19:44:46.079 [nm76] menu -> {"level":"themes","filter":"ro","hl":{"top":"themes","plugins":"mcp","themes":"rose-pine"}}
+19:44:46.149 [32qf] session.start options={"context_enable":false,"limits_enable":true,"mcp_enable":true,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"rose-pine"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"themes","filter":"ro","hl":{"top":"themes","plugins":"mcp","themes":"rose-pine"}}
+19:44:46.153 [32qf] register -> {"command":"r166"}
+19:44:49.842 [32qf] ui.close {"id":"menu","origin":{"kind":"person"}} refused sync from themes
+19:44:49.844 [32qf] menu -> {"level":"top","filter":"","hl":{"top":"themes","plugins":"mcp","themes":"rose-pine"}}
+19:44:49.849 [32qf] refocus top -> {"deny":"that site does not hold the keyboard"}
+19:44:49.849 [32qf] panes [{"id":"menu","title":"ctui","isShown":true,"isFocused":false,"isPlaced":true}]
+19:44:49.852 [32qf] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:44:50.152 [32qf] after refused close panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}]
+19:44:52.195 [32qf] select top=plugins
+19:44:52.197 [32qf] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"mcp","themes":"rose-pine"}}
+19:44:54.602 [32qf] select plugins=limits
+19:44:54.604 [32qf] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"limits","themes":"rose-pine"}}
+19:44:54.644 [qj0l] session.start options={"context_enable":false,"limits_enable":false,"mcp_enable":true,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"rose-pine"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"limits","themes":"rose-pine"}}
+19:44:54.647 [qj0l] register -> {"command":"r166"}
+19:44:56.304 [qj0l] focus {"origin":{"kind":"person"}}

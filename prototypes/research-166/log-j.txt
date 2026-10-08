@@ -1,0 +1,17 @@
+19:45:10.308 [vgzk] session.start options={"context_enable":false,"limits_enable":false,"mcp_enable":true,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"rose-pine"} panes=[] menu=undefined
+19:45:10.394 [vgzk] register -> {"command":"r166"}
+19:45:22.346 [vgzk] run r166 pres={"isFullscreen":false,"columns":120}
+19:45:22.351 [vgzk] menu -> {"level":"top","filter":"","hl":{}}
+19:45:22.356 [vgzk] open -> {"isPlaced":true}
+19:45:22.359 [vgzk] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:45:24.036 [vgzk] select top=plugins
+19:45:24.038 [vgzk] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:45:28.551 [vgzk] select plugins=open:limits
+19:45:28.553 [vgzk] menu -> {"level":"limits","filter":"","hl":{"top":"plugins","plugins":"open:limits"}}
+19:45:30.263 [vgzk] focus {"element":"monthly","origin":{"kind":"person"}}
+19:45:30.968 [vgzk] input monthly change "25"
+19:45:31.670 [vgzk] input monthly change "2"
+19:45:32.373 [vgzk] input monthly change ""
+19:45:33.076 [vgzk] input monthly change "-5"
+19:45:33.578 [vgzk] input monthly submit "-5"
+19:45:33.580 [vgzk] config.set limits_cost_monthly=-5 -> {"deny":"r166 monthly doesn't accept \"-5\". It takes a number between 0 and ∞."} in 2ms

@@ -1,0 +1,16 @@
+19:43:41.656 [tkne] session.start options={"context_enable":true,"limits_enable":true,"mcp_enable":false,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"kanagawa"} panes=[] menu=undefined
+19:43:41.715 [tkne] register -> {"command":"r166"}
+19:43:53.569 [tkne] run r166 pres={"isFullscreen":true,"columns":160}
+19:43:53.574 [tkne] menu -> {"level":"top","filter":"","hl":{}}
+19:43:53.581 [tkne] open -> {"isPlaced":true}
+19:43:53.583 [tkne] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:43:55.157 [tkne] select top=plugins
+19:43:55.158 [tkne] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:43:56.815 [tkne] ui.close {"id":"menu","origin":{"kind":"person"}} refused sync from plugins
+19:43:56.816 [tkne] menu -> {"level":"top","filter":"","hl":{"top":"plugins"}}
+19:43:56.818 [tkne] refocus top -> {"deny":"that site does not hold the keyboard"}
+19:43:56.818 [tkne] panes [{"id":"menu","title":"ctui","isShown":true,"isFocused":false,"isPlaced":true}]
+19:43:56.823 [tkne] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:43:57.125 [tkne] after refused close panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}]
+19:43:58.982 [tkne] select top=themes
+19:43:58.985 [tkne] menu -> {"level":"themes","filter":"","hl":{"top":"themes"}}

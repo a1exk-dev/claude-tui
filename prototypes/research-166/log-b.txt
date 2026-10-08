@@ -1,0 +1,9 @@
+19:37:46.675 [c0k4] session.start options={"context_enable":true,"limits_enable":false,"mcp_enable":true,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[] menu=undefined
+19:37:46.744 [c0k4] register -> {"command":"r166"}
+19:37:59.062 [c0k4] run r166 pres={"isFullscreen":true,"columns":160}
+19:37:59.067 [c0k4] menu -> {"level":"top","filter":"","hl":{}}
+19:37:59.073 [c0k4] open -> {"isPlaced":true}
+19:37:59.075 [c0k4] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:38:01.545 [c0k4] select top=noop
+19:38:01.546 [c0k4] menu -> {"level":"top","filter":"","hl":{"top":"noop"}}
+19:38:03.108 [c0k4] ui.close {"id":"menu","origin":{"kind":"person"}} level=top

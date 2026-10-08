@@ -1,0 +1,12 @@
+19:45:46.568 [w3lg] session.start options={"context_enable":false,"limits_enable":false,"mcp_enable":true,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"rose-pine"} panes=[] menu=undefined
+19:45:46.625 [w3lg] register -> {"command":"r166"}
+19:45:58.625 [w3lg] run r166 pres={"isFullscreen":true,"columns":160}
+19:45:58.630 [w3lg] menu -> {"level":"top","filter":"","hl":{}}
+19:45:58.639 [w3lg] open -> {"isPlaced":true}
+19:45:58.640 [w3lg] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:46:00.314 [w3lg] select top=plugins
+19:46:00.316 [w3lg] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:46:02.017 [w3lg] select plugins=context
+19:46:02.019 [w3lg] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"context"}}
+19:46:02.067 [zeqp] session.start options={"context_enable":true,"limits_enable":false,"mcp_enable":true,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"rose-pine"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"context"}}
+19:46:02.072 [zeqp] register -> {"command":"r166"}

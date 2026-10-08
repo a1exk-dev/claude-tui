@@ -1,0 +1,12 @@
+19:37:02.376 [4o77] session.start options={"context_enable":true,"limits_enable":true,"mcp_enable":true,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[] menu=undefined
+19:37:02.432 [4o77] register -> {"command":"r166"}
+19:37:09.872 [4o77] run r166 pres={"isFullscreen":true,"columns":160}
+19:37:09.877 [4o77] menu -> {"level":"top","filter":"","hl":{}}
+19:37:09.884 [4o77] open -> {"isPlaced":true}
+19:37:09.887 [4o77] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:37:11.864 [4o77] select top=plugins
+19:37:11.865 [4o77] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:37:13.876 [4o77] select plugins=limits
+19:37:13.877 [4o77] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"limits"}}
+19:37:13.919 [84bt] session.start options={"context_enable":true,"limits_enable":false,"mcp_enable":true,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"limits"}}
+19:37:13.923 [84bt] register -> {"command":"r166"}

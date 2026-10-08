@@ -1,0 +1,87 @@
+19:40:19.032 [0hl0] session.start options={"context_enable":true,"limits_enable":false,"mcp_enable":false,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[] menu=undefined
+19:40:19.106 [0hl0] register -> {"command":"r166"}
+19:40:30.977 [0hl0] run r166 pres={"isFullscreen":true,"columns":160}
+19:40:30.981 [0hl0] menu -> {"level":"top","filter":"","hl":{}}
+19:40:30.988 [0hl0] open -> {"isPlaced":true}
+19:40:30.990 [0hl0] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:40:32.564 [0hl0] select top=plugins
+19:40:32.566 [0hl0] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:40:34.771 [0hl0] select plugins=limits
+19:40:34.773 [0hl0] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"limits"}}
+19:40:34.824 [ustc] session.start options={"context_enable":true,"limits_enable":true,"mcp_enable":false,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"plugins","filter":"","hl":{"top":"plugins","plugins":"limits"}}
+19:40:34.829 [ustc] register -> {"command":"r166"}
+19:40:39.539 [ustc] ui.close {"id":"menu","origin":{"kind":"person"}} refused sync from plugins
+19:40:39.548 [ustc] menu -> {"level":"top","filter":"","hl":{"top":"plugins","plugins":"limits"}}
+19:40:39.552 [ustc] reopen -> {"isPlaced":true}
+19:40:39.552 [ustc] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:40:39.853 [ustc] after refused close panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}]
+19:40:41.289 [ustc] select top=themes
+19:40:41.291 [ustc] menu -> {"level":"themes","filter":"","hl":{"top":"themes","plugins":"limits"}}
+19:40:50.588 [ustc] input filter change "ro"
+19:40:50.589 [ustc] menu -> {"level":"themes","filter":"ro","hl":{"top":"themes","plugins":"limits"}}
+19:40:51.696 [ustc] focus {"element":"themes","origin":{"kind":"person"}}
+19:40:52.306 [ustc] focus {"origin":{"kind":"person"}}
+19:41:06.834 [ustc] run r166 pres={"isFullscreen":true,"columns":160}
+19:41:06.838 [ustc] menu -> {"level":"top","filter":"","hl":{}}
+19:41:06.843 [ustc] open -> {"isPlaced":true}
+19:41:06.850 [ustc] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:41:09.030 [ustc] select top=noop
+19:41:09.032 [ustc] menu -> {"level":"top","filter":"","hl":{"top":"noop"}}
+19:41:12.149 [ustc] select top=noop
+19:41:12.151 [ustc] menu -> {"level":"top","filter":"","hl":{"top":"noop"}}
+19:41:25.322 [ustc] ui.close {"id":"menu","origin":{"kind":"person"}} passed (level top)
+19:41:28.090 [ustc] run r166 pres={"isFullscreen":true,"columns":160}
+19:41:28.093 [ustc] menu -> {"level":"top","filter":"","hl":{}}
+19:41:28.098 [ustc] open -> {"isPlaced":true}
+19:41:28.102 [ustc] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:41:30.293 [ustc] select top=themes
+19:41:30.295 [ustc] menu -> {"level":"themes","filter":"","hl":{"top":"themes"}}
+19:41:31.704 [ustc] input filter change "ka"
+19:41:31.706 [ustc] menu -> {"level":"themes","filter":"ka","hl":{"top":"themes"}}
+19:41:32.807 [ustc] focus {"element":"themes","origin":{"kind":"person"}}
+19:41:33.419 [ustc] select themes=kanagawa
+19:41:33.420 [ustc] menu -> {"level":"themes","filter":"ka","hl":{"top":"themes","themes":"kanagawa"}}
+19:41:33.472 [ghat] session.start options={"context_enable":true,"limits_enable":true,"mcp_enable":false,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"kanagawa"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"themes","filter":"ka","hl":{"top":"themes","themes":"kanagawa"}}
+19:41:33.476 [ghat] register -> {"command":"r166"}
+19:41:45.501 [ghat] focus {"element":"filter","origin":{"kind":"person"}}
+19:41:46.112 [ghat] input filter change "kax"
+19:41:46.113 [ghat] menu -> {"level":"themes","filter":"kax","hl":{"top":"themes","themes":"kanagawa"}}
+19:41:47.223 [ghat] input filter change "ka"
+19:41:47.225 [ghat] menu -> {"level":"themes","filter":"ka","hl":{"top":"themes","themes":"kanagawa"}}
+19:41:47.826 [ghat] input filter change "k"
+19:41:47.827 [ghat] menu -> {"level":"themes","filter":"k","hl":{"top":"themes","themes":"kanagawa"}}
+19:41:48.431 [ghat] input filter change ""
+19:41:48.432 [ghat] menu -> {"level":"themes","filter":"","hl":{"top":"themes","themes":"kanagawa"}}
+19:41:55.472 [ghat] ui.close {"id":"menu","origin":{"kind":"person"}} refused sync from themes
+19:41:55.481 [ghat] menu -> {"level":"top","filter":"","hl":{"top":"themes","themes":"kanagawa"}}
+19:41:55.485 [ghat] reopen -> {"isPlaced":true}
+19:41:55.485 [ghat] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:41:55.786 [ghat] after refused close panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}]
+19:42:01.784 [ghat] select top=plugins
+19:42:01.786 [ghat] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","themes":"kanagawa"}}
+19:42:05.100 [ghat] select plugins=open:limits
+19:42:05.102 [ghat] menu -> {"level":"limits","filter":"","hl":{"top":"plugins","themes":"kanagawa","plugins":"open:limits"}}
+19:42:07.425 [ghat] select cost=on
+19:42:07.427 [ghat] menu -> {"level":"limits","filter":"","hl":{"top":"plugins","themes":"kanagawa","plugins":"open:limits","limits":"on"}}
+19:42:07.478 [ij5l] session.start options={"context_enable":true,"limits_enable":true,"mcp_enable":false,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":100,"theme":"kanagawa"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"limits","filter":"","hl":{"top":"plugins","themes":"kanagawa","plugins":"open:limits","limits":"on"}}
+19:42:07.484 [ij5l] register -> {"command":"r166"}
+19:42:19.379 [ij5l] ui.close {"id":"menu","origin":{"kind":"person"}} refused sync from limits
+19:42:19.388 [ij5l] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins","themes":"kanagawa","plugins":"open:limits","limits":"on"}}
+19:42:19.393 [ij5l] reopen -> {"isPlaced":true}
+19:42:19.393 [ij5l] focus {"element":"plugins","origin":{"kind":"plugin","name":"r166"}}
+19:42:19.694 [ij5l] after refused close panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}]
+19:42:24.511 [ij5l] select plugins=open:limits
+19:42:24.513 [ij5l] menu -> {"level":"limits","filter":"","hl":{"top":"plugins","themes":"kanagawa","plugins":"open:limits","limits":"on"}}
+19:42:25.820 [ij5l] focus {"element":"monthly","origin":{"kind":"person"}}
+19:42:26.338 [ij5l] input monthly change "100abc"
+19:42:26.835 [ij5l] input monthly submit "100abc"
+19:42:26.835 [ij5l] monthly: not a number
+19:42:31.365 [ij5l] input monthly change "250"
+19:42:31.866 [ij5l] input monthly submit "250"
+19:42:31.908 [g8gq] session.start options={"context_enable":true,"limits_enable":true,"mcp_enable":false,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"kanagawa"} panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":true,"isPlaced":true}] menu={"level":"limits","filter":"","hl":{"top":"plugins","themes":"kanagawa","plugins":"open:limits","limits":"on"}}
+19:42:31.912 [g8gq] register -> {"command":"r166"}
+19:42:42.613 [g8gq] input monthly change "25"
+19:42:43.116 [g8gq] input monthly change "2"
+19:42:43.622 [g8gq] input monthly change ""
+19:42:44.624 [g8gq] input monthly submit ""
+19:42:44.625 [g8gq] monthly: not a number

@@ -1,0 +1,21 @@
+19:43:00.938 [1tvi] session.start options={"context_enable":true,"limits_enable":true,"mcp_enable":false,"todo_enable":true,"limits_cost":"on","limits_cost_monthly":250,"theme":"kanagawa"} panes=[] menu=undefined
+19:43:01.001 [1tvi] register -> {"command":"r166"}
+19:43:12.850 [1tvi] run r166 pres={"isFullscreen":true,"columns":160}
+19:43:12.854 [1tvi] menu -> {"level":"top","filter":"","hl":{}}
+19:43:12.860 [1tvi] open -> {"isPlaced":true}
+19:43:12.866 [1tvi] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:43:14.437 [1tvi] select top=plugins
+19:43:14.438 [1tvi] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:43:16.103 [1tvi] ui.close {"id":"menu","origin":{"kind":"person"}} refused sync from plugins
+19:43:16.104 [1tvi] menu -> {"level":"top","filter":"","hl":{"top":"plugins"}}
+19:43:16.409 [1tvi] after refused close panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":false,"isPlaced":true}]
+19:43:17.712 [1tvi] ui.close {"id":"menu","origin":{"kind":"person"}} passed (level top)
+19:43:26.014 [1tvi] run r166 pres={"isFullscreen":true,"columns":160}
+19:43:26.019 [1tvi] menu -> {"level":"top","filter":"","hl":{}}
+19:43:26.024 [1tvi] open -> {"isPlaced":true}
+19:43:26.028 [1tvi] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:43:27.606 [1tvi] select top=plugins
+19:43:27.609 [1tvi] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:43:29.266 [1tvi] ui.close {"id":"menu","origin":{"kind":"person"}} refused sync from plugins
+19:43:29.267 [1tvi] menu -> {"level":"top","filter":"","hl":{"top":"plugins"}}
+19:43:29.569 [1tvi] after refused close panes=[{"id":"menu","title":"ctui","isShown":true,"isFocused":false,"isPlaced":true}]

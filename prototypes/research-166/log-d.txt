@@ -1,0 +1,17 @@
+19:38:54.528 [3ri8] session.start options={"context_enable":true,"limits_enable":false,"mcp_enable":false,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[] menu=undefined
+19:38:54.596 [3ri8] register -> {"command":"r166"}
+19:39:06.379 [3ri8] run r166 pres={"isFullscreen":true,"columns":160}
+19:39:06.384 [3ri8] menu -> {"level":"top","filter":"","hl":{}}
+19:39:06.392 [3ri8] open -> {"isPlaced":true}
+19:39:06.395 [3ri8] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:39:07.865 [3ri8] select top=plugins
+19:39:07.867 [3ri8] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:39:09.422 [3ri8] ui.close {"id":"menu","origin":{"kind":"person"}} level=plugins
+19:39:09.424 [3ri8] menu -> {"level":"top","filter":"","hl":{"top":"plugins"}}
+19:39:09.725 [3ri8] after refused close panes=[]
+19:39:11.395 [3ri8] run r166 pres={"isFullscreen":true,"columns":160}
+19:39:11.400 [3ri8] menu -> {"level":"top","filter":"","hl":{}}
+19:39:11.408 [3ri8] open -> {"isPlaced":true}
+19:39:11.411 [3ri8] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:39:12.888 [3ri8] select top=plugins
+19:39:12.890 [3ri8] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}

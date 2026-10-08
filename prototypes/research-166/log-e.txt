@@ -1,0 +1,21 @@
+19:39:40.211 [r3vt] session.start options={"context_enable":true,"limits_enable":false,"mcp_enable":false,"todo_enable":true,"limits_cost":"auto","limits_cost_monthly":100,"theme":"inherit"} panes=[] menu=undefined
+19:39:40.290 [r3vt] register -> {"command":"r166"}
+19:39:52.185 [r3vt] run r166 pres={"isFullscreen":true,"columns":160}
+19:39:52.189 [r3vt] menu -> {"level":"top","filter":"","hl":{}}
+19:39:52.197 [r3vt] open -> {"isPlaced":true}
+19:39:52.199 [r3vt] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:39:53.772 [r3vt] select top=plugins
+19:39:53.774 [r3vt] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:39:55.438 [r3vt] ui.close {"id":"menu","origin":{"kind":"person"}} refused sync from plugins
+19:39:55.450 [r3vt] menu -> {"level":"top","filter":"","hl":{"top":"plugins"}}
+19:39:55.751 [r3vt] after refused close panes=[]
+19:40:01.889 [r3vt] run r166 pres={"isFullscreen":true,"columns":160}
+19:40:01.894 [r3vt] menu -> {"level":"top","filter":"","hl":{}}
+19:40:01.900 [r3vt] open -> {"isPlaced":true}
+19:40:01.908 [r3vt] focus {"element":"top","origin":{"kind":"plugin","name":"r166"}}
+19:40:03.481 [r3vt] select top=plugins
+19:40:03.483 [r3vt] menu -> {"level":"plugins","filter":"","hl":{"top":"plugins"}}
+19:40:06.301 [r3vt] closeme panes=[]
+19:40:06.307 [r3vt] ui.close {"id":"menu","origin":{"kind":"plugin"}} refused sync from plugins
+19:40:06.318 [r3vt] menu -> {"level":"top","filter":"","hl":{"top":"plugins"}}
+19:40:06.624 [r3vt] after refused close panes=[]

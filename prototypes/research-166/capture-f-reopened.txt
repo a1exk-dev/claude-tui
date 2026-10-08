@@ -1,0 +1,45 @@
+                                                                                       │ Sidebar   ctui                                                       ✕
+ ▐▛███▛█   Claude Code v2.1.292                                                        │
+▝▜██████▀  Haiku 4.5 · Claude Max                                                      │  ctui [ustc]
+ ▝▝   ▝▝   ~/Projects/claude-tui/prototypes/research-166                               │  Plugins › ▴
+                                                                                       │    Plugins ›
+                                                                                       │    Themes ›
+● r166: options changed — reloaded (7 hooks: session.start, command.run,               │    no-op (no reload)
+  ui.render, ui.select, ui.focus, ui.input, ui.close)                                  │
+                                                                                       │
+● r166: ui.close hook skipped: returned the wrong shape (neither { value } nor         │
+  { deny })                                                                            │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                           Update available! Run: mise upgrade claude  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts · ← 5 agents                                                                                    claude-haiku-4-5-20251001

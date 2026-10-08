@@ -1,0 +1,14 @@
+{
+  "name": "r166",
+  "version": "0.0.0",
+  "description": "PROTOTYPE, throw away: does the /ctui menu survive a settings reload (issue 166)",
+  "userConfig": {
+    "context_enable": { "type": "boolean", "title": "r166 context", "description": "probe", "default": true },
+    "limits_enable": { "type": "boolean", "title": "r166 limits", "description": "probe", "default": true },
+    "mcp_enable": { "type": "boolean", "title": "r166 mcp", "description": "probe", "default": true },
+    "todo_enable": { "type": "boolean", "title": "r166 todo", "description": "probe", "default": true },
+    "limits_cost": { "type": "string", "title": "r166 limits cost", "description": "probe", "options": ["auto", "on", "off"], "default": "auto" },
+    "limits_cost_monthly": { "type": "number", "title": "r166 monthly", "description": "probe", "default": 100, "min": 0 },
+    "theme": { "type": "string", "title": "r166 theme", "description": "probe", "options": ["inherit", "catppuccin", "catppuccin-latte", "ethereal", "everforest", "flexoki-light", "gruvbox", "hackerman", "kanagawa", "matte-black", "miasma", "nord", "osaka-jade", "ristretto", "rose-pine", "tokyo-night", "vantablack"], "default": "inherit" }
+  }
+}
