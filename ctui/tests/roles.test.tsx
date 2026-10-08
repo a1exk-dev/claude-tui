@@ -123,9 +123,12 @@ test('main text draws with the text key: path, branch, titles, labels, percents,
   expect(colorOf(all, 'Run the tests')).toEqual(['text'])
 })
 
-test('the git header: ⎇ muted, counts in their roles, lines changed muted', async ($, on) => {
+// #136: the Devicons glyphs leading the git rows: branch, changeset, lines changed.
+const GLYPHS = ['\ue725', '\ue702', '\ue728']
+
+test('the git header: glyphs muted, counts in their roles, lines changed muted', async ($, on) => {
   const { runs: all } = await draw($, on)
-  expect(colorOf(all, '⎇')).toEqual(['inactive'])
+  expect(GLYPHS.map((glyph) => colorOf(all, glyph))).toEqual([['inactive'], ['inactive'], ['inactive']])
   expect(colorOf(all, 'develop')).toEqual(['text'])
   expect(['↑1', '↓0', '+2', '!3', '?1', '≡1', '+12', '-4', 'lines changed'].map((t) => colorOf(all, t)[0])).toEqual([
     'text',
@@ -190,7 +193,7 @@ test("a Theme's overrides reach every role", async ($, on) => {
   const theme: Colors = colors({ text: '#d3c6aa', inactive: '#918c7e', subtle: '#475258' })
   const { runs: all } = await draw($, on, { colors: theme })
   expect(colorOf(all, 'Context:')).toEqual(['#d3c6aa'])
-  expect(colorOf(all, '⎇')).toEqual(['#918c7e'])
+  expect(GLYPHS.map((glyph) => colorOf(all, glyph))).toEqual([['#918c7e'], ['#918c7e'], ['#918c7e']])
   expect(colorOf(all, '│')).toEqual(['#475258'])
   expect(colorOf(all, '═'.repeat(38))).toEqual(['#475258'])
   expect(colorOf(all, '▼')).toEqual(Array(5).fill('#918c7e'))

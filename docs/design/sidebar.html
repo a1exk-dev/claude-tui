@@ -15,7 +15,9 @@
   whole rows, as Claude Code lays it out: a faint `─` rule across the body
   between every two sections, 1 row under an expanded title and 1 row after an
   expanded section before the rule, none after a folded one. A faint `═` rule
-  with 1 blank row on each side parts the git header from the sections.
+  with 1 blank row on each side parts the git header from the sections. In
+  the header, 1 blank row parts the path from the git rows, each led by its
+  Devicons glyph in muted: U+E725 branch, U+E702 changeset, U+E728 lines.
 -->
 <html lang="en">
 <head>
@@ -190,8 +192,8 @@
   // The `─` rule between two sections, across the body's 38 columns.
   const RULE = row(span('f', '─'.repeat(38)))
   // The sections window's rows above `↓ more`: 37 body rows less the header
-  // (4), the double rule's 3, `↓ more`, the footer's gap and the footer (2).
-  const ROOM = 37 - 4 - 3 - 1 - 1 - 2
+  // (5), the double rule's 3, `↓ more`, the footer's gap and the footer (2).
+  const ROOM = 37 - 5 - 3 - 1 - 1 - 2
 
   // The sections as scroll stops, as `sidebar()` builds them: a title's stop
   // holds the blank row and rule before it and its own blank row. With
@@ -258,9 +260,10 @@
         <div class="mode split row"><span>claude-opus-5-5 ${span('m', '· high effort')}</span>${span('g', '⏵⏵ accept edits')}</div>
         <div class="sidebar"><div class="body">
           ${row('<b>~/Projects/open-claude-mod</b>')}
-          ${row('⎇ main')}
-          ${row(`⇡2  ⇣0  ${span('g', '+1')}  ${span('o', '!3')}  ${span('m', '?2')}  ${span('v', '≡1')}`)}
-          ${row(`${span('g', '+24')} ${span('r', '-1')} ${span('m', 'lines changed')}`)}
+          ${row('')}
+          ${row(`${span('m', '\ue725')} main`)}
+          ${row(`${span('m', '\ue702')} ⇡2  ⇣0  ${span('g', '+1')}  ${span('o', '!3')}  ${span('m', '?2')}  ${span('v', '≡1')}`)}
+          ${row(`${span('m', '\ue728')} ${span('g', '+24')} ${span('r', '-1')} ${span('m', 'lines changed')}`)}
           ${row('')}
           ${row(span('f', '═'.repeat(38)))}
           ${row('')}
