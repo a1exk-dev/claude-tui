@@ -128,10 +128,11 @@ for (const [columns, width] of [
   [42, 36],
   [53, 47],
 ] as const) {
-  test(`at ${columns} columns the cost row ends limits, its value under the percents`, async ($, on) => {
+  test(`at ${columns} columns the cost row starts limits, its value under the percents`, async ($, on) => {
     const pane = await draw($, on, limits, { usage: MEASURED, now: NOW }, CFG, width)
     const rows = await pane.findAll({ type: 'Text', text: /^(5h|week|cost|\s+resets)/ })
-    expect(rows.at(-1)?.text).toMatch(/^cost/)
+    expect(rows[0]?.text).toMatch(/^cost/)
+    expect(rows[1]?.text).toMatch(/^5h/)
     expect(await costRow(pane)).toEqual({
       text: 'cost'.padEnd(width - 5) + '$0.21',
       colors: ['text', 'inactive'],
