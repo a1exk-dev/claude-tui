@@ -49,9 +49,11 @@ function rows(tree: RenderElement): Row[] {
 }
 
 // The rows as text, with each spacer (an empty Box with a height) as its height:
-// 1 row under an expanded title, 2 after an expanded section (#120).
-const T = 1
-const G = 2
+// 1 row under an expanded title and 1 after an expanded section, before the
+// rule under which the next title sits (#134).
+const B = 1
+// The `─` rule between two sections, the body width at 42 columns.
+const R = '─'.repeat(38)
 function layout(tree: RenderElement): (string | number)[] {
   const root = tree as unknown as { children: ({ props: { height?: number }; children?: unknown[] } | null)[] }
   const all = root.children.filter((child) => child !== null)
@@ -115,7 +117,7 @@ test('header, sections and the footer on the last row', async ($, on) => {
     '⎇ main',
     '',
     '▼ mcp:3',
-    T,
+    B,
     'mcp 1',
     'mcp 2',
     'mcp 3',
@@ -133,21 +135,47 @@ test('a folded section shows its summary; folded sections sit together', async (
     plugins: [list('mcp', 3), list('todo', 2)],
     folded: { mcp: true },
   })
-  expect(layout(tree)).toEqual(['▶\uFE0E mcp:sum 3', '▼ todo:2', T, 'todo 1', 'todo 2', ''])
+  expect(layout(tree)).toEqual(['▶\uFE0E mcp:sum 3', R, '▼ todo:2', B, 'todo 1', 'todo 2', ''])
 })
 
-// #120: 1 row under an expanded title, 2 rows after an expanded section.
+// #134: a rule between every two sections, 1 row under an expanded title and
+// 1 row after an expanded section before the rule.
 const three = [list('mcp', 2), list('todo', 1), { ...list('mcp', 1), id: 'agents' as const, title: 'agents' }]
 
-test('expanded sections space 1 row under the title and 2 rows apart', async ($, on) => {
+test('expanded sections space 1 row under the title and 1 row before the rule', async ($, on) => {
   const { tree } = await draw($, on, { plugins: three })
-  expect(layout(tree)).toEqual(['▼ mcp:2', T, 'mcp 1', 'mcp 2', G, '▼ todo:1', T, 'todo 1', G, '▼ agents:1', T, 'mcp 1', ''])
+  expect(layout(tree)).toEqual(['▼ mcp:2', B, 'mcp 1', 'mcp 2', B, R, '▼ todo:1', B, 'todo 1', B, R, '▼ agents:1', B, 'mcp 1', ''])
 })
 
-test('folded sections take no spacer; an expanded one keeps its 2 rows before a folded one', async ($, on) => {
+test('a folded title is followed by the rule; an expanded one keeps its row before a folded one', async ($, on) => {
   const { tree } = await draw($, on, { plugins: three, folded: { mcp: true, agents: true } })
-  expect(layout(tree)).toEqual(['▶\uFE0E mcp:sum 2', '▼ todo:1', T, 'todo 1', G, '▶\uFE0E agents:sum 1', ''])
+  expect(layout(tree)).toEqual(['▶\uFE0E mcp:sum 2', R, '▼ todo:1', B, 'todo 1', B, R, '▶\uFE0E agents:sum 1', ''])
 })
+
+test('folded titles are parted by one rule each and no blank rows', async ($, on) => {
+  const { tree } = await draw($, on, { plugins: three, folded: { mcp: true, todo: true, agents: true } })
+  expect(layout(tree)).toEqual(['▶\uFE0E mcp:sum 2', R, '▶\uFE0E todo:sum 1', R, '▶\uFE0E agents:sum 1', ''])
+})
+
+test('one section, expanded, has no rule', async ($, on) => {
+  const { tree } = await draw($, on, {})
+  expect(layout(tree).filter((size) => typeof size === 'string' && size.startsWith('─'))).toEqual([])
+})
+
+test('one section, folded, has no rule above or below it', async ($, on) => {
+  const { tree } = await draw($, on, { folded: { mcp: true } })
+  expect(layout(tree)).toEqual(['~/x', '⎇ main', '', '▶\uFE0E mcp:sum 3', '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
+})
+
+for (const [columns, cells] of [
+  [42, 38],
+  [53, 49],
+] as const) {
+  test(`a rule is the body width, ${cells} cells at ${columns} columns`, async ($, on) => {
+    const { tree } = await draw($, on, { plugins: three, folded: { mcp: true }, bodyColumns: columns })
+    expect(layout(tree)[1]).toBe('─'.repeat(cells))
+  })
+}
 
 test('under a selected Theme the root paint covers the spacers', async ($, on) => {
   const { tree } = await draw($, on, { plugins: [list('mcp', 1), list('todo', 1)], background: '#2d353b' })
@@ -158,9 +186,9 @@ test('under a selected Theme the root paint covers the spacers', async ($, on) =
     (child) => child?.props.height !== undefined && !(child as { children?: unknown[] }).children?.length,
   )
   expect(spacers.map((spacer) => spacer?.props)).toEqual([
-    { height: T, flexShrink: 0 },
-    { height: G, flexShrink: 0 },
-    { height: T, flexShrink: 0 },
+    { height: B, flexShrink: 0 },
+    { height: B, flexShrink: 0 },
+    { height: B, flexShrink: 0 },
   ])
 })
 
@@ -172,7 +200,7 @@ test('a section the person has not toggled folds from <id>_folded', async ($, on
 
 test('a long list caps at 4 rows', async ($, on) => {
   const capped = await draw($, on, { plugins: [list('mcp', 6)] })
-  expect(layout(capped.tree)).toEqual(['▼ mcp:6', T, 'mcp 1', 'mcp 2', 'mcp 3', 'mcp 4', '▸ 2 more', ''])
+  expect(layout(capped.tree)).toEqual(['▼ mcp:6', B, 'mcp 1', 'mcp 2', 'mcp 3', 'mcp 4', '▸ 2 more', ''])
 })
 
 test('an expanded list shows every row and show less', async ($, on) => {
@@ -182,7 +210,7 @@ test('an expanded list shows every row and show less', async ($, on) => {
 
 test('a list of 4 has no toggle', async ($, on) => {
   const four = await draw($, on, { plugins: [list('mcp', 4)] })
-  expect(layout(four.tree)).toEqual(['▼ mcp:4', T, 'mcp 1', 'mcp 2', 'mcp 3', 'mcp 4', ''])
+  expect(layout(four.tree)).toEqual(['▼ mcp:4', B, 'mcp 1', 'mcp 2', 'mcp 3', 'mcp 4', ''])
 })
 
 test('sections taller than the free rows scroll in a window', async ($, on) => {
@@ -192,7 +220,7 @@ test('sections taller than the free rows scroll in a window', async ($, on) => {
   // From `mcp 2` (stop 2) the rest fits under `↑ more`.
   expect(top.maxScroll).toBe(2)
   // 4 free rows: `↓ more` leaves 3, which hold the title, its spacer and `mcp 1`.
-  expect(layout(top.tree).slice(3, 8)).toEqual(['▼ mcp:4', T, 'mcp 1', '↓ more', ''])
+  expect(layout(top.tree).slice(3, 8)).toEqual(['▼ mcp:4', B, 'mcp 1', '↓ more', ''])
   expect(rows(top.tree).at(-1)?.text).toBe('claude-cli 2.1.288')
 })
 
@@ -200,6 +228,27 @@ test('scrolled to the end, only ↑ more shows', async ($, on) => {
   const plugins = [header, list('mcp', 4), footer]
   const end = await draw($, on, { plugins, bodyRows: 12, scroll: 99 })
   expect(layout(end.tree).slice(3, 8)).toEqual(['↑ more', 'mcp 2', 'mcp 3', 'mcp 4', ''])
+})
+
+// #130: a title's stop holds the blank row and the rule above it.
+const two = [header, list('mcp', 2), list('todo', 2), footer]
+
+test('a title at the top keeps its blank row and rule under ↑ more', async ($, on) => {
+  // 14 body rows: 2 padding, 2 header, 1 gap, 1 gap, 2 footer leave 6 for 10 section rows.
+  const { tree, maxScroll } = await draw($, on, { plugins: two, bodyRows: 14, scroll: 3 })
+  expect(maxScroll).toBe(4)
+  expect(windowOf(layout(tree))).toEqual(['↑ more', B, R, '▼ todo:2', B, '↓ more'])
+})
+
+test('the window never ends on a rule or the blank row before it', async ($, on) => {
+  // 6 free rows: `↓ more` leaves 5, which hold mcp (4 rows) but not todo's 4.
+  const { tree } = await draw($, on, { plugins: two, bodyRows: 14 })
+  expect(windowOf(layout(tree))).toEqual(['▼ mcp:2', B, 'mcp 1', 'mcp 2', '↓ more'])
+})
+
+test('scrolled to the end past a rule, only ↑ more shows', async ($, on) => {
+  const { tree } = await draw($, on, { plugins: two, bodyRows: 14, scroll: 99 })
+  expect(windowOf(layout(tree))).toEqual(['↑ more', 'todo 1', 'todo 2'])
 })
 
 // #85's busy data: every section expanded, 7 MCP servers, 8 todos, 2 agents.
@@ -231,11 +280,11 @@ test("#85's busy data at 34 body rows: 37 section rows overflow 26 free rows", a
   const top = await busy($, on, 0)
   const window = windowOf(layout(top.tree))
   // `↓ more` leaves 25 rows, which hold Context, Limits and MCP (22 rows) but
-  // not Todo's gap, title and spacer (4 more).
+  // not Todo's blank row, rule, title and spacer (4 more).
   expect(window.slice(-4)).toEqual(['● server 23 tools', '● server 33 tools', '▸ 3 more', '↓ more'])
   expect(height(window)).toBe(23)
-  expect(window.filter((size) => size === T)).toHaveLength(3)
-  expect(window.filter((size) => size === G)).toHaveLength(2)
+  expect(window.filter((size) => size === B)).toHaveLength(5)
+  expect(window.filter((size) => size === R)).toHaveLength(2)
   // One stop per row: from Limits' last row (stop 8) the rest, 25 rows, fills
   // the 25 under `↑ more`; from its row before it is 26.
   expect(top.maxScroll).toBe(8)
@@ -243,7 +292,7 @@ test("#85's busy data at 34 body rows: 37 section rows overflow 26 free rows", a
 
 test("#85's busy data scrolled to the end", async ($, on) => {
   const window = windowOf(layout((await busy($, on, 99)).tree))
-  expect(window.slice(0, 4)).toEqual(['↑ more', 'spend ━────────────────────────   5%', G, '▼ MCP:7/7'])
+  expect(window.slice(0, 5)).toEqual(['↑ more', 'spend ━────────────────────────   5%', B, R, '▼ MCP:7/7'])
   expect(window.at(-1)).toBe('◐ Plan · plan0s')
   expect(height(window)).toBe(26)
 })
@@ -262,16 +311,16 @@ test('scrollWindow marks hidden rows on both sides', () => {
 
 test('scrollWindow counts whole rows; a title stop carries its spacers', () => {
   const more = (text: string) => text
-  // A, its spacer, a; then the gap, B, its spacer, b: 8 rows in 4 stops.
+  // A, its spacer, a; then the blank row, the rule, B, its spacer, b: 8 rows in 4 stops.
   const stops = [
-    { nodes: ['A', 't'], height: 1 + T },
+    { nodes: ['A', 't'], height: 1 + B },
     { nodes: ['a'], height: 1 },
-    { nodes: ['g', 'B', 't'], height: G + 1 + T },
+    { nodes: ['g', '─', 'B', 't'], height: B + 1 + 1 + B },
     { nodes: ['b'], height: 1 },
   ]
-  expect(scrollWindow(stops, 8, 0, more)).toEqual({ rows: ['A', 't', 'a', 'g', 'B', 't', 'b'], maxScroll: 0 })
+  expect(scrollWindow(stops, 8, 0, more)).toEqual({ rows: ['A', 't', 'a', 'g', '─', 'B', 't', 'b'], maxScroll: 0 })
   // 7 free: `↓ more` leaves 6, which hold A and a (3 rows) but not B's 4 more.
   expect(scrollWindow(stops, 7, 0, more)).toEqual({ rows: ['A', 't', 'a', '↓ more'], maxScroll: 1 })
   // From stop 1 the rest (6 rows) fills the 6 under `↑ more` exactly.
-  expect(scrollWindow(stops, 7, 1, more).rows).toEqual(['↑ more', 'a', 'g', 'B', 't', 'b'])
+  expect(scrollWindow(stops, 7, 1, more).rows).toEqual(['↑ more', 'a', 'g', '─', 'B', 't', 'b'])
 })
