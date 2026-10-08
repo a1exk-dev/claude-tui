@@ -266,6 +266,9 @@ function host(on: On, git: { runs: string[][]; status: string; exitCode?: number
   })
 }
 
+// The branch row's Devicons glyph, `dev-git_branch` (#136).
+const BRANCH = '\ue725'
+
 const statusRuns = (runs: string[][]) => runs.filter((argv) => argv.includes('status')).length
 
 test('git refreshes at session start, every 5 s and after a file-changing tool', async ($, on) => {
@@ -279,7 +282,7 @@ test('git refreshes at session start, every 5 s and after a file-changing tool',
 
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
   expect(await pane.find({ text: '~/Projects/x' })).toBeDefined()
-  expect(await pane.find({ text: '⎇ main' })).toBeDefined()
+  expect(await pane.find({ text: `${BRANCH} main` })).toBeDefined()
   expect(await pane.find({ text: 'ctui 0.0.0' })).toBeDefined()
   expect(await pane.find({ text: 'claude-cli 2.1.288' })).toBeDefined()
 
@@ -296,7 +299,7 @@ test('git refreshes at session start, every 5 s and after a file-changing tool',
   await clock.settle()
   expect(statusRuns(git.runs)).toBe(3)
   await pane.redraw()
-  expect(await pane.find({ text: '⎇ next' })).toBeDefined()
+  expect(await pane.find({ text: `${BRANCH} next` })).toBeDefined()
 })
 
 test('outside a repo the header is the path alone', async ($, on) => {
@@ -306,7 +309,27 @@ test('outside a repo the header is the path alone', async ($, on) => {
   await clock.settle()
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
   expect(await pane.find({ text: '~/Projects/x' })).toBeDefined()
-  expect(await pane.find({ text: /⎇/ })).toBeUndefined()
+  expect(await pane.find({ text: /[\ue725\ue702\ue728]/ })).toBeUndefined()
+})
+
+test('on a detached HEAD the branch row shows the glyph and the short sha', async ($, on) => {
+  const clock = mock.clock(on)
+  const status = '# branch.oid 63568e2e396d887fc74b6f1d1f21f4c539c12044\n# branch.head (detached)'
+  host(on, { runs: [], status })
+  await $.session.start({ cwd: '/home/a/Projects/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+  expect(await pane.find({ text: `${BRANCH} 63568e2` })).toBeDefined()
+})
+
+test('a clean repo with no upstream shows the branch row alone, with no lone glyph', async ($, on) => {
+  const clock = mock.clock(on)
+  host(on, { runs: [], status: '# branch.oid c1e879e48fada468970e942e80559adfe77c8713\n# branch.head main' })
+  await $.session.start({ cwd: '/home/a/Projects/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+  expect(await pane.find({ text: `${BRANCH} main` })).toBeDefined()
+  expect(await pane.find({ text: /[\ue702\ue728]/ })).toBeUndefined()
 })
 
 test('a file change while git runs refreshes once that run ends', async ($, on) => {

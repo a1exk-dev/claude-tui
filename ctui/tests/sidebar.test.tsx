@@ -8,12 +8,14 @@ import { colors } from '../plugins/colors'
 import type { SidebarData, SidebarPlugin } from '../plugins/plugin'
 import { clientsAsTrees } from './clients'
 
+// The branch row's Devicons glyph, `dev-git_branch` (#136).
+const BRANCH = '\ue725'
 const header: SidebarPlugin = {
   id: 'git',
   title: 'Git',
   slot: 'header',
   needs: [],
-  view: () => ['~/x', '⎇ main'],
+  view: () => ['~/x', `${BRANCH} main`],
 }
 const footer: SidebarPlugin = {
   id: 'versions',
@@ -116,7 +118,7 @@ test('header, sections and the footer on the last row', async ($, on) => {
   expect(tree).toMatchObject({ type: 'Box', props: { height: 30, paddingX: 2, paddingY: 1 } })
   expect(layout(tree)).toEqual([
     '~/x',
-    '⎇ main',
+    `${BRANCH} main`,
     B,
     D,
     B,
@@ -168,7 +170,7 @@ test('one section, expanded, has no rule', async ($, on) => {
 
 test('one section, folded, has no rule above or below it', async ($, on) => {
   const { tree } = await draw($, on, { folded: { mcp: true } })
-  expect(layout(tree)).toEqual(['~/x', '⎇ main', B, D, B, '▶\uFE0E mcp:sum 3', '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
+  expect(layout(tree)).toEqual(['~/x', `${BRANCH} main`, B, D, B, '▶\uFE0E mcp:sum 3', '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
 })
 
 // #135: the double rule shows only when the header and a section both show.
@@ -179,7 +181,21 @@ test('no double rule without a header', async ($, on) => {
 
 test('no double rule without sections', async ($, on) => {
   const { tree } = await draw($, on, { plugins: [header, footer] })
-  expect(layout(tree)).toEqual(['~/x', '⎇ main', '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
+  expect(layout(tree)).toEqual(['~/x', `${BRANCH} main`, '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
+})
+
+// #136: the real git header parts the path from the git rows by 1 blank row.
+const git = plugins.find((plugin) => plugin.id === 'git')!
+const REPO = { branch: 'main', staged: 0, modified: 0, untracked: 0, stashes: 0, added: 0, removed: 0 }
+
+test('in a repo, 1 blank row parts the path from the git rows', async ($, on) => {
+  const { tree } = await draw($, on, { plugins: [git, list('mcp', 1)], data: { git: { path: '~/x', repo: REPO } } })
+  expect(layout(tree).slice(0, 4)).toEqual(['~/x', '', `${BRANCH} main`, B])
+})
+
+test('outside a repo the header is the path alone, with no blank row', async ($, on) => {
+  const { tree } = await draw($, on, { plugins: [git, list('mcp', 1)], data: { git: { path: '~/x' } } })
+  expect(layout(tree).slice(0, 3)).toEqual(['~/x', B, D])
 })
 
 for (const [columns, cells] of [
@@ -256,7 +272,7 @@ test('scrolled to the end, only ↑ more shows', async ($, on) => {
 for (const scroll of [1, 99]) {
   test(`scrolled to ${scroll}, the header, its double rule and blank rows stay put`, async ($, on) => {
     const { tree } = await draw($, on, { plugins: [header, list('mcp', 4), footer], bodyRows: 14, scroll })
-    expect(layout(tree).slice(0, 6)).toEqual(['~/x', '⎇ main', B, D, B, '↑ more'])
+    expect(layout(tree).slice(0, 6)).toEqual(['~/x', `${BRANCH} main`, B, D, B, '↑ more'])
   })
 }
 
@@ -306,17 +322,18 @@ const BUSY: SidebarData = {
 const windowOf = (sizes: (string | number)[]) => sizes.slice(sizes.indexOf(D) + 2, sizes.lastIndexOf(''))
 const busy = ($: Engine, on: On, scroll: number) => draw($, on, { plugins, data: BUSY, bodyRows: 34, scroll })
 
-test("#85's busy data at 34 body rows: 37 section rows overflow 24 free rows", async ($, on) => {
+test("#85's busy data at 34 body rows: 37 section rows overflow 23 free rows", async ($, on) => {
   const top = await busy($, on, 0)
   const window = windowOf(layout(top.tree))
-  // `↓ more` leaves 23 rows, which hold Context, Limits and MCP (22 rows) but
+  // A 4-row header (path, blank row, branch, counts) leaves 23 free rows.
+  // `↓ more` leaves 22, which hold Context, Limits and MCP (22 rows) but
   // not Todo's blank row, rule, title and spacer (4 more).
   expect(window.slice(-4)).toEqual(['● server 23 tools', '● server 33 tools', '▸ 3 more', '↓ more'])
   expect(height(window)).toBe(23)
   expect(window.filter((size) => size === B)).toHaveLength(5)
   expect(window.filter((size) => size === R)).toHaveLength(2)
   // One stop per row: from MCP's first row (stop 10) the rest, 20 rows, fits
-  // the 23 under `↑ more`; from MCP's title stop (4 rows) before it is 24.
+  // the 22 under `↑ more`; from MCP's title stop (4 rows) before it is 24.
   expect(top.maxScroll).toBe(10)
 })
 
