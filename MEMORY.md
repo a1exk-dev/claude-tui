@@ -12,9 +12,9 @@ Reason: `claude plugin validate` rejects plugin names that start with `claude-`.
 
 Applies when: adding or changing a plugin setting.
 
-Guidance: Name per-plugin settings `<sidebar-plugin id>_<option>`, such as `context_enable` (boolean, default `true`) and `context_folded` (boolean, default `false`, the fold state a new session starts from). Regroup them in `ctui/hooks/config.ts` into `{ <section>: { <option> } }`. The `theme` setting is a string with fixed `options` (`inherit` plus every `themes/*.json` slug) and defaults to `inherit`. Keep that list equal to the files in `themes/`: `inherit` first, then the slugs A–Z (`check.ts` checks).
+Guidance: Name per-plugin settings `<sidebar-plugin id>_<option>`, such as `context_enable` (boolean, default `true`) and `context_folded` (boolean, default `false`, the fold state a new session starts from). Regroup them in `ctui/hooks/config.ts` into `{ <section>: { <option> } }`. The `theme` setting is a string with fixed `options` (`inherit` plus every `themes/*.json` slug) and defaults to `inherit`. Keep that list equal to the files in `themes/`: `inherit` first, then the slugs A–Z (`check.ts` checks). When changing a setting's type or `options`, plan for values people have already saved. Claude Code reads a saved value that isn't one of the `options` as the default and shows a one-time notice. A saved number below `min` fails ctui's option check, so the hooks module doesn't load: give a `number` a `min` that every value saved before can still meet.
 
-Reason: `userConfig` has no object type and accepts only letters, digits and underscores in keys. The human asked for per-section config shaped like `context { enable: true }`.
+Reason: `userConfig` has no object type and accepts only letters, digits and underscores in keys. The human asked for per-section config shaped like `context { enable: true }`. In #148, reading the Claude Code 2.1.292 bundle showed that saved values live in `settings.json` `pluginConfigs`, that defaults are never written there, and that saved values are checked on load as described above. Only Claude Code's built-in plugins marked trusted-settings-only fall back to defaults when the check fails.
 
 ## `/ctui:*` commands stay quiet on success; a bare command opens a picker pane
 
