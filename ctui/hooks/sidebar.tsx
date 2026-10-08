@@ -6,9 +6,14 @@ import type { Config } from './config'
 
 export const CAP = 4
 // Space under an expanded section's title, and after an expanded section
-// before the next title, in rows (#85).
-export const TITLE_GAP = 1 / 3
-export const SECTION_GAP = 1.5
+// before the next title, in whole rows: Claude Code cuts layout down to
+// whole cells (#120).
+const TITLE_GAP = 1
+const SECTION_GAP = 2
+// A section's fold arrow, one cell wide. `\uFE0E` asks for the text
+// presentation, so no font draws `▶` as an emoji.
+const EXPANDED = '▼'
+const FOLDED = '▶\uFE0E'
 
 export type SidebarInput = {
   ui: ElementTable<'terminal' | 'desktop'> // the surfaces that draw a Client
@@ -43,7 +48,8 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   // A fold arrow or a list toggle. At rest a muted `Client`, whose click
   // `register.tsx` answers at `ui.message`. A Client is outside the focus
   // ring, so while the Pane holds the focus it is a dim Button instead.
-  // A fold arrow lights with its title row's hover `scope`.
+  // A fold arrow lights in accent with its title row's hover `scope`; a list
+  // toggle lights main.
   const control = (key: Control, label: string) =>
     input.focused ? (
       <Button key={controlKey(key)} plain dimColor label={label} onPress={() => input.onControl(key)} />
@@ -51,7 +57,11 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
       <Client
         key={controlKey(key)}
         module="./press.tsx"
-        props={{ label, color: c.muted, hover: c.main, ...(key.kind === 'fold' && { scope: foldRowKey(key.id) }) }}
+        props={{
+          label,
+          color: c.muted,
+          ...(key.kind === 'fold' ? { hover: c.accent, scope: foldRowKey(key.id) } : { hover: c.main }),
+        }}
       />
     )
   const row = (node: RenderNode, indent = 0) => (
@@ -86,13 +96,13 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     const key = foldRowKey(plugin.id)
     const title = (
       <Box height={1} flexShrink={0}>
-        {control({ kind: 'fold', id: plugin.id }, folded ? '▸' : '▾')}
+        {control({ kind: 'fold', id: plugin.id }, folded ? FOLDED : EXPANDED)}
         <Client
           key={key}
           module="./foldrow.tsx"
           width={width - 1}
           flexGrow={1}
-          props={{ title: plugin.title, right, main: c.main, muted: c.muted, scope: key }}
+          props={{ title: plugin.title, right, main: c.main, muted: c.muted, accent: c.accent, scope: key }}
         />
       </Box>
     )
@@ -143,7 +153,7 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
 }
 
 // A scroll stop of the sections window: its nodes and their height in rows,
-// a row's 1 plus any spacers' fractions.
+// a row's 1 plus any spacers' heights.
 export type Stop<T> = { nodes: readonly T[]; height: number }
 
 // Slices `stops` to `free` rows from stop `offset`, summing their heights,
@@ -155,22 +165,20 @@ export function scrollWindow<T>(
   offset: number,
   more: (text: string) => T,
 ): { rows: T[]; maxScroll: number } {
-  // Spacer fractions sum with float error: 14 rows can add up to 14.000000000000002.
-  const fits = (height: number, room: number) => height <= room + 1e-9
   const heightFrom = (start: number) => stops.slice(start).reduce((sum, stop) => sum + stop.height, 0)
   const nodes = (from: readonly Stop<T>[]) => from.flatMap((stop) => stop.nodes)
-  if (fits(heightFrom(0), free)) return { rows: nodes(stops), maxScroll: 0 }
+  if (heightFrom(0) <= free) return { rows: nodes(stops), maxScroll: 0 }
   if (free < 2) return { rows: free ? [more('↓ more')] : [], maxScroll: 0 }
   // The last offset: the first whose rest fits under `↑ more`.
   let maxScroll = stops.length
-  while (maxScroll > 1 && fits(heightFrom(maxScroll - 1), free - 1)) maxScroll--
+  while (maxScroll > 1 && heightFrom(maxScroll - 1) <= free - 1) maxScroll--
   const start = Math.min(Math.max(offset, 0), maxScroll)
   // The index of the first stop past `room` rows from `start`.
   const fitEnd = (room: number) => {
     let index = start
     let used = 0
     for (const stop of stops.slice(start)) {
-      if (!fits(used + stop.height, room)) break
+      if (used + stop.height > room) break
       used += stop.height
       index++
     }

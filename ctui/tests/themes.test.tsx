@@ -91,7 +91,7 @@ const pane = ($: Engine, requestId: string) =>
 // The Sidebar, the color of its `Context` title, and its root's background.
 async function sidebar($: Engine) {
   const drawn = await pane($, 'sidebar')
-  const title = (await drawn.find({ type: 'Text', text: /^ ?Context$/, in: 'foldrow-context' }))?.props.color
+  const title = (await drawn.find({ type: 'Text', text: /^ ?Context:$/, in: 'foldrow-context' }))?.props.color
   const root = (await drawn.drawn()) as { props: { backgroundColor?: string } }
   return { drawn, title, background: root.props.backgroundColor }
 }
@@ -135,6 +135,15 @@ test('with a Theme selected the Sidebar draws its role hexes', { options: { them
   const texts = [...(await drawn.findAll({ type: 'Text' })), ...(await Promise.all(rows)).flat()]
   const colors = texts.map((text) => text.props.color)
   expect(colors.filter((color) => keys.includes(color as string))).toEqual([])
+})
+
+test("with a Theme selected a title row hovers in the Theme's accent", { options: { theme: 'everforest' } }, async ($, on) => {
+  mock.clock(on)
+  files(on)
+  const { drawn } = await sidebar($)
+  const hover = { scope: 'foldrow-context', color: EVERFOREST.overrides.suggestion }
+  expect(await drawn.drawn({ in: 'foldrow-context' })).toMatchObject({ children: [{ type: 'Text', hover }, { type: 'Box' }] })
+  expect(await drawn.drawn({ in: 'fold-context' })).toMatchObject({ type: 'Text', hover })
 })
 
 test('under inherit the Sidebar draws with key names', async ($, on) => {

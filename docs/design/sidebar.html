@@ -12,7 +12,7 @@
 
   The grid is 14px JetBrainsMono Nerd Font, the installed font the renders
   were first drawn in: 8.4px columns, 20.25px rows. The Sidebar's spacing is in
-  px from the row height, exactly: 1/3 row under an expanded title, 1.5 rows
+  whole rows, as Claude Code lays it out: 1 row under an expanded title, 2 rows
   after an expanded section, none after a folded one.
 -->
 <html lang="en">
@@ -95,8 +95,8 @@
     display: flex; flex-direction: column;
   }
   .sections { flex: 1; overflow: hidden; }
-  .title-gap { height: calc(var(--row) / 3); }
-  .section-gap { height: calc(var(--row) * 1.5); }
+  .title-gap { height: var(--row); }
+  .section-gap { height: calc(var(--row) * 2); }
   .indent { padding-left: calc(2 * var(--col)); }
   .more { text-align: right; }
   .rule { position: absolute; left: 176px; margin-top: -0.5px; width: 1px; height: 21px; background: var(--faint); }
@@ -195,7 +195,7 @@
       if (gap) html += '<div class="section-gap"></div>'
       gap = expanded
       const right = expanded ? (section.count ?? '') : section.summary
-      html += split(`${span('m', expanded ? '▾' : '▸')} <b>${section.title}</b>`, right)
+      html += split(`${span('m', expanded ? '▼' : '▶\uFE0E')} <b>${section.title}:</b>`, right)
       if (!expanded) continue
       html += '<div class="title-gap"></div>'
       let body = section.body ? section.body() : section.list

@@ -230,3 +230,16 @@ test('a click on ▸ N more lists every server, and ▾ show less caps them agai
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'more-mcp' })
   expect(await rowsOf(pane)).toHaveLength(4)
 })
+
+test('▸ N more lights main under the pointer, not accent', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  mock.env(on, { HOME })
+  host(on, { tools: ['a', 'b', 'c', 'd', 'e', 'f'].flatMap((server) => tools(server, 1)), json: '{}', mtimeMs: 1 })
+  await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
+  await clock.advance(1000)
+  const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
+  const color = async () => (await pane.find({ in: 'more-mcp' }))?.props.color
+  expect(await color()).toBe('inactive')
+  await pane.pointer({ type: 'enter', x: 0, y: 0, in: 'more-mcp' })
+  expect(await color()).toBe('text')
+})
