@@ -17,12 +17,6 @@
   ],
   "types": "./types/index.d.ts",
   "userConfig": {
-    "git_enable": {
-      "type": "boolean",
-      "title": "Git header",
-      "description": "Show the git header (path, branch, ahead/behind, file status, lines changed) in the sidebar",
-      "default": true
-    },
     "context_enable": {
       "type": "boolean",
       "title": "Context section",
@@ -65,18 +59,6 @@
       "default": 100,
       "min": 0
     },
-    "mcp_enable": {
-      "type": "boolean",
-      "title": "MCP section",
-      "description": "Show the MCP servers section in the sidebar",
-      "default": true
-    },
-    "mcp_folded": {
-      "type": "boolean",
-      "title": "MCP folded",
-      "description": "Start each session with the MCP section folded",
-      "default": false
-    },
     "todo_enable": {
       "type": "boolean",
       "title": "Todo section",
@@ -94,6 +76,18 @@
       "title": "Task tools",
       "description": "Give Claude the Task tools (TaskCreate, TaskList, TaskUpdate) on models without them by default, such as Opus 5.x, by setting CLAUDE_CODE_ENABLE_TODO_TOOLS=1 for the session; the Todo section shows their list",
       "default": true
+    },
+    "mcp_enable": {
+      "type": "boolean",
+      "title": "MCP section",
+      "description": "Show the MCP servers section in the sidebar",
+      "default": true
+    },
+    "mcp_folded": {
+      "type": "boolean",
+      "title": "MCP folded",
+      "description": "Start each session with the MCP section folded",
+      "default": false
     },
     "agents_enable": {
       "type": "boolean",
@@ -113,11 +107,11 @@
       "description": "Show a toast when a subagent or background shell starts, finishes or fails",
       "default": true
     },
-    "versions_enable": {
-      "type": "boolean",
-      "title": "Versions footer",
-      "description": "Show the Claude Code version footer in the sidebar",
-      "default": true
+    "order": {
+      "type": "string",
+      "title": "Sidebar order",
+      "description": "Sidebar sections in order, as comma-separated ids: context, limits, todo, mcp, agents. Unknown ids are ignored; missing ones follow in this order",
+      "default": ""
     },
     "theme": {
       "type": "string",

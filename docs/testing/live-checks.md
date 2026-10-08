@@ -139,10 +139,12 @@ Run each row in fullscreen and again on the main screen (`--settings '{"tui":"de
 | Setup | Action | Expected |
 |---|---|---|
 | Fullscreen, Sidebar docked | Run `/ctui:plugins:disable mcp` | No transcript row, not even the command line, and nothing reaches the model. Claude Code prints `● ctui: options changed — reloaded`, and the Sidebar redraws without MCP. |
-| The previous row | Run `/ctui:plugins:disable mcp` again; then `/ctui:plugins:enable foo` | `⎿ ctui: mcp is already disabled`, then `⎿ ctui: Unknown plugin "foo". Plugins: git, context, limits, mcp, todo, agents, versions`. |
+| The previous row | Run `/ctui:plugins:disable mcp` again; then `/ctui:plugins:enable foo` | `⎿ ctui: mcp is already disabled`, then `⎿ ctui: Unknown plugin "foo". Plugins: context, limits, todo, mcp, agents`. |
 | The previous row | Run `/ctui:plugins:enable` | A picker docks as a tab over the Sidebar, as wide as the Sidebar, focused, listing `mcp` only. Enter on it closes the picker, the Sidebar returns with MCP, and `● ctui: options changed — reloaded` prints. |
 | Every Sidebar plugin enabled | Run `/ctui:plugins:enable` | `⎿ ctui: All Sidebar plugins are already enabled`; no picker. |
-| Sidebar docked | Run `/ctui:plugins:disable`, then press Esc | The picker lists all seven plugins in Sidebar order; Esc closes it with no change, and the Sidebar returns. |
+| `settings.json` `pluginConfigs` for ctui holding `"git_enable": false` and `"versions_enable": false` from an earlier ctui | Start a session, look at the Sidebar, then open `/config` | The session starts with no ctui error; the git header and the footer draw. `/config` lists no Git header or Versions footer row. |
+| `/config`: Sidebar order set to `mcp, todo` | Look at the Sidebar | After the reload the sections read MCP, Todo, Context, Limits, Agents & shells, between the unchanged header and footer. |
+| Sidebar docked | Run `/ctui:plugins:disable`, then press Esc | The picker lists the five sections in registry order, no `git` or `versions`; Esc closes it with no change, and the Sidebar returns. |
 | Sidebar docked, `/theme` on built-in `dark` | Run `/ctui:theme`; press Enter | The picker lists 23 rows, `inherit` then the Theme slugs A–Z (`catppuccin` … `white`), with `inherit` selected. Enter closes it with no reload row. Run it again and press Esc: it closes. |
 | The previous row | Run `/ctui:theme`, pick `everforest` | The picker closes, Claude Code prints its reload row and no `⎿ ctui:` line. The Sidebar's text recolors to Everforest's (`text` `#d3c6aa`, `inactive` `#918c7e`); the transcript keeps `dark`. |
 | The previous row | Run `/ctui:theme`: `everforest` is selected. Pick `inherit` | The Sidebar's text returns to the `dark` theme's colors. |

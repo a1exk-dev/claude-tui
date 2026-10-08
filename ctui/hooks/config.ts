@@ -1,6 +1,6 @@
 import type { PluginOptions } from 'claude-code'
 
-import { plugins } from '../plugins'
+import { plugins, sections } from '../plugins'
 import type { SidebarId } from '../plugins/plugin'
 
 // One Sidebar plugin's settings: `<id>_enable`, for a foldable one
@@ -16,16 +16,26 @@ export type Config = Record<SidebarId, SectionConfig> & {
   limits: SectionConfig & { cost: CostChoice; monthly: number }
   todo: SectionConfig & { tools: boolean }
   theme: string
+  order: SidebarId[] // the section ids, every one once
+}
+
+// The `order` setting's section ids: unknown and repeated ids dropped,
+// missing ones appended in registry order.
+function sectionOrder(order: unknown): SidebarId[] {
+  const ids = sections.map((plugin) => plugin.id)
+  const listed = typeof order === 'string' ? order.split(',').map((id) => id.trim()) : []
+  return [...new Set([...listed, ...ids])].filter((id): id is SidebarId => ids.some((section) => section === id))
 }
 
 // Regroups the flat `userConfig` options (MEMORY.md "Plugin settings are flat
 // `userConfig` keys").
 export function readConfig(options: PluginOptions): Config {
   const sections = {} as Record<SidebarId, SectionConfig>
-  for (const { id } of plugins) {
+  for (const { id, slot } of plugins) {
     const folded = options[`${id}_folded`]
     sections[id] = {
-      enable: options[`${id}_enable`] !== false,
+      // The git header and versions footer are always on.
+      enable: slot !== 'section' || options[`${id}_enable`] !== false,
       ...(typeof folded === 'boolean' && { folded }),
     }
   }
@@ -40,5 +50,6 @@ export function readConfig(options: PluginOptions): Config {
     },
     todo: { ...sections.todo, tools: options.todo_tools !== false },
     theme: typeof options.theme === 'string' ? options.theme : 'inherit',
+    order: sectionOrder(options.order),
   }
 }

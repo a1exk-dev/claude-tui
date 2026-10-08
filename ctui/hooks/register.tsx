@@ -1,6 +1,6 @@
 import type { CommandRunResult, EngineInterface, Register } from 'claude-code'
 
-import { plugins } from '../plugins'
+import { plugins, sections } from '../plugins'
 import { colors } from '../plugins/colors'
 import type { GitSnapshot, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { deniedText, gated, type Outcome, pluginsOutcome, themeOutcome } from './commands'
@@ -533,7 +533,7 @@ async function themesOf($: EngineInterface) {
 // What a `/ctui:*` command, or a pick in its picker, does with `args`.
 async function outcomeOf($: EngineInterface, config: Config, name: Picker, args: string): Promise<Outcome> {
   if (name === 'theme') return themeOutcome(args, await themesOf($), config.theme)
-  const states = plugins.map(({ id }) => ({ id, enable: config[id].enable }))
+  const states = sections.map(({ id }) => ({ id, enable: config[id].enable }))
   return pluginsOutcome(name, args, states)
 }
 
@@ -624,7 +624,10 @@ async function openSidebar($: EngineInterface, columns: number) {
 
 export const register: Register = (on, options) => {
   const config = readConfig(options)
-  const enabled = plugins.filter((plugin) => config[plugin.id].enable)
+  // The sections in the `order` setting's order; the Sidebar places the header and footer by slot.
+  const enabled = plugins
+    .filter((plugin) => config[plugin.id].enable)
+    .sort((a, b) => config.order.indexOf(a.id) - config.order.indexOf(b.id))
   const needs = new Set(enabled.flatMap((plugin) => plugin.needs))
   // Tasks feed the Sidebar section and the toasts.
   const tracking = needs.has('tasks') || config.agents.toasts

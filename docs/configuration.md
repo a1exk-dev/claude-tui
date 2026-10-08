@@ -6,22 +6,23 @@ The Sidebar docks only in fullscreen (the `"tui": "fullscreen"` setting or `CLAU
 
 ## Sidebar plugins
 
-The Sidebar shows its Sidebar plugins in this order. Each one has an `<id>_enable` setting, on by default. `/ctui:plugins:enable [plugin]` and `/ctui:plugins:disable [plugin]` write the same setting; with no name they open a list to pick from. The sections, between the header and the footer, fold and unfold when you click anywhere on their title row: the `▼` or `▶`, the title and its `:`, the space between, or the count or folded summary at the right. Their `<id>_folded` setting picks the fold each new session (and each `/clear`) starts from.
+The Sidebar shows the `git` header at the top, the `versions` footer at the bottom, and the sections between them, in this order unless `order` sets another. The header and footer are always on. Each section has an `<id>_enable` setting, on by default. `/ctui:plugins:enable [plugin]` and `/ctui:plugins:disable [plugin]` write the same setting; with no name they open a list to pick from. The sections, between the header and the footer, fold and unfold when you click anywhere on their title row: the `▼` or `▶`, the title and its `:`, the space between, or the count or folded summary at the right. Their `<id>_folded` setting picks the fold each new session (and each `/clear`) starts from.
 
 | Id | Shows | Settings (`/config` title) |
 |---|---|---|
-| `git` | Header: the path, the branch, ahead and behind, staged, modified, untracked and stashed counts, and lines changed. | `git_enable` (Git header) |
+| `git` | Header: the path, the branch, ahead and behind, staged, modified, untracked and stashed counts, and lines changed. Always on. | |
 | `context` | The context window: a bar, the percent used, and tokens used of the window. | `context_enable` (Context section), `context_folded` (Context folded) |
 | `limits` | First a `cost` row: this month's cost against your monthly limit, as a bar and its percent with `62.00$ of 100$` under them. Then the 5-hour and weekly usage limits (or a gateway's `spend` limit), each with a bar, its percent and when it resets. On a Claude plan the cost row is hidden unless `limits_cost` is `on`. With neither, it reads `no limits reported`. Folded, it reads the cost in whole dollars, then each limit's percent: `62$ · 5h 34% · wk 81%`. | `limits_enable` (Limits section), `limits_folded` (Limits folded), `limits_cost` (Limits cost), `limits_cost_monthly` (Limits monthly cost) |
-| `mcp` | MCP servers seen this session and the ones you turned off, with their state and tool count. | `mcp_enable` (MCP section), `mcp_folded` (MCP folded) |
 | `todo` | Claude's task list. | `todo_enable` (Todo section), `todo_folded` (Todo folded), `todo_tools` (Task tools) |
+| `mcp` | MCP servers seen this session and the ones you turned off, with their state and tool count. | `mcp_enable` (MCP section), `mcp_folded` (MCP folded) |
 | `agents` | "Agents & shells": running subagents, background shells and Workflow runs, with their elapsed time. | `agents_enable` (Agents & shells section), `agents_folded` (Agents & shells folded), `agents_toasts` (Agent and shell toasts) |
-| `versions` | Footer: the Claude Code and ctui versions and the Theme's name (`inherit` with none), on one row where it fits, else two. | `versions_enable` (Versions footer) |
+| `versions` | Footer: the Claude Code and ctui versions and the Theme's name (`inherit` with none), on one row where it fits, else two. Always on. | |
 
 ## Other settings
 
 | Setting (`/config` title) | Default | What it does |
 |---|---|---|
+| `order` (Sidebar order) | empty | The sections' order, as comma-separated ids, such as `mcp, todo, context`. Ids it leaves out follow in the default order above; unknown and repeated ids are ignored, and so are `git` and `versions`, which never move. Empty means the default order. |
 | `limits_cost` (Limits cost) | `auto` | Opens the Limits section with a `cost` row: this month's cost (see [The month's cost](#the-months-cost)) against `limits_cost_monthly`. `auto` hides it on a Claude plan (when Claude Code reports a 5-hour or weekly limit) and shows it everywhere else, behind a gateway too; `on` always shows it, `off` never does. When Claude Code reports no cost, there is no cost row. |
 | `limits_cost_monthly` (Limits monthly cost) | 100 | The limit, in USD, the cost row measures against. Over it, the bar fills in the error color and the percent passes 100: `134%`, `134.00$ of 100$`. `0` means no limit: the bar stays empty, there is no percent, and the line under it reads the cost alone, `62.00$`. |
 | `todo_tools` (Task tools) | on | Claude Code gives Claude the Task tools (TaskCreate, TaskList, TaskUpdate) by default only on some models; Opus 5.x and Sonnet 5.x don't get them. With this on, ctui sets `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` for each session, and subagents and anything the session starts inherit it. ctui leaves the variable alone when you set it yourself, for example in the `env` block of `settings.json`. With it off, the Todo section reads `no task tools on this model` on such models. It is independent of `todo_enable`. |

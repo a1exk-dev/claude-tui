@@ -81,7 +81,7 @@ test('already set, and unknown names, print one line and write nothing', { optio
   const seen = host(on)
   expect((await run($, 'plugins:disable', 'mcp')).text).toBe('mcp is already disabled')
   expect((await run($, 'plugins:enable', 'foo')).text).toBe(
-    'Unknown plugin "foo". Plugins: git, context, limits, mcp, todo, agents, versions',
+    'Unknown plugin "foo". Plugins: context, limits, todo, mcp, agents',
   )
   expect((await run($, 'theme', 'inherit')).text).toBe('Sidebar theme is already inherit')
   expect((await run($, 'theme', 'x')).text).toBe('Unknown theme "x". Themes: inherit')
@@ -121,7 +121,7 @@ test('bare disable opens a focused picker of the enabled plugins; a pick closes 
   ])
   const pane = await picker($, 'ctui-disable')
   const [select] = await pane.findAll({ type: 'Select' })
-  expect(select?.props.options).toEqual(['git', 'context', 'limits', 'mcp', 'agents', 'versions'].map((value) => ({ value })))
+  expect(select?.props.options).toEqual(['context', 'limits', 'mcp', 'agents'].map((value) => ({ value })))
   expect(select?.props.autoFocus).toBe(true)
   await pane.select({ key: 'disable', value: 'mcp' })
   await clock.settle()

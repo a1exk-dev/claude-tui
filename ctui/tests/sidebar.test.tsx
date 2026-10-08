@@ -320,7 +320,10 @@ const BUSY: SidebarData = {
 
 // The sections window: from after the double rule's blank row to the flexible space before the footer.
 const windowOf = (sizes: (string | number)[]) => sizes.slice(sizes.indexOf(D) + 2, sizes.lastIndexOf(''))
-const busy = ($: Engine, on: On, scroll: number) => draw($, on, { plugins, data: BUSY, bodyRows: 34, scroll })
+// #85's section order: MCP before Todo.
+const BUSY_ORDER = ['git', 'context', 'limits', 'mcp', 'todo', 'agents', 'versions']
+const busyPlugins = BUSY_ORDER.map((id) => plugins.find((plugin) => plugin.id === id)!)
+const busy = ($: Engine, on: On, scroll: number) => draw($, on, { plugins: busyPlugins, data: BUSY, bodyRows: 34, scroll })
 
 test("#85's busy data at 34 body rows: 37 section rows overflow 22 free rows", async ($, on) => {
   const top = await busy($, on, 0)
