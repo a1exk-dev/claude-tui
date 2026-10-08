@@ -147,14 +147,17 @@ async function refreshGit($: EngineInterface) {
 }
 
 // `/clear` and `/resume` empty `$.state` with no `session.start`: the tick refills it.
-async function refillVersions($: EngineInterface) {
+async function refillVersions($: EngineInterface, slug: string) {
   const { value } = await $.state.get(VERSIONS)
-  if (!value) await loadVersions($)
+  if (!value) await loadVersions($, slug)
 }
 
-async function loadVersions($: EngineInterface) {
+// `slug` is the `theme` setting; the footer shows the Theme file's `name`, as `/theme` lists it.
+async function loadVersions($: EngineInterface, slug: string) {
   const manifest = JSON.parse(await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`))
-  const versions = { ctui: String(manifest.version), claude: (await $.session.version()).version }
+  const name =
+    slug === 'inherit' ? slug : String(JSON.parse(await $.fs.read(`${$.plugin.root}/themes/${slug}.json`)).name)
+  const versions = { ctui: String(manifest.version), claude: (await $.session.version()).version, theme: name }
   const { value } = await $.state.get(VERSIONS)
   if (JSON.stringify(value) !== JSON.stringify(versions)) await $.state.set(VERSIONS, versions)
 }
@@ -630,7 +633,7 @@ export const register: Register = (on, options) => {
     void refreshModel($).catch(() => undefined)
     if (needs.has('todo')) void loadTodo($)
     if (needs.has('git')) void refreshGit($)
-    if (needs.has('versions')) void loadVersions($)
+    if (needs.has('versions')) void loadVersions($, config.theme)
     if (needs.has('usage')) {
       void loadUsage($).then(() => {
         if (needs.has('now')) void setNow($)
@@ -648,7 +651,7 @@ export const register: Register = (on, options) => {
       if (needs.has('usage')) {
         void refillUsage($).then(() => (needs.has('monthCost') ? refreshMonth($, config.limits.cost) : undefined)).catch(() => undefined)
       }
-      if (needs.has('versions')) void refillVersions($)
+      if (needs.has('versions')) void refillVersions($, config.theme)
       if (needs.has('mcp')) void refreshMcp($)
       if (needs.has('todo')) void refreshTodo($)
       if (needs.has('now')) void setNow($)

@@ -315,21 +315,21 @@ const BUSY: SidebarData = {
     a: { id: 'a', kind: 'agent', type: 'Explore', label: 'map', status: 'running', startedAt: 0 },
     b: { id: 'b', kind: 'agent', type: 'Plan', label: 'plan', status: 'running', startedAt: 1 },
   },
-  versions: { ctui: '0.3.0', claude: '2.1.292' },
+  versions: { ctui: '0.3.0', claude: '2.1.292', theme: 'inherit' },
 }
 
 // The sections window: from after the double rule's blank row to the flexible space before the footer.
 const windowOf = (sizes: (string | number)[]) => sizes.slice(sizes.indexOf(D) + 2, sizes.lastIndexOf(''))
 const busy = ($: Engine, on: On, scroll: number) => draw($, on, { plugins, data: BUSY, bodyRows: 34, scroll })
 
-test("#85's busy data at 34 body rows: 37 section rows overflow 23 free rows", async ($, on) => {
+test("#85's busy data at 34 body rows: 37 section rows overflow 22 free rows", async ($, on) => {
   const top = await busy($, on, 0)
   const window = windowOf(layout(top.tree))
-  // A 4-row header (path, blank row, branch, counts) leaves 23 free rows.
-  // `↓ more` leaves 22, which hold Context, Limits and MCP (22 rows) but
-  // not Todo's blank row, rule, title and spacer (4 more).
-  expect(window.slice(-4)).toEqual(['● server 23 tools', '● server 33 tools', '▸ 3 more', '↓ more'])
-  expect(height(window)).toBe(23)
+  // A 4-row header (path, blank row, branch, counts) and the 2-row footer
+  // leave 22 free rows. `↓ more` leaves 21, which hold Context, Limits and
+  // MCP to its fourth server (21 rows) but not `▸ 3 more`.
+  expect(window.slice(-4)).toEqual(['● server 13 tools', '● server 23 tools', '● server 33 tools', '↓ more'])
+  expect(height(window)).toBe(22)
   expect(window.filter((size) => size === B)).toHaveLength(5)
   expect(window.filter((size) => size === R)).toHaveLength(2)
   // One stop per row: from MCP's first row (stop 10) the rest, 20 rows, fits

@@ -175,7 +175,7 @@ Reason: Anthropic's directory holds names that match a known brand for review. T
 
 Applies when: working on the `versions` Sidebar plugin or anything that would fetch remote data.
 
-Guidance: The footer shows the installed version from `$.session.version()` and nothing about updates. Claude Code's own notification line (`Update available! Run: <command>`, right-aligned above the prompt rule) stays the only update signal. Fetch no release data and run no version-check process from the mod.
+Guidance: The footer shows the installed version from `$.session.version()`, ctui's from `plugin.json`, and the selected Theme's file `name` (or `inherit`), read once per load, and nothing about updates. Claude Code's own notification line (`Update available! Run: <command>`, right-aligned above the prompt rule) stays the only update signal. Fetch no release data and run no version-check process from the mod.
 
 Reason: The #17 spike (`prototypes/research-17/`, 2.1.288 with 2.1.289 out) showed that native notice reaches no mod hook: no render site (`PromptHint`, `SessionMode`, `AbovePrompt`, `InfoNotice`), no event, and no `http.fetch` op. No engine-written file names the latest version either. The human then chose no icon over an opt-in fetch or an `npm view` child process. Staying network-free avoids the directory's disclosure, opt-out and privacy-policy requirements.
 
