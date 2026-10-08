@@ -80,12 +80,13 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   const rowsOf = (slot: SidebarPlugin['slot']) =>
     plugins.filter((p) => p.slot === slot).flatMap((p) => p.view(data, ui, config[p.id], width, c))
 
-  // The `─` rule between two sections, across the body.
-  const rule = (
+  // A rule across the body: `─` between two sections, `═` under the header.
+  const ruleOf = (glyph: string) => (
     <Box height={1} flexShrink={0}>
-      <Text color={c.faint}>{'─'.repeat(width)}</Text>
+      <Text color={c.faint}>{glyph.repeat(width)}</Text>
     </Box>
   )
+  const rule = ruleOf('─')
 
   // One scroll stop per section row. A title after the first carries the
   // space after an expanded section and the rule above it, and its own space
@@ -139,9 +140,18 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
 
   const header = rowsOf('header').map((node) => row(node))
   const footer = rowsOf('footer').map((node) => row(node))
-  // Padding takes 2 rows; a blank row parts the header and the footer from the sections.
-  const headerGap = header.length > 0 && sections.length > 0
-  const free = input.bodyRows - 2 - header.length - footer.length - (headerGap ? 1 : 0) - (footer.length ? 1 : 0)
+  // A blank row, the `═` rule and a blank row part the header from the
+  // sections, fixed with the header outside the window (#130).
+  const underHeader: [RenderElement, number][] =
+    header.length > 0 && sections.length > 0 ? [[spacer(GAP), GAP], [ruleOf('═'), 1], [spacer(GAP), GAP]] : []
+  // Padding takes 2 rows; a blank row parts the footer from the sections.
+  const free =
+    input.bodyRows -
+    2 -
+    header.length -
+    underHeader.reduce((sum, [, rows]) => sum + rows, 0) -
+    footer.length -
+    (footer.length ? 1 : 0)
   const { rows, maxScroll } = scrollWindow(sections, Math.max(free, 0), input.scroll, (text) => (
     <Box height={1} flexShrink={0} justifyContent="flex-end">
       <Text color={c.muted}>{text}</Text>
@@ -158,7 +168,7 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
       {...(input.background && { backgroundColor: input.background })}
     >
       {header}
-      {headerGap ? row('') : null}
+      {underHeader.map(([node]) => node)}
       {rows}
       <Box flexGrow={1} />
       {footer}
