@@ -1,9 +1,8 @@
-import type { CommandRunResult, EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, Register } from 'claude-code'
 
 import { plugins, sections } from '../plugins'
 import { colors } from '../plugins/colors'
 import type { GitSnapshot, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
-import { deniedText, gated, NO_CONFIG, type Outcome, pluginsOutcome } from './commands'
 import { type Config, readConfig } from './config'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
@@ -22,8 +21,7 @@ import {
 } from './month'
 import { inheritGlass, themeFile } from './glass'
 import { addSkill, skillsFromMessages, sourceOf } from './skills'
-import { KEYS, MENU_START, menuView, PARENT, takenBy, type ThemeName } from './menu'
-import { picker } from './pickers'
+import { deniedText, KEYS, MENU_START, menuView, moveId, NO_CONFIG, PARENT, rowId, rowKey, takenBy, type ThemeName } from './menu'
 import { type Control, controlKey, foldRowKey, sidebar, type SidebarInput } from './sidebar'
 import { assistantMessage } from './skin/assistant'
 import { promptLabelRow } from './skin/prompt'
@@ -74,13 +72,6 @@ const MENU_PANE = 'ctui'
 const MENU = { plugin: 'ctui', key: 'menu' } as const
 const MENU_TAKEN = { plugin: 'ctui', key: 'menuTaken' } as const
 
-// The `/ctui:*` picker panes by command, which is also the Select's key: pane id and title.
-const PICKERS = {
-  enable: { id: 'ctui-enable', title: 'Enable a Sidebar plugin' },
-  disable: { id: 'ctui-disable', title: 'Disable a Sidebar plugin' },
-} as const
-type Picker = keyof typeof PICKERS
-
 // The enterprise MCP file on Linux and macOS.
 const ENTERPRISE_MCP = ['/etc/claude-code/managed-mcp.json', '/Library/Application Support/ClaudeCode/managed-mcp.json']
 
@@ -97,6 +88,7 @@ const TOAST_GAP_MS = 2100
 
 // Module state: a reload starts a fresh environment.
 let tick: { cancel: () => void } | undefined
+let orderTimer: { cancel: () => void } | undefined // the menu's order write, a second after the last move
 let gitRunning = false
 let gitAgain = false // a refresh came while git ran: run once more after it
 let checking = false // a viewport check is queued
@@ -592,47 +584,9 @@ async function themesOf($: EngineInterface) {
   return themes
 }
 
-// What a `/ctui:*` command, or a pick in its picker, does with `args`.
-function outcomeOf(config: Config, name: Picker, args: string): Outcome {
-  const states = sections.map(({ id }) => ({ id, enable: config[id].enable }))
-  return pluginsOutcome(name, args, states)
-}
-
 // `claude -p` and the SDK list no `ctui.theme` row, and `$.config.set` throws there.
 async function hasConfig($: EngineInterface) {
   return (await $.config.list()).some((row) => row.key === 'ctui.theme')
-}
-
-async function runCommand(
-  $: EngineInterface,
-  config: Config,
-  name: Picker,
-  args: string,
-): Promise<CommandRunResult> {
-  const decided = outcomeOf(config, name, args)
-  const outcome = gated(decided, 'text' in decided || (await hasConfig($)))
-  if ('text' in outcome) return { text: outcome.text }
-  if ('set' in outcome) {
-    const { deny } = await $.config.set(outcome.set)
-    return deny === undefined ? {} : { text: deniedText(outcome.set, deny) }
-  }
-  // As wide as the Sidebar it docks over; the dock ignores it inline.
-  const { id, title } = PICKERS[name]
-  await $.ui.open({ id, title, focus: true, closeOnEscape: true, columns: requested ?? widthFor(DOCK_COLUMNS) })
-  return {}
-}
-
-// A pick closes the pane, then writes last: the write reloads the mod. A
-// deny has no command row to print into, so it toasts.
-async function pick($: EngineInterface, config: Config, name: Picker, value: string) {
-  const outcome = outcomeOf(config, name, value)
-  const { id } = PICKERS[name]
-  $.clock.after(0, async () => {
-    await $.ui.close({ id })
-    if (!('set' in outcome)) return
-    const { deny } = await $.config.set(outcome.set)
-    if (deny !== undefined) showToast($, { id, end: true, text: deniedText(outcome.set, deny) }, true)
-  })
 }
 
 // MEMORY.md "`/ctui` is one instant menu; it survives each settings reload".
@@ -662,6 +616,27 @@ async function menuOf($: EngineInterface): Promise<Menu> {
 
 async function setMenu($: EngineInterface, menu: Menu) {
   await $.state.set(MENU, menu)
+}
+
+// One menu write; a deny toasts its line (a menu pick has no command row),
+// through the queue even with `agents_toasts` off.
+async function writeSetting($: EngineInterface, set: { key: string; value: string | boolean }) {
+  const { deny } = await $.config.set(set)
+  if (deny !== undefined) showToast($, { id: 'menu-deny', end: true, text: deniedText(set, deny) }, true)
+}
+
+// Writes an order the Plugins screen moved, if one waits. Its reload drops
+// the module's timer, so every other write, Esc and the close call this first.
+// The rows keep the pending order until the write lands; the reload's
+// `session.start` then drops it.
+async function flushOrder($: EngineInterface) {
+  orderTimer?.cancel()
+  orderTimer = undefined
+  const { pending } = await menuOf($)
+  if (!pending) return
+  await writeSetting($, { key: 'ctui.order', value: pending.join(',') })
+  const { pending: _, ...menu } = await menuOf($)
+  await setMenu($, menu)
 }
 
 async function themeNamesOf($: EngineInterface) {
@@ -787,6 +762,13 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     void registerMenu($).catch(() => undefined)
+    // A reload from elsewhere (`/config`) drops the order timer: start it again.
+    const { pending, ...menu } = await menuOf($)
+    if (pending?.join(',') === config.order.join(',')) await setMenu($, menu)
+    else if (pending) {
+      orderTimer?.cancel()
+      orderTimer = $.clock.after(1000, () => flushOrder($))
+    }
     await setTodoEnv($, config.todo.tools)
     void refreshModel($).catch(() => undefined)
     if (needs.has('todo')) void loadTodo($)
@@ -1252,31 +1234,11 @@ export const register: Register = (on, options) => {
     return next(turn ? { ...e, props: { ...e.props, word: turnWord(e.props.word, turn) } } : e)
   })
 
-  // MEMORY.md "`/ctui:plugins:*` commands stay quiet on success; a bare
-  // command opens a picker pane". Each hook answers without `next`: the
-  // markdown fallback never reaches the model.
-  on('command.run', { command: 'ctui:plugins:enable' }, ($, e) => runCommand($, config, 'enable', e.args))
-  on('command.run', { command: 'ctui:plugins:disable' }, ($, e) => runCommand($, config, 'disable', e.args))
-
-  for (const name of Object.keys(PICKERS) as Picker[]) {
-    const { id, title } = PICKERS[name]
-    on('ui.render', { component: 'Pane', requestId: id }, async ($, e) => {
-      const ui = $.ui.resolve(e)
-      if (!('Select' in ui)) return <ui.Box />
-      const outcome = outcomeOf(config, name, '')
-      return picker({ ui, key: name, title, ...('pick' in outcome ? outcome.pick : { options: [] }) })
-    })
-
-    on('ui.select', { plugin: 'ctui', element: name }, async ($, e, next) => {
-      await pick($, config, name, e.value)
-      return next(e)
-    })
-  }
-
   // MEMORY.md "`/ctui` is one instant menu; it survives each settings reload".
   // Text after `/ctui` is ignored: `/config` is the way to type a value.
   on('command.run', { command: 'ctui' }, async ($) => {
     if (!(await hasConfig($))) return { text: NO_CONFIG }
+    await flushOrder($)
     await setMenu($, MENU_START)
     await openMenu($)
     return {}
@@ -1285,7 +1247,12 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'Pane', requestId: MENU_PANE }, async ($, e) => {
     const ui = $.ui.resolve(e)
     if (!('Select' in ui)) return <ui.Box />
-    return menuView({ ui, menu: await menuOf($), themes: await themeNamesOf($), theme: config.theme })
+    const menu = await menuOf($)
+    const plugins = (menu.pending ?? config.order).flatMap((id) => {
+      const plugin = sections.find((section) => section.id === id)
+      return plugin ? [{ id: plugin.id, title: plugin.title, enable: config[plugin.id].enable }] : []
+    })
+    return menuView({ ui, menu, themes: await themeNamesOf($), theme: config.theme, plugins })
   })
 
   // Each hook lets the element's handler run before a write redraws it away.
@@ -1302,10 +1269,42 @@ export const register: Register = (on, options) => {
   // `$.state`. The Select shows the `theme` setting, so the pick needs no copy.
   on('ui.select', { plugin: 'ctui', element: KEYS.themes }, async ($, e, next) => {
     const result = await next(e)
-    if (e.value !== config.theme) {
-      const set = { key: 'ctui.theme', value: e.value }
-      const { deny } = await $.config.set(set)
-      if (deny !== undefined) showToast($, { id: 'menu-deny', end: true, text: deniedText(set, deny) }, true)
+    if (e.value !== config.theme) await writeSetting($, { key: 'ctui.theme', value: e.value })
+    return result
+  })
+
+  // The ring on a Plugins row names the plugin `x`, `k` and `j` act on.
+  on('ui.focus', { component: 'Pane', requestId: MENU_PANE }, async ($, e, next) => {
+    const result = await next(e)
+    const id = rowId(e.element)
+    const menu = await menuOf($)
+    if (id && menu.focus !== id) await setMenu($, { ...menu, focus: id })
+    return result
+  })
+
+  // Enter on a row opens its plugin's screen, even when it's off; `x` flips
+  // it, saving at once; `k`/`j` move it, saving the order a second after the
+  // last move, and keep the ring on it.
+  on('ui.press', { component: 'Pane', requestId: MENU_PANE }, async ($, e, next) => {
+    const result = await next(e)
+    const menu = await menuOf($)
+    const order = menu.pending ?? config.order
+    const id = menu.focus ?? order[0]
+    const row = rowId(e.element)
+    if (row) {
+      await setMenu($, { ...menu, level: 'plugin', focus: row })
+    } else if (e.element === KEYS.toggle && id) {
+      await flushOrder($)
+      const section = sections.find((plugin) => plugin.id === id)
+      if (section) await writeSetting($, { key: `ctui.${id}_enable`, value: !config[section.id].enable })
+    } else if ((e.element === KEYS.up || e.element === KEYS.down) && id) {
+      const moved = moveId(order, id, e.element === KEYS.up ? -1 : 1)
+      if (moved.join(',') === order.join(',')) return result // at an end
+      await setMenu($, { ...menu, focus: id, pending: moved })
+      orderTimer?.cancel()
+      orderTimer = $.clock.after(1000, () => flushOrder($))
+      // After the redraw, as #160's spike did.
+      $.clock.after(50, () => $.ui.focus({ requestId: MENU_PANE, key: rowKey(id) }).catch(() => undefined))
     }
     return result
   })
@@ -1318,12 +1317,22 @@ export const register: Register = (on, options) => {
 
   // Esc in a submenu goes back a level: the deny keeps the pane but hands the
   // keys to the prompt, so the menu opens again to take them. At the top it closes.
+  // An order still waiting is written first, on the way back or out.
   on('ui.close', { id: MENU_PANE }, async ($, e, next) => {
     const menu = await menuOf($)
     const up = PARENT[menu.level]
-    if (e.origin.kind !== 'person' || !up) return next(e)
+    if (e.origin.kind !== 'person' || !up) {
+      const result = await next(e)
+      $.clock.after(0, () => flushOrder($))
+      return result
+    }
     await setMenu($, { ...menu, level: up, filter: '' })
-    $.clock.after(0, () => openMenu($))
+    // Take the keys back first: the order's write reloads the mod, and an
+    // open from the old module after that is lost (live, 2.1.292).
+    $.clock.after(0, async () => {
+      await openMenu($)
+      await flushOrder($)
+    })
     return { deny: 'Back one level in the ctui menu' }
   })
 }

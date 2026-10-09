@@ -69,8 +69,16 @@ export type Task = {
 }
 
 // The `/ctui` menu's level, its Theme filter, and the top level's last pick.
-export type MenuLevel = 'top' | 'plugins' | 'themes'
-export type Menu = { level: MenuLevel; filter: string; picks: Partial<Record<MenuLevel, string>> }
+// `plugin` is one plugin's screen, `focus` the plugin whose row has the ring,
+// `pending` a section order moved but not yet saved.
+export type MenuLevel = 'top' | 'plugins' | 'plugin' | 'themes'
+export type Menu = {
+  level: MenuLevel
+  filter: string
+  picks: Partial<Record<MenuLevel, string>>
+  focus?: string
+  pending?: string[]
+}
 
 // A finished main-loop turn, matched to its footer by `durationMs`.
 export type Turn = { durationMs: number; mode: string; model: string }

@@ -140,17 +140,17 @@ Run each row in fullscreen and again on the main screen (`--settings '{"tui":"de
 | Fullscreen, Sidebar docked | Run `/theme` | The list holds the 22 Themes by name with `from ctui` at the right, from `Catppuccin` to `White`. |
 | The previous row | Pick `Everforest` (dark), then run `/theme` again and pick `Catppuccin Latte` (light) | Each pick recolors all of Claude Code at once: the transcript text, the prompt's rules and the dock. The dock is a flat tint just off the terminal background, `#363d41` for Everforest and `#e5e7ed` for Catppuccin Latte. |
 
-## Commands and pickers
+## The `/ctui` menu
 
 | Setup | Action | Expected |
 |---|---|---|
-| Fullscreen, Sidebar docked | Run `/ctui:plugins:disable mcp` | No transcript row, not even the command line, and nothing reaches the model. Claude Code prints `● ctui: options changed — reloaded`, and the Sidebar redraws without MCP. |
-| The previous row | Run `/ctui:plugins:disable mcp` again; then `/ctui:plugins:enable foo` | `⎿ ctui: mcp is already disabled`, then `⎿ ctui: Unknown plugin "foo". Plugins: context, limits, todo, skills, mcp, agents`. |
-| The previous row | Run `/ctui:plugins:enable` | A picker docks as a tab over the Sidebar, as wide as the Sidebar, focused, listing `mcp` only. Enter on it closes the picker, the Sidebar returns with MCP, and `● ctui: options changed — reloaded` prints. |
-| Every Sidebar plugin enabled | Run `/ctui:plugins:enable` | `⎿ ctui: All Sidebar plugins are already enabled`; no picker. |
 | `settings.json` `pluginConfigs` for ctui holding `"git_enable": false` and `"versions_enable": false` from an earlier ctui | Start a session, look at the Sidebar, then open `/config` | The session starts with no ctui error; the git header and the footer draw. `/config` lists no Git header or Versions footer row. |
 | `/config`: Sidebar order set to `mcp, todo` | Look at the Sidebar | After the reload the sections read MCP, Todo, Context, Limits, Skills, Agents & shells, between the unchanged header and footer. |
-| Sidebar docked | Run `/ctui:plugins:disable`, then press Esc | The picker lists the six sections in registry order, no `git` or `versions`; Esc closes it with no change, and the Sidebar returns. |
+| Fullscreen, Sidebar docked | Run `/ctui`, pick `Plugins ›` | `ctui › Plugins`: one row per section in Sidebar order, `✓ Context  ›` and so on, Skills included, no git header or versions footer; under them `enter settings · x: on/off · k: up · j: down · esc back`. The first row has the ring. |
+| The previous row | Press Down twice, then `x` | One `● ctui: options changed — reloaded` row; the third section turns `✗` and leaves the Sidebar behind the menu. The menu stays open with the ring on that row. `x` again turns it back. |
+| The previous row | Press `j` three times quickly | The row moves down three places at once, the ring staying on it. About a second after the last press, one reload row prints and the Sidebar reorders; the ring is still on the moved row after the reload. |
+| The previous row | Press `k`, then Esc within a second | The order is written before the menu goes back to the top level; one reload row. |
+| The previous row | Pick `Plugins ›`, press Enter on a row, then Esc | `ctui › Plugins › <title>` opens, also for a section that is off; Esc returns to the list with the ring on that row. |
 | Sidebar docked, `/theme` on built-in `dark` | Type `/` and look for ctui | The typeahead lists `/ctui` with its description and no `(ctui)` tag; no `/ctui:theme`. |
 | The previous row | Run `/ctui themes` | A focused pane docks as a tab over the Sidebar, as wide as the Sidebar: `ctui`, then `Plugins ›` and `Themes ›`. The text after `/ctui` changes nothing. No transcript row. |
 | The previous row | Pick `Themes ›` | `ctui › Themes`, a focused filter field, then 23 rows: `inherit`, then the Themes by name A–Z (`Catppuccin` … `White`), with `inherit` selected. |
@@ -162,11 +162,9 @@ Run each row in fullscreen and again on the main screen (`--settings '{"tui":"de
 | A reply streaming | Type `/ctui` and press Enter | The menu opens at once; the reply keeps streaming. |
 | A project command `.claude/commands/ctui.md` | Start a session | One toast: `/ctui is taken by your own /ctui; change ctui settings in /config`. The Sidebar draws as usual. A settings change in `/config` (reload) raises no second toast. |
 | Main screen (`--settings '{"tui":"default"}'`) | Run `/ctui`, pick `Themes ›` | The menu sits inline above the prompt; picks and Esc work as above. |
-| A reply streaming | Type `/ctui:plugins:disable todo` and press Enter | It waits for the reply to end (Claude Code offers ctrl+x ctrl+s to send it now), then runs as above. |
-| Main screen (`--settings '{"tui":"default"}'`) | Run `/ctui:plugins:disable` | The picker sits inline above the prompt; a pick closes it and writes. |
 
 ## `claude -p`
 
 | Setup | Action | Expected |
 |---|---|---|
-| A shell | `claude -p --plugin-dir ./ctui '/ctui:plugins:disable mcp'`, then the same with `/ctui` | `ctui: Can't change ctui settings in claude -p. Use /config in an interactive session.` twice. No model reply, no settings change. |
+| A shell | `claude -p --plugin-dir ./ctui '/ctui'` | `ctui: Can't change ctui settings in claude -p. Use /config in an interactive session.` No model reply, no settings change. |
