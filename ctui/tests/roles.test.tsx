@@ -112,7 +112,7 @@ test('every run of text draws in a theme key; fold arrows draw muted', async ($,
   const { runs: all } = await draw($, on)
   const keys = Object.values(colors())
   expect(all.filter((run) => !keys.includes(run.color ?? ''))).toEqual([])
-  expect(colorOf(all, '▼')).toEqual(Array(5).fill('inactive'))
+  expect(colorOf(all, '▼')).toEqual(Array(6).fill('inactive'))
 })
 
 test('main text draws with the text key: path, branch, titles, labels, percents, versions', async ($, on) => {
@@ -154,7 +154,7 @@ test('bars: the empty part faint ─, the percent main; pending todo ○ faint w
 
 test('a rule between every two sections draws faint across the body', async ($, on) => {
   const { runs: all } = await draw($, on)
-  expect(colorOf(all, '─'.repeat(38))).toEqual(Array(4).fill('subtle'))
+  expect(colorOf(all, '─'.repeat(38))).toEqual(Array(5).fill('subtle'))
 })
 
 test('the double rule under the git header draws faint across the body', async ($, on) => {
@@ -205,6 +205,6 @@ test("a Theme's overrides reach every role", async ($, on) => {
   expect(GLYPHS.map((glyph) => colorOf(all, glyph))).toEqual([['#918c7e'], ['#918c7e'], ['#918c7e']])
   expect(colorOf(all, '│')).toEqual(['#475258'])
   expect(colorOf(all, '═'.repeat(49))).toEqual(['#475258'])
-  expect(colorOf(all, '▼')).toEqual(Array(5).fill('#918c7e'))
+  expect(colorOf(all, '▼')).toEqual(Array(6).fill('#918c7e'))
   expect(all.some((run) => ['text', 'inactive', 'subtle'].includes(run.color ?? ''))).toBe(false)
 })
