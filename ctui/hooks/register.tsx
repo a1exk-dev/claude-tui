@@ -2,7 +2,7 @@ import type { CommandRunResult, EngineInterface, Register } from 'claude-code'
 
 import { plugins, sections } from '../plugins'
 import { colors } from '../plugins/colors'
-import type { GitSnapshot, Menu, Task, Todo, TodoItem, Turn, Usage } from '../types'
+import type { GitSnapshot, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { deniedText, gated, NO_CONFIG, type Outcome, pluginsOutcome } from './commands'
 import { type Config, readConfig } from './config'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
@@ -21,6 +21,7 @@ import {
   type Transcript,
 } from './month'
 import { inheritGlass, themeFile } from './glass'
+import { addSkill, skillsFromMessages, sourceOf } from './skills'
 import { KEYS, MENU_START, menuView, PARENT, takenBy, type ThemeName } from './menu'
 import { picker } from './pickers'
 import { type Control, controlKey, foldRowKey, sidebar, type SidebarInput } from './sidebar'
@@ -54,6 +55,7 @@ const MONTH = { plugin: 'ctui', key: 'month' } as const
 const MCP = { plugin: 'ctui', key: 'mcp' } as const
 const MCP_OBSERVED = { plugin: 'ctui', key: 'mcpObserved' } as const
 const TODO = { plugin: 'ctui', key: 'todo' } as const
+const SKILLS = { plugin: 'ctui', key: 'skills' } as const
 const ACTIVE_FORMS = { plugin: 'ctui', key: 'activeForms' } as const
 const TODO_ENV_SET = { plugin: 'ctui', key: 'todoEnvSet' } as const
 const TASKS = { plugin: 'ctui', key: 'tasks' } as const
@@ -674,6 +676,50 @@ async function themeNamesOf($: EngineInterface) {
   return themeNames
 }
 
+// MEMORY.md "The `skills` Sidebar plugin lists every `skill.prompt`": the
+// skill listing and the command list name each skill's source.
+async function skillCatalog($: EngineInterface) {
+  const [usage, commands] = await Promise.all([$.session.usage({ breakdown: 'summary' }), $.command.list()])
+  return { listed: usage.context.breakdown?.skills?.skillFrontmatter ?? [], commands }
+}
+
+let skillsChain: Promise<unknown> = Promise.resolve() // one list write at a time
+
+// Runs `write` after the list's earlier writes, so a rebuild and a
+// `skill.prompt` never race.
+function writeSkills(write: () => Promise<void>) {
+  const run = skillsChain.then(write)
+  skillsChain = run.catch(() => undefined)
+  return run
+}
+
+// A `skill.prompt`'s skill, once; a skill already listed reads nothing more.
+function addSkills($: EngineInterface, name: string) {
+  return writeSkills(async () => {
+    const { value = [] } = await $.state.get(SKILLS)
+    if (value.some((row) => row.name === name)) return
+    const { listed, commands } = await skillCatalog($)
+    await $.state.set(SKILLS, [...addSkill(value, { name, source: sourceOf(name, listed, commands) })])
+  })
+}
+
+// After `--resume` (a new process) and `/resume` or `/clear` (`$.state`
+// emptied), rebuild the list from the transcript's main rows; a reload keeps it.
+function refillSkills($: EngineInterface) {
+  return writeSkills(async () => {
+    if ((await $.state.get(SKILLS)).value) return
+    const [{ listed, commands }, messages] = await Promise.all([skillCatalog($), $.session.messages()])
+    const known = new Set([
+      ...listed.map((skill) => skill.name),
+      ...commands.filter((command) => command.source !== 'builtin').map((command) => command.name),
+    ])
+    const names = skillsFromMessages(messages, known)
+    let rows: readonly SkillRow[] = []
+    for (const name of names) rows = addSkill(rows, { name, source: sourceOf(name, listed, commands) })
+    await $.state.set(SKILLS, [...rows])
+  })
+}
+
 // MEMORY.md "The line under the prompt: `model · effort` is a `SessionMode`
 // label". The model follows `/model` within a tick. An unset effort is a new
 // session (or `/clear`, `/resume`): seed it. Later, a change in the current
@@ -744,6 +790,7 @@ export const register: Register = (on, options) => {
     await setTodoEnv($, config.todo.tools)
     void refreshModel($).catch(() => undefined)
     if (needs.has('todo')) void loadTodo($)
+    if (needs.has('skills')) void refillSkills($).catch(() => undefined)
     if (needs.has('git')) void refreshGit($)
     if (needs.has('mcp')) void readMcpFiles($).catch(() => undefined)
     if (needs.has('versions')) void loadVersions($, config.theme)
@@ -767,6 +814,7 @@ export const register: Register = (on, options) => {
       if (needs.has('versions')) void refillVersions($, config.theme)
       if (needs.has('mcp')) void refreshMcp($)
       if (needs.has('todo')) void refreshTodo($)
+      if (needs.has('skills')) void refillSkills($).catch(() => undefined)
       if (needs.has('now')) void setNow($)
       if (inherit) void refreshGlass($).catch(() => undefined)
       if (tracking) void refreshAgents($).then(() => tickTasks($, needs.has('now')))
@@ -968,6 +1016,13 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // Every invocation, whoever made it: typed, the Skill tool (a subagent's
+  // too), a fork, a preload, a markdown command. Observe only.
+  on('skill.prompt', ($, e, next) => {
+    if (needs.has('skills')) void addSkills($, e.skill).catch(() => undefined)
+    return next(e)
+  })
+
   // /clear and /resume empty `$.state` while running work goes on: the tick
   // merges it into the new session.
   on('session.end', async ($, e, next) => {
@@ -1043,7 +1098,7 @@ export const register: Register = (on, options) => {
         $.clock.after(0, () => void openSidebar($, columns))
       }
     }
-    const [folded, expanded, scroll, git, usage, month, now, mcp, todo, versions, tasks, glass] = await Promise.all([
+    const [folded, expanded, scroll, git, usage, month, now, mcp, todo, skills, versions, tasks, glass] = await Promise.all([
       $.state.get(FOLDED),
       $.state.get(EXPANDED),
       $.state.get(SCROLL),
@@ -1053,6 +1108,7 @@ export const register: Register = (on, options) => {
       $.state.get(NOW),
       $.state.get(MCP),
       $.state.get(TODO),
+      $.state.get(SKILLS),
       $.state.get(VERSIONS),
       $.state.get(TASKS),
       $.state.get(GLASS),
@@ -1069,6 +1125,7 @@ export const register: Register = (on, options) => {
         now: now.value,
         mcp: mcp.value,
         todo: todo.value,
+        skills: skills.value,
         versions: versions.value,
         tasks: tasks.value,
       },

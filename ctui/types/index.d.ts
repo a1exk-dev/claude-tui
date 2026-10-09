@@ -38,6 +38,9 @@ export type McpRow = {
   since?: number
 }
 
+// One invoked skill: its name as `/skills` lists it (`kit:review`) and its source.
+export type SkillRow = { name: string; source: string }
+
 // One todo row: a Task tool task (`id` set) or a `TodoWrite` todo.
 export type TodoItem = {
   id?: string
@@ -85,6 +88,7 @@ declare module 'claude-code' {
       mcp: McpRow[] // A–Z, off rows last
       mcpObserved: Record<string, string> // tool segment → the source a run of its tool reported
       todo?: Todo
+      skills?: SkillRow[] // every skill the chat invoked, first use first; unset until loaded
       activeForms: Record<string, string> // Task id → activeForm, from TaskCreate/TaskUpdate inputs
       todoEnvSet?: boolean // ctui set CLAUDE_CODE_ENABLE_TODO_TOOLS
       versions?: Versions

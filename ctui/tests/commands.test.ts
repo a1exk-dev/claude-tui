@@ -18,13 +18,13 @@ test('a plugin already set, or unknown, gets one line', () => {
   expect(pluginsOutcome('disable', 'mcp', states(['mcp']))).toEqual({ text: 'mcp is already disabled' })
   expect(pluginsOutcome('enable', 'todo', states())).toEqual({ text: 'todo is already enabled' })
   expect(pluginsOutcome('enable', 'foo', states())).toEqual({
-    text: 'Unknown plugin "foo". Plugins: context, limits, todo, mcp, agents',
+    text: 'Unknown plugin "foo". Plugins: context, limits, todo, skills, mcp, agents',
   })
 })
 
 test('a bare toggle picks from the plugins it would change, or says none are left', () => {
   expect(pluginsOutcome('disable', '', states(['mcp', 'todo']))).toEqual({
-    pick: { options: ['context', 'limits', 'agents'] },
+    pick: { options: ['context', 'limits', 'skills', 'agents'] },
   })
   expect(pluginsOutcome('enable', '', states(['mcp', 'todo']))).toEqual({ pick: { options: ['todo', 'mcp'] } })
   expect(pluginsOutcome('enable', '', states())).toEqual({ text: 'All Sidebar plugins are already enabled' })

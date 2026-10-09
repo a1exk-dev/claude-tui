@@ -77,6 +77,18 @@
       "description": "Give Claude the Task tools (TaskCreate, TaskList, TaskUpdate) on models without them by default, such as Opus 5.x, by setting CLAUDE_CODE_ENABLE_TODO_TOOLS=1 for the session; the Todo section shows their list",
       "default": true
     },
+    "skills_enable": {
+      "type": "boolean",
+      "title": "Skills section",
+      "description": "Show the skills this chat has used in the sidebar",
+      "default": true
+    },
+    "skills_folded": {
+      "type": "boolean",
+      "title": "Skills folded",
+      "description": "Start each session with the Skills section folded",
+      "default": false
+    },
     "mcp_enable": {
       "type": "boolean",
       "title": "MCP section",
@@ -110,7 +122,7 @@
     "order": {
       "type": "string",
       "title": "Sidebar order",
-      "description": "Sidebar sections in order, as comma-separated ids: context, limits, todo, mcp, agents. Unknown ids are ignored; missing ones follow in this order",
+      "description": "Sidebar sections in order, as comma-separated ids: context, limits, todo, skills, mcp, agents. Unknown ids are ignored; missing ones follow in this order",
       "default": ""
     },
     "theme": {

@@ -156,7 +156,7 @@ const sectionsOf = async (pane: { findAll(query: { type: 'Client' }): Promise<{ 
 test('with no order set, the sections draw in registry order between the header and footer', async ($, on) => {
   mock.clock(on)
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 60) })
-  expect(await sectionsOf(pane)).toEqual(['context', 'limits', 'todo', 'mcp', 'agents'])
+  expect(await sectionsOf(pane)).toEqual(['context', 'limits', 'todo', 'skills', 'mcp', 'agents'])
 })
 
 test(
@@ -165,7 +165,7 @@ test(
   async ($, on) => {
     mock.clock(on)
     const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 60) })
-    expect(await sectionsOf(pane)).toEqual(['agents', 'mcp', 'context', 'limits'])
+    expect(await sectionsOf(pane)).toEqual(['agents', 'mcp', 'context', 'limits', 'skills'])
   },
 )
 

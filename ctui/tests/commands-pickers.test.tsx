@@ -81,7 +81,7 @@ test('already set, and unknown names, print one line and write nothing', { optio
   const seen = host(on)
   expect((await run($, 'plugins:disable', 'mcp')).text).toBe('mcp is already disabled')
   expect((await run($, 'plugins:enable', 'foo')).text).toBe(
-    'Unknown plugin "foo". Plugins: context, limits, todo, mcp, agents',
+    'Unknown plugin "foo". Plugins: context, limits, todo, skills, mcp, agents',
   )
   expect(seen.sets).toEqual([])
   expect(seen.opens).toEqual([])
@@ -118,7 +118,7 @@ test('bare disable opens a focused picker of the enabled plugins; a pick closes 
   ])
   const pane = await picker($, 'ctui-disable')
   const [select] = await pane.findAll({ type: 'Select' })
-  expect(select?.props.options).toEqual(['context', 'limits', 'mcp', 'agents'].map((value) => ({ value })))
+  expect(select?.props.options).toEqual(['context', 'limits', 'skills', 'mcp', 'agents'].map((value) => ({ value })))
   expect(select?.props.autoFocus).toBe(true)
   await pane.select({ key: 'disable', value: 'mcp' })
   await clock.settle()

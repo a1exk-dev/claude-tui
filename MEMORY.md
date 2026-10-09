@@ -110,6 +110,18 @@ Guidance:
 
 Reason: The human chose this in #21 after a live spike (`prototypes/research-21/`, 2.1.288). In #51 the human chose the tick over a render-time check: one tool-list call per second instead of one per redraw, and one source for the hint and the rows. Without the variable, the 5.x models (Opus 5.5, the human's default, and Sonnet 5.5) have no task tools, so the section would always be empty. After `$.env.set`, Opus 5.5 got the tools at once and used them; unsetting removed them. `/plugin install` shows a "Configure ctui" screen listing every `userConfig` field, defaulted ones too, with the focused field's description: that screen is where ctui suggests the tools. The Task tools are deferred tools (#10), so they cost little per request. Subagents and child processes, a nested `claude -p` included, inherit the variable.
 
+## The `skills` Sidebar plugin lists every `skill.prompt`
+
+Applies when: working on the `skills` Sidebar plugin or anything that tracks invoked skills.
+
+Guidance:
+- Add a skill from every `skill.prompt` (observe only, `return next(e)`): it fires for a typed `/name`, the Skill tool (a subagent's too), a forked skill, a subagent's `skills:` preload, and markdown commands that reach the model, and never for built-ins or commands a mod answers. Keep `{ name, source }` in `$.state` (`skills`), one row per name and source; a repeat changes nothing. `name` is as `/skills` lists it (`kit:review`); the row drops the `plugin:` prefix.
+- The source comes from `$.session.usage({ breakdown: 'summary' })` `context.breakdown.skills.skillFrontmatter` (`userSettings` → `user`, `projectSettings` → `project`, `plugin` → its `pluginName`, `built-in`, `syncedSkills` → `synced`), else `$.command.list()` (a markdown command: its plugin, or `user`), else the `plugin:` prefix, else `user`. Both reads are local.
+- Draw like an MCP row without the glyph: the name in `main` truncating, the source in `muted` in a `flexShrink: 0` Box; A–Z by name, then source; a `list` section. `count` and `summary` are the row count; empty is `0` with `no skills used yet` in `faint`.
+- A reload keeps the list. `/clear` and `/resume` empty `$.state`, and `--resume` starts a new process: whenever the list is unset (on `session.start` and each tick), rebuild it from `$.session.messages()`'s main rows, Skill tool uses and `<command-name>` rows whose name the skill listing or a non-built-in command holds (`/context` leaves the same row). Write the list through one chain so a rebuild and a `skill.prompt` don't race.
+
+Reason: #159's spike on 2.1.292 (`prototypes/research-159/`) found `skill.prompt` is the one event for every invocation kind, with no source or `agentId`, and that a resumed transcript's rows start at the last compact boundary. The human chose the rows, count, reset and order in #164 and the look in #165. Accepted gaps: skills used before a compaction, and skills used only inside a subagent, are missing after a resume; ctui doesn't parse the engine's invoked-skills reminder.
+
 ## The Limits cost row hides on a plan and totals the month from transcripts
 
 Applies when: working on the `limits` Sidebar plugin's `cost` row, its settings or month total, or anything that asks whether the person is on a Claude plan.

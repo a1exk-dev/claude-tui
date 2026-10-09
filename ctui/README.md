@@ -1,6 +1,6 @@
 # ctui
 
-ctui is a skin for the Claude Code terminal UI. It docks a sidebar beside the transcript with git, context, limits, todo, MCP, and agents-and-shells sections, and it restyles the lines under the prompt input. It also raises short toasts when a subagent or a background shell starts, finishes, or fails.
+ctui is a skin for the Claude Code terminal UI. It docks a sidebar beside the transcript with git, context, limits, todo, skills, MCP, and agents-and-shells sections, and it restyles the lines under the prompt input. It also raises short toasts when a subagent or a background shell starts, finishes, or fails.
 
 Tested with Claude Code 2.1.292 ([all tested versions](COMPATIBILITY.md)).
 
@@ -48,7 +48,7 @@ The todo section shows Claude's task list. Claude Code gives Claude the Task too
 
 ## What ctui watches
 
-ctui runs as a mod in every Claude Code session where the plugin is enabled. It watches Bash tool calls and subagent events to show background shells and agents, watches Claude's task tool calls and reads the session's task list for the todo section, runs `git` in the working directory for the sidebar header, reads the names of your MCP servers and the ones you turned off from `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`), the `.mcp.json` files from the working directory up, your settings and the managed MCP settings, and which server a finished MCP tool call came from, to show where each server comes from (never a server's config, which can hold secrets), and, with the `inherit` theme and a custom Claude Code theme, reads that theme's file from `~/.claude/themes/` to tint the sidebar. It makes no network calls and sends nothing anywhere.
+ctui runs as a mod in every Claude Code session where the plugin is enabled. It watches Bash tool calls and subagent events to show background shells and agents, watches Claude's task tool calls and reads the session's task list for the todo section, watches which skills and commands the chat invokes, and reads the skill and command lists and, after a resume, the transcript, for the skills section, runs `git` in the working directory for the sidebar header, reads the names of your MCP servers and the ones you turned off from `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`), the `.mcp.json` files from the working directory up, your settings and the managed MCP settings, and which server a finished MCP tool call came from, to show where each server comes from (never a server's config, which can hold secrets), and, with the `inherit` theme and a custom Claude Code theme, reads that theme's file from `~/.claude/themes/` to tint the sidebar. It makes no network calls and sends nothing anywhere.
 
 ## Known differences
 
