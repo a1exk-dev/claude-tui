@@ -78,6 +78,7 @@ export type Menu = {
   picks: Partial<Record<MenuLevel, string>>
   focus?: string
   pending?: string[]
+  entry?: number // bumped on a refused Monthly cost: a new field shows the saved value again
 }
 
 // A finished main-loop turn, matched to its footer by `durationMs`.

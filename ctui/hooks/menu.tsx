@@ -1,6 +1,8 @@
 import type { ElementTable, RenderElement, RenderSurface } from 'claude-code'
 
+import type { SidebarId } from '../plugins/plugin'
 import type { Menu, MenuLevel as Level } from '../types'
+import type { Config } from './config'
 
 // The `/ctui` menu (MEMORY.md "`/ctui` is one instant menu; it survives each settings reload"):
 // its model, kept in `$.state` because every write reloads the mod,
@@ -17,6 +19,7 @@ export const KEYS = {
   top: 'menu-top',
   themes: 'menu-themes',
   filter: 'menu-filter',
+  monthly: 'menu-monthly',
   toggle: 'menu-toggle',
   up: 'menu-up',
   down: 'menu-down',
@@ -49,12 +52,22 @@ export function themeRows(themes: readonly ThemeName[], filter: string): ThemeNa
 export const NO_CONFIG = "Can't change ctui settings in claude -p. Use /config in an interactive session."
 
 // The toast for a `{ deny }` from `$.config.set`.
-export function deniedText(set: { key: string; value: string | boolean }, deny: string) {
+export function deniedText(set: Setting, deny: string) {
   const id = /^ctui\.(\w+)_enable$/.exec(set.key)?.[1]
   if (id) return `Can't ${set.value ? 'enable' : 'disable'} ${id}: ${deny}`
+  if (set.key === 'ctui.theme') return `Can't switch the Sidebar theme to ${set.value}: ${deny}`
   if (set.key === 'ctui.order') return `Can't save the Sidebar order: ${deny}`
-  return `Can't switch the Sidebar theme to ${set.value}: ${deny}`
+  if (set.key === 'ctui.limits_cost_monthly') return `Can't set the monthly cost: ${deny}`
+  const folded = /^ctui\.(\w+)_folded$/.exec(set.key)?.[1]
+  if (folded) return `Can't change Start folded for ${folded}: ${deny}`
+  return `Can't change ${LABELS[set.key] ?? set.key}: ${deny}`
 }
+
+// The plugins' own settings by key, as their rows name them.
+const LABELS: Record<string, string> = { 'ctui.todo_tools': 'Task tools', 'ctui.agents_toasts': 'Toasts', 'ctui.limits_cost': 'Cost' }
+
+// One `$.config.set` the menu makes.
+export type Setting = { key: string; value: string | boolean | number }
 
 // Who holds `/ctui`, from `$.command.register`'s refusal.
 export function takenBy(refusal: string) {
@@ -63,6 +76,33 @@ export function takenBy(refusal: string) {
   if (/it is the user's/.test(refusal)) return 'your own /ctui'
   return /refused: (.+)$/.exec(refusal)?.[1] ?? 'another command'
 }
+
+// The Monthly cost field's key: a new one after a refused entry, since a
+// field keeps what was typed while its `value` stays the same.
+export const monthlyKey = (entry = 0) => `${KEYS.monthly}-${entry}`
+export const isMonthlyKey = (key: string) => key.startsWith(`${KEYS.monthly}-`)
+
+// A plugin screen's setting row, `setting-<option>`: its label and value,
+// and what Enter writes.
+export type SettingRow = { option: string; label: string; value: string; next: string | boolean }
+export const settingKey = (option: string) => `setting-${option}`
+
+const STEP = { auto: 'on', on: 'off', off: 'auto' } as const
+
+// The settings a plugin's screen lists: `Start folded` for every section, and
+// each plugin's own. Limits' `Monthly cost` is an Input, apart.
+export function settingRows(id: SidebarId, config: Config): SettingRow[] {
+  const flag = (option: string, label: string, on: boolean) => ({ option, label, value: on ? 'on' : 'off', next: !on })
+  const rows: SettingRow[] = [flag(`${id}_folded`, 'Start folded', config[id].folded ?? false)]
+  if (id === 'todo') rows.push(flag('todo_tools', 'Task tools', config.todo.tools))
+  if (id === 'agents') rows.push(flag('agents_toasts', 'Toasts', config.agents.toasts))
+  if (id === 'limits') {
+    rows.push({ option: 'limits_cost', label: 'Cost', value: config.limits.cost, next: STEP[config.limits.cost] })
+  }
+  return rows
+}
+
+const LABEL = 14 // a setting's label column
 
 // A section as the Plugins screen lists it.
 export type PluginRow = { id: string; title: string; enable: boolean }
@@ -73,17 +113,48 @@ export type MenuInput = {
   themes: readonly ThemeName[]
   theme: string // the current `theme` setting
   plugins: readonly PluginRow[] // in the order shown
+  settings: readonly SettingRow[] // the open plugin's
+  monthly?: number // the saved monthly cost, on Limits' screen
 }
 
 const TITLES: Record<Exclude<Level, 'plugin'>, string> = { top: 'ctui', plugins: 'ctui › Plugins', themes: 'ctui › Themes' }
 
 // The menu pane's body: a dim title over the level's elements.
-export function menuView({ ui, menu, themes, theme, plugins }: MenuInput): RenderElement {
+export function menuView({ ui, menu, themes, theme, plugins, settings, monthly }: MenuInput): RenderElement {
   const { Box, Text, Select, Input, Button } = ui
   const focused = plugins.find(({ id }) => id === menu.focus)
   const title = menu.level === 'plugin' ? `ctui › Plugins › ${focused?.title ?? ''}` : TITLES[menu.level]
   const body = () => {
-    if (menu.level === 'plugin') return <Text dimColor>Its settings come in a later ctui. Esc goes back.</Text>
+    if (menu.level === 'plugin') {
+      return (
+        <Box flexDirection="column">
+          {settings.map((row, index) => (
+            <Button
+              key={settingKey(row.option)}
+              label={`${row.label.padEnd(LABEL)}${row.value}`}
+              plain
+              {...(index === 0 && { autoFocus: true })}
+              // register.tsx's `ui.press` hook writes `next`.
+              onPress={() => undefined}
+            />
+          ))}
+          {monthly !== undefined && (
+            <Input
+              key={monthlyKey(menu.entry)}
+              // The field draws `<label>: `, so its value lines up with the rows'.
+              label={'Monthly cost'.padEnd(LABEL - 2)}
+              value={String(monthly)}
+              // Required; register.tsx's `ui.input` hook saves on Enter.
+              onInput={() => undefined}
+              onSubmit={() => undefined}
+            />
+          )}
+          <Box marginTop={1}>
+            <Text dimColor>enter change · esc back</Text>
+          </Box>
+        </Box>
+      )
+    }
     if (menu.level === 'plugins') {
       const width = Math.max(...plugins.map((row) => row.title.length)) + 2
       // A hotkey Button draws `<key>: <label>`; register.tsx's `ui.press` hooks handle each.

@@ -6,7 +6,7 @@ The Sidebar docks only in fullscreen (the `"tui": "fullscreen"` setting or `CLAU
 
 ## Sidebar plugins
 
-The Sidebar shows the `git` header at the top, the `versions` footer at the bottom, and the sections between them, in this order unless `order` sets another. The header and footer are always on. Each section has an `<id>_enable` setting, on by default. In `/ctui` › Plugins, `x` turns the focused section on or off and `k`/`j` move it, writing the same settings. The sections, between the header and the footer, fold and unfold when you click anywhere on their title row: the `▼` or `▶`, the title and its `:`, the space between, or the count or folded summary at the right. Their `<id>_folded` setting picks the fold each new session (and each `/clear`) starts from.
+The Sidebar shows the `git` header at the top, the `versions` footer at the bottom, and the sections between them, in this order unless `order` sets another. The header and footer are always on. Each section has an `<id>_enable` setting, on by default. In `/ctui` › Plugins, `x` turns the focused section on or off and `k`/`j` move it, and Enter opens the section's own settings (`Start folded` and the options below), writing the same settings. The sections, between the header and the footer, fold and unfold when you click anywhere on their title row: the `▼` or `▶`, the title and its `:`, the space between, or the count or folded summary at the right. Their `<id>_folded` setting picks the fold each new session (and each `/clear`) starts from.
 
 | Id | Shows | Settings (`/config` title) |
 |---|---|---|

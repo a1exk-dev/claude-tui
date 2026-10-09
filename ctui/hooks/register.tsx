@@ -21,7 +21,7 @@ import {
 } from './month'
 import { inheritGlass, themeFile } from './glass'
 import { addSkill, skillsFromMessages, sourceOf } from './skills'
-import { deniedText, KEYS, MENU_START, menuView, moveId, NO_CONFIG, PARENT, rowId, rowKey, takenBy, type ThemeName } from './menu'
+import { deniedText, isMonthlyKey, KEYS, MENU_START, monthlyKey, type Setting, settingKey, settingRows, menuView, moveId, NO_CONFIG, PARENT, rowId, rowKey, takenBy, type ThemeName } from './menu'
 import { type Control, controlKey, foldRowKey, sidebar, type SidebarInput } from './sidebar'
 import { assistantMessage } from './skin/assistant'
 import { promptLabelRow } from './skin/prompt'
@@ -620,9 +620,15 @@ async function setMenu($: EngineInterface, menu: Menu) {
 
 // One menu write; a deny toasts its line (a menu pick has no command row),
 // through the queue even with `agents_toasts` off.
-async function writeSetting($: EngineInterface, set: { key: string; value: string | boolean }) {
+async function writeSetting($: EngineInterface, set: Setting) {
   const { deny } = await $.config.set(set)
   if (deny !== undefined) showToast($, { id: 'menu-deny', end: true, text: deniedText(set, deny) }, true)
+  return deny === undefined
+}
+
+// Puts the menu's ring on `key` once the redraw has drawn it, as #160's spike did.
+function focusLater($: EngineInterface, key: string) {
+  $.clock.after(50, () => $.ui.focus({ requestId: MENU_PANE, key }).catch(() => undefined))
 }
 
 // Writes an order the Plugins screen moved, if one waits. Its reload drops
@@ -1252,7 +1258,16 @@ export const register: Register = (on, options) => {
       const plugin = sections.find((section) => section.id === id)
       return plugin ? [{ id: plugin.id, title: plugin.title, enable: config[plugin.id].enable }] : []
     })
-    return menuView({ ui, menu, themes: await themeNamesOf($), theme: config.theme, plugins })
+    const open = sections.find((section) => section.id === menu.focus)
+    return menuView({
+      ui,
+      menu,
+      themes: await themeNamesOf($),
+      theme: config.theme,
+      plugins,
+      settings: open ? settingRows(open.id, config) : [],
+      ...(open?.id === 'limits' && { monthly: config.limits.monthly }),
+    })
   })
 
   // Each hook lets the element's handler run before a write redraws it away.
@@ -1284,7 +1299,8 @@ export const register: Register = (on, options) => {
 
   // Enter on a row opens its plugin's screen, even when it's off; `x` flips
   // it, saving at once; `k`/`j` move it, saving the order a second after the
-  // last move, and keep the ring on it.
+  // last move, and keep the ring on it. On a plugin's screen, Enter on a
+  // setting writes its next value.
   on('ui.press', { component: 'Pane', requestId: MENU_PANE }, async ($, e, next) => {
     const result = await next(e)
     const menu = await menuOf($)
@@ -1293,18 +1309,59 @@ export const register: Register = (on, options) => {
     const row = rowId(e.element)
     if (row) {
       await setMenu($, { ...menu, level: 'plugin', focus: row })
+      // The ring keeps its place from the list: start it on the first setting.
+      const opened = sections.find((plugin) => plugin.id === row)
+      const [setting] = opened ? settingRows(opened.id, config) : []
+      if (setting) focusLater($, settingKey(setting.option))
     } else if (e.element === KEYS.toggle && id) {
       await flushOrder($)
       const section = sections.find((plugin) => plugin.id === id)
       if (section) await writeSetting($, { key: `ctui.${id}_enable`, value: !config[section.id].enable })
+    } else if (menu.level === 'plugin' && id) {
+      // A setting row. `Start folded` sets where a new session starts: pin
+      // the section's fold now, so the reload doesn't change it.
+      const section = sections.find((plugin) => plugin.id === id)
+      const setting = section && settingRows(section.id, config).find(({ option }) => settingKey(option) === e.element)
+      if (section && setting) {
+        if (setting.option === `${section.id}_folded`) {
+          const { value = {} } = await $.state.get(FOLDED)
+          if (value[section.id] === undefined) await $.state.set(FOLDED, { ...value, [section.id]: config[section.id].folded ?? false })
+        }
+        await flushOrder($)
+        await writeSetting($, { key: `ctui.${setting.option}`, value: setting.next })
+      }
     } else if ((e.element === KEYS.up || e.element === KEYS.down) && id) {
       const moved = moveId(order, id, e.element === KEYS.up ? -1 : 1)
       if (moved.join(',') === order.join(',')) return result // at an end
       await setMenu($, { ...menu, focus: id, pending: moved })
       orderTimer?.cancel()
       orderTimer = $.clock.after(1000, () => flushOrder($))
-      // After the redraw, as #160's spike did.
-      $.clock.after(50, () => $.ui.focus({ requestId: MENU_PANE, key: rowKey(id) }).catch(() => undefined))
+      focusLater($, rowKey(id))
+    }
+    return result
+  })
+
+  // Limits' Monthly cost saves a number on Enter. Text that isn't one, or a
+  // value the engine denies, toasts; the redraw shows the saved value again.
+  on('ui.input', { component: 'Pane', requestId: MENU_PANE }, async ($, e, next) => {
+    const result = await next(e)
+    if (!isMonthlyKey(e.element) || e.kind !== 'submit') return result
+    const text = e.value.trim()
+    const value = Number(text)
+    const set = { key: 'ctui.limits_cost_monthly', value }
+    let saved = false
+    if (text === '' || !Number.isFinite(value)) {
+      showToast($, { id: 'menu-deny', end: true, text: deniedText(set, `"${e.value}" isn't a number`) }, true)
+    } else if (value !== config.limits.monthly) {
+      await flushOrder($)
+      saved = await writeSetting($, set)
+    }
+    // A save reloads and draws the new value; otherwise a new field shows the saved one.
+    if (!saved) {
+      const menu = await menuOf($)
+      const entry = (menu.entry ?? 0) + 1
+      await setMenu($, { ...menu, entry })
+      focusLater($, monthlyKey(entry))
     }
     return result
   })

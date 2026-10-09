@@ -344,11 +344,127 @@ test('Enter opens a plugin’s screen, even off; Esc returns to its row', { opti
   expect(state.menu).toMatchObject({ level: 'plugins', focus: 'mcp' })
 })
 
+// Plugin settings screens (#177).
+
+const openPlugin = async ($: Engine, id: string) => {
+  const pane = await openPlugins($)
+  await pane.press({ key: `plugin-${id}` })
+  return pane
+}
+
+const settingsOf = async (pane: Awaited<ReturnType<typeof menu>>) =>
+  (await pane.findAll({ type: 'Button' })).filter((button) => button.key?.startsWith('setting-')).map((button) => button.text)
+
+test('Limits: Start folded, Cost and a Monthly cost field holding the saved value; then the keys', async ($, on) => {
+  host(on)
+  const pane = await openPlugin($, 'limits')
+  expect(await pane.find({ type: 'Text', text: 'ctui › Plugins › Limits' })).toBeDefined()
+  expect(await settingsOf(pane)).toEqual(['Start folded  off', 'Cost          auto'])
+  expect((await pane.find({ type: 'Input', key: 'menu-monthly-0' }))?.props.value).toBe('100')
+  expect(await pane.find({ type: 'Text', text: 'enter change · esc back' })).toBeDefined()
+})
+
+test('every plugin gets Start folded; Todo adds Task tools, Agents & shells Toasts', { options: { todo_tools: false } }, async ($, on) => {
+  host(on)
+  const rowsFor = async (id: string) => {
+    const pane = await openPlugin($, id)
+    const rows = await settingsOf(pane)
+    await pane.unmount()
+    return rows
+  }
+  expect(await rowsFor('mcp')).toEqual(['Start folded  off'])
+  expect(await rowsFor('todo')).toEqual(['Start folded  off', 'Task tools    off'])
+  expect(await rowsFor('agents')).toEqual(['Start folded  off', 'Toasts        on'])
+})
+
+test('Start folded saves the flip, pinning the section’s current fold first', async ($, on) => {
+  const clock = mock.clock(on)
+  const seen = host(on)
+  const folds: unknown[] = []
+  on('state.set', async ($, e, next) => {
+    if (e.key === 'folded') folds.push(e.value)
+    return next(e)
+  })
+  const pane = await openPlugin($, 'mcp')
+  await pane.press({ key: 'setting-mcp_folded' })
+  await clock.settle()
+  expect(folds).toEqual([{ mcp: false }])
+  expect(seen.sets).toEqual([{ key: 'ctui.mcp_folded', value: true }])
+})
+
+test('Task tools and Toasts flip', { options: { agents_toasts: false } }, async ($, on) => {
+  const clock = mock.clock(on)
+  const seen = host(on)
+  const todo = await openPlugin($, 'todo')
+  await todo.press({ key: 'setting-todo_tools' })
+  await todo.unmount()
+  await (await openPlugin($, 'agents')).press({ key: 'setting-agents_toasts' })
+  await clock.settle()
+  expect(seen.sets).toEqual([
+    { key: 'ctui.todo_tools', value: false },
+    { key: 'ctui.agents_toasts', value: true },
+  ])
+})
+
+for (const [from, to] of [
+  ['auto', 'on'],
+  ['on', 'off'],
+  ['off', 'auto'],
+] as const) {
+  test(`Cost steps ${from} to ${to}`, { options: { limits_cost: from } }, async ($, on) => {
+    const clock = mock.clock(on)
+    const seen = host(on)
+    await (await openPlugin($, 'limits')).press({ key: 'setting-limits_cost' })
+    await clock.settle()
+    expect(seen.sets).toEqual([{ key: 'ctui.limits_cost', value: to }])
+  })
+}
+
+test('Monthly cost saves a number on Enter, 0 (no limit) included; a blank one toasts', { options: { agents_toasts: false } }, async ($, on) => {
+  const clock = mock.clock(on)
+  const toasts: string[] = []
+  const seen = host(on, { toasts })
+  const pane = await openPlugin($, 'limits')
+  await pane.input({ key: 'menu-monthly-0', text: ' 250 ' })
+  await pane.input({ key: 'menu-monthly-0', text: '0' })
+  await pane.input({ key: 'menu-monthly-0', text: '  ' })
+  await clock.settle()
+  expect(seen.sets).toEqual([
+    { key: 'ctui.limits_cost_monthly', value: 250 },
+    { key: 'ctui.limits_cost_monthly', value: 0 },
+  ])
+  expect(toasts).toEqual(['Can\'t set the monthly cost: "  " isn\'t a number'])
+})
+
+test('Monthly cost text that isn’t a number toasts and writes nothing; the field keeps the saved value', { options: { agents_toasts: false } }, async ($, on) => {
+  const clock = mock.clock(on)
+  const toasts: string[] = []
+  const seen = host(on, { toasts })
+  const pane = await openPlugin($, 'limits')
+  await pane.input({ key: 'menu-monthly-0', text: '100abc' })
+  await clock.settle()
+  expect(seen.sets).toEqual([])
+  expect(toasts).toEqual(['Can\'t set the monthly cost: "100abc" isn\'t a number'])
+  // A new field, holding the saved value.
+  expect((await pane.find({ type: 'Input', key: 'menu-monthly-1' }))?.props.value).toBe('100')
+})
+
+test('a Monthly cost the engine denies toasts its reason', { options: { agents_toasts: false } }, async ($, on) => {
+  const clock = mock.clock(on)
+  const toasts: string[] = []
+  host(on, { toasts, deny: 'ctui limits_cost_monthly doesn\'t accept "-5". It takes a number between 0 and ∞.' })
+  await (await openPlugin($, 'limits')).input({ key: 'menu-monthly-0', text: '-5' })
+  await clock.settle()
+  expect(toasts).toEqual(['Can\'t set the monthly cost: ctui limits_cost_monthly doesn\'t accept "-5". It takes a number between 0 and ∞.'])
+})
+
 test('a deny’s toast names the change', () => {
   expect(deniedText({ key: 'ctui.mcp_enable', value: false }, 'locked')).toBe("Can't disable mcp: locked")
   expect(deniedText({ key: 'ctui.todo_enable', value: true }, 'locked')).toBe("Can't enable todo: locked")
   expect(deniedText({ key: 'ctui.order', value: 'mcp,context' }, 'locked')).toBe("Can't save the Sidebar order: locked")
   expect(deniedText({ key: 'ctui.theme', value: 'tokyo' }, 'locked')).toBe("Can't switch the Sidebar theme to tokyo: locked")
+  expect(deniedText({ key: 'ctui.limits_folded', value: true }, 'locked')).toBe("Can't change Start folded for limits: locked")
+  expect(deniedText({ key: 'ctui.limits_cost', value: 'on' }, 'locked')).toBe("Can't change Cost: locked")
 })
 
 test('a move holds at either end', () => {
