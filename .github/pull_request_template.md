@@ -4,7 +4,7 @@ Refs: #
 
 ## Live checks
 
-Sections of `docs/testing/live-checks.md` run on the pinned Claude Code (see `CONTRIBUTING.md`). Write N/A for a docs-only change.
+A release's pull request runs every section of `docs/testing/live-checks.md` on the pinned Claude Code (see `CONTRIBUTING.md`). Any other pull request writes `release pass`.
 
 - [ ] Sidebar docking
 - [ ] Sidebar layout and scroll
