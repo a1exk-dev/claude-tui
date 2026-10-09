@@ -107,6 +107,19 @@ Guidance:
 
 Reason: The human chose this in #21 after a live spike (`prototypes/research-21/`, 2.1.288). In #51 the human chose the tick over a render-time check: one tool-list call per second instead of one per redraw, and one source for the hint and the rows. Without the variable, the 5.x models (Opus 5.5, the human's default, and Sonnet 5.5) have no task tools, so the section would always be empty. After `$.env.set`, Opus 5.5 got the tools at once and used them; unsetting removed them. `/plugin install` shows a "Configure ctui" screen listing every `userConfig` field, defaulted ones too, with the focused field's description: that screen is where ctui suggests the tools. The Task tools are deferred tools (#10), so they cost little per request. Subagents and child processes, a nested `claude -p` included, inherit the variable.
 
+## While docked with Todo on, ctui runs Claude's task calls itself to hide Claude Code's list
+
+Applies when: working on the TaskCreate/TaskUpdate `tool.call` hooks, `dockColumns`, or a pin bump.
+
+Guidance:
+- Gate: `e.agentId === undefined && dockColumns > 0 && needs.has('todo')` (a folded Todo passes). Then the hook answers from `$.tool.call(e)` instead of `next(e)`; otherwise `next(e)`.
+- Answer `{ result }` alone, so core maps it to the call's `tool_use_id` with the tool's own mapper. Pass a `deny` or `isError` answer through unchanged.
+- Do it inside the existing TaskCreate and TaskUpdate hooks: ctui's own `$.tool.call` skips ctui's `tool.call` hooks (the recursion skip), so a separate hook would lose `keepActiveForm` and the list reload.
+- `dockColumns` is 0 whenever the Sidebar isn't drawn docked: the `Pane` render sets it, and an open answered `isPlaced: false` or the `SessionMode` watcher finding the pane closed or unplaced resets it. A stale docked value would keep the list hidden with no Sidebar.
+- A pin bump re-runs the two hide-list rows in `docs/testing/live-checks.md` (Todo).
+
+Reason: The human chose in #211 to show the list once, in the Sidebar. #212 found on 2.1.292 that the tool still runs in full (TaskCreated/TaskCompleted hooks included), but its `set_expanded_view` progress doesn't reach the REPL from a plugin's own call, so Claude Code's list stays closed under the spinner and above the prompt; ctrl+t and the close-when-all-done are unchanged. This is undocumented, and the human accepted it: if a later version forwards the progress, the list just shows again and nothing breaks for Claude. Rejected: ctrl+t sent through `tmux send-keys` (tmux only, the list flashes, two concurrent TaskUpdates reopen it), `showExpandedTodos` (read once at startup, every task call reopens the list), and a Button `action` (`app:toggleTodos` always has an engine handler mounted).
+
 ## The `skills` Sidebar plugin lists every `skill.prompt`
 
 Applies when: working on the `skills` Sidebar plugin or anything that tracks invoked skills.
