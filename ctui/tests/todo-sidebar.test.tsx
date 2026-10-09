@@ -72,9 +72,22 @@ test('the header counts completed over total; folded it adds the item in progres
   expect(todo.summary?.({ todo: LIST }, ui, cfg, 36, colors())).toBe('1/3 · Running the tests')
   const idle = { tools: 'task' as const, items: LIST.items.filter((item) => item.status !== 'in_progress') }
   expect(todo.summary?.({ todo: idle }, ui, cfg, 36, colors())).toBe('1/2')
-  expect(todo.count?.({ todo: { tools: 'task', items: [] } }, ui, cfg, 36, colors())).toBe('0/0')
   expect(todo.count?.({ todo: { tools: 'none', items: [] } }, ui, cfg, 36, colors())).toBeUndefined()
   expect(todo.summary?.({ todo: { tools: 'none', items: [] } }, ui, cfg, 36, colors())).toBeUndefined()
+})
+
+test('an empty list draws a bare title and no tasks yet in muted', async ($, on) => {
+  const empty: Todo = { tools: 'task', items: [] }
+  const ui = {} as never
+  const cfg = { enable: true, tools: true }
+  expect(todo.count?.({ todo: empty }, ui, cfg, 36, colors())).toBeUndefined()
+  expect(todo.summary?.({ todo: empty }, ui, cfg, 36, colors())).toBeUndefined()
+  const pane = await draw($, on, empty)
+  expect((await pane.find({ type: 'Text', text: 'no tasks yet' }))?.props.color).toBe('inactive')
+})
+
+test('before the first read of the list the view is empty', () => {
+  expect(todo.view({}, {} as never, { enable: true, tools: true }, 36, colors())).toEqual([])
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.
@@ -144,9 +157,10 @@ test('TaskCreate and TaskUpdate draw rows, with activeForm from the inputs', asy
   host(on, world)
   await start($)
   await clock.settle()
-  const { pane, rows, count } = await sidebarOf($)
+  const { pane, rows, count, text } = await sidebarOf($)
   expect(await rows()).toEqual([])
-  expect(await count()).toBe('0/0')
+  expect(await text('no tasks yet')).toBe('no tasks yet')
+  expect(await count()).toBeUndefined()
 
   await $.tool.call({ tool: 'TaskCreate', subject: 'alpha', description: 'a', activeForm: 'Doing alpha' })
   await $.tool.call({ tool: 'TaskCreate', subject: 'beta', description: 'b' })

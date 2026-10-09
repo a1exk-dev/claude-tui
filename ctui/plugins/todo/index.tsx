@@ -11,9 +11,10 @@ const STATUSES: Record<TodoItem['status'], { glyph: string; role: Role; textRole
 
 const textOf = (item: TodoItem) => (item.status === 'in_progress' ? (item.activeForm ?? item.subject) : item.subject)
 
-// `<completed>/<total>`; nothing before the list loads or without task tools.
+// `<completed>/<total>`; nothing before the list loads, while it is empty or
+// without task tools.
 const done = (todo?: Todo) =>
-  todo && todo.tools !== 'none'
+  todo && todo.tools !== 'none' && todo.items.length > 0
     ? `${todo.items.filter((item) => item.status === 'completed').length}/${todo.items.length}`
     : undefined
 
@@ -25,6 +26,7 @@ const plugin: SidebarPlugin = {
   slot: 'section',
   needs: ['todo'],
   list: true,
+  cap: 8, // a typical plan shows whole (#209)
   view: ({ todo }, { Text }, cfg, _width, c) => {
     if (!todo) return []
     if (todo.tools === 'none') {
@@ -37,6 +39,12 @@ const plugin: SidebarPlugin = {
         </Text>
       ))
     }
+    if (!todo.items.length)
+      return [
+        <Text color={c.muted} wrap="truncate-end">
+          no tasks yet
+        </Text>,
+      ]
     return todo.items.map((item) => {
       const { glyph, role, textRole } = STATUSES[item.status]
       return (
