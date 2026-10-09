@@ -409,3 +409,53 @@ test('Task tools off after ctui set the variable unsets it', { options: { todo_t
   expect(world.env.CLAUDE_CODE_ENABLE_TODO_TOOLS).toBeUndefined()
   expect(state.ours).toBe(false)
 })
+
+// The pin (MEMORY.md "The `todo` Sidebar plugin turns the task tools on by
+// default"): with Task tools on, TaskCreate, TaskUpdate and TodoWrite are kept
+// in Claude's prompt, so their own text nudges Claude to keep a list.
+
+// Each tool as core describes it on 2.1.292: every task tool deferred.
+const DESCRIBED = ['TaskCreate', 'TaskUpdate', 'TodoWrite', 'TaskList', 'TaskGet', 'TaskStop'].map((tool) => ({
+  tool,
+  description: `${tool} text`,
+  isDeferred: true as const,
+  provider: { plugin: 'engine', tier: 'core' as const },
+}))
+
+// Starts a session with core answering `tool.describe` and `ui.invalidate`
+// recorded, and returns what each tool comes back as, by name.
+async function describeWorld($: Engine, on: On) {
+  const invalidated: string[] = []
+  on('ui.invalidate', (_, e) => {
+    invalidated.push(e.event)
+    return { value: undefined }
+  })
+  on('tool.describe', (_, e) => ({ description: e.description, ...(e.isDeferred && { isDeferred: true }) }))
+  const clock = mock.clock(on, { now: 0 })
+  host(on, { tools: ['TaskCreate', 'TaskList', 'TaskUpdate'], tasks: [], env: {} })
+  await start($)
+  await clock.settle()
+  const answers = Object.fromEntries(await Promise.all(DESCRIBED.map(async (e) => [e.tool, await $.tool.describe(e)])))
+  return { answers, invalidated }
+}
+
+test('Task tools on keeps TaskCreate, TaskUpdate and TodoWrite in the prompt', async ($, on) => {
+  const { answers } = await describeWorld($, on)
+  for (const tool of ['TaskCreate', 'TaskUpdate', 'TodoWrite']) {
+    expect(answers[tool]).toEqual({ description: `${tool} text`, isDeferred: false })
+  }
+  for (const tool of ['TaskList', 'TaskGet', 'TaskStop']) {
+    expect(answers[tool]).toEqual({ description: `${tool} text`, isDeferred: true })
+  }
+})
+
+test('Task tools off pins nothing', { options: { todo_tools: false } }, async ($, on) => {
+  const { answers } = await describeWorld($, on)
+  for (const { tool } of DESCRIBED) expect(answers[tool]).toEqual({ description: `${tool} text`, isDeferred: true })
+})
+
+// The test kit doesn't reload: `session.start` with the new options is the reload.
+test('a reload invalidates tool.describe, so a Task tools change applies', { options: { todo_tools: false } }, async ($, on) => {
+  const { invalidated } = await describeWorld($, on)
+  expect(invalidated).toContain('tool.describe')
+})

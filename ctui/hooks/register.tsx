@@ -416,6 +416,9 @@ async function setTodoEnv($: EngineInterface, tools: boolean) {
   }
 }
 
+// The task tools `todo_tools` keeps out of ToolSearch; TaskList, TaskGet and TaskStop stay deferred.
+const PINNED = new Set(['TaskCreate', 'TaskUpdate', 'TodoWrite'])
+
 const TODO_STATUSES = new Set<string>(['pending', 'in_progress', 'completed'])
 
 const todoToolsOf = (names: readonly string[]): Todo['tools'] =>
@@ -793,6 +796,8 @@ export const register: Register = (on, options) => {
       orderTimer = $.clock.after(1000, () => flushOrder($))
     }
     await setTodoEnv($, config.todo.tools)
+    // `tool.describe` answers are cached for the session: a `todo_tools` change pins or unpins now.
+    $.ui.invalidate('tool.describe')
     void refreshModel($).catch(() => undefined)
     if (needs.has('todo')) void loadTodo($)
     if (needs.has('skills')) void refillSkills($).catch(() => undefined)
@@ -833,10 +838,12 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // Names a server's row as /mcp does. Observe only.
-  on('tool.describe', ($, e, next) => {
+  // Names a server's row as /mcp does, and with Task tools on keeps the tools
+  // that start and move a list in the prompt, so their own text nudges Claude to keep one.
+  on('tool.describe', async ($, e, next) => {
     const [segment, name] = serverName(e.tool, e.provider.plugin) ?? []
     if (segment && name) mcpNames[segment] = name
+    if (config.todo.tools && PINNED.has(e.tool)) return { ...(await next(e)), isDeferred: false }
     return next(e)
   })
 
