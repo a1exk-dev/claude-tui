@@ -175,7 +175,7 @@ export function menuView(input: MenuInput): RenderElement {
       <Button key={key} plain dimColor={!ringed} label="›" {...(ringed && { autoFocus: true })} onPress={() => undefined} />
       <Box flexGrow={1} flexDirection="row" columnGap={1}>
         <Box flexGrow={1} flexDirection="row">
-          {lead && <Text color={lead.color}>{`${lead.text} `}</Text>}
+          {lead && <Text color={lead.color}>{`${lead.text}  `}</Text>}
           <Text color={ringed ? c.accent : c.main} bold={ringed} wrap="truncate-end">
             {label}
           </Text>
@@ -202,7 +202,8 @@ export function menuView(input: MenuInput): RenderElement {
           plugins.map(({ id, title, enable, folded }) => ({
             key: rowKey(id),
             label: title,
-            // Nerd Font eye and eye-slash.
+            // Nerd Font eye and eye-slash. The terminal draws each two cells wide over
+            // the one the engine counts: the first space takes the overflow, the second parts it from the title.
             lead: enable ? { text: '\u{f06e}', color: c.success } : { text: '\u{f070}', color: c.muted },
             right: folded ? 'folded ›' : 'expanded ›',
           })),

@@ -345,8 +345,8 @@ const focusRow = ($: Engine, id: string) =>
 // The Plugins rows' titles, in order.
 const titlesOf = async (pane: Pane) => (await rowsOf(pane, 'plugin-')).map(([, title]) => title)
 
-const EYE = '\u{f06e} '
-const EYE_SLASH = '\u{f070} '
+const EYE = '\u{f06e}  '
+const EYE_SLASH = '\u{f070}  '
 
 test('Plugins lists each section in the saved order: an eye when shown, its title, expanded or folded; then the keys', { options: { order: 'mcp', todo_enable: false, limits_folded: true } }, async ($, on) => {
   host(on)

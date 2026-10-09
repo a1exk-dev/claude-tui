@@ -303,3 +303,11 @@ Applies when: a change alters how ctui draws something the renders in `docs/desi
 Guidance: Edit `docs/design/sidebar.html` in the same work and re-export the three PNGs with the command in its header comment. Draw in the installed JetBrainsMono Nerd Font: the web JetBrains Mono has a narrower advance, and its box-drawing glyphs fall back to another font that stretches the bars. The "Known differences from the renders" table in `docs/spec/v0.1.md` lists engine limits only, never ctui's own design changes.
 
 Reason: The human chose this in #109: the renders show ctui's own design as it ships, so a design change redraws them rather than adding a known difference. In #113 the Nerd Font reproduced the 0.1 PNGs to within a pixel; the web font didn't.
+
+## A Nerd Font icon takes two spaces after it
+
+Applies when: drawing a Nerd Font icon (a private-use glyph such as `U+F06E`) before text.
+
+Guidance: Follow the icon with two spaces. The engine counts it as one cell, but the terminal draws it two cells wide: the first space takes the overflow and the second shows as the gap.
+
+Reason: Checked live on 2.1.292 (2026-10-09, #201) on the `/ctui` Plugins rows. With one space the eye touched the title; with none the terminal shrank the eye and it still touched; with two it drew full size, one space from the title.
