@@ -71,7 +71,7 @@ export type Task = {
 // The `/ctui` menu's level, its Theme filter, and the top level's last pick.
 // `plugin` is one plugin's screen, `focus` the plugin whose row has the ring,
 // `pending` a section order moved but not yet saved.
-export type MenuLevel = 'top' | 'plugins' | 'plugin' | 'themes'
+export type MenuLevel = 'top' | 'plugins' | 'plugin' | 'themes' | 'probe'
 export type Menu = {
   level: MenuLevel
   filter: string
@@ -79,6 +79,8 @@ export type Menu = {
   focus?: string
   pending?: string[]
   entry?: number // bumped on a refused Monthly cost: a new field shows the saved value again
+  variant?: string // PROTOTYPE #199: the row look
+  ring?: string // PROTOTYPE #199: the element holding the ring
 }
 
 // A finished main-loop turn, matched to its footer by `durationMs`.

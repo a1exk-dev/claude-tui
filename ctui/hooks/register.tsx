@@ -21,7 +21,7 @@ import {
 } from './month'
 import { inheritGlass, themeFile } from './glass'
 import { addSkill, skillsFromMessages, sourceOf } from './skills'
-import { deniedText, isMonthlyKey, KEYS, MENU_START, monthlyKey, type Setting, settingKey, settingRows, menuView, moveId, NO_CONFIG, PARENT, rowId, rowKey, takenBy, type ThemeName } from './menu'
+import { deniedText, isMonthlyKey, KEYS, MENU_START, monthlyKey, ROW, type Setting, settingKey, settingRows, menuView, moveId, NO_CONFIG, PARENT, rowId, rowKey, takenBy, themeKey, type ThemeName, VARIANTS, HOTKEYS } from './menu'
 import { type Control, controlKey, foldRowKey, sidebar, type SidebarInput } from './sidebar'
 import { assistantMessage } from './skin/assistant'
 import { promptLabelRow } from './skin/prompt'
@@ -607,7 +607,23 @@ async function registerMenu($: EngineInterface) {
 // Opens the menu with the keys: a first open, or one taking them back after Esc's deny.
 async function openMenu($: EngineInterface) {
   // As wide as the Sidebar it docks over; the dock ignores it inline.
-  await $.ui.open({ id: MENU_PANE, title: 'ctui', focus: true, closeOnEscape: true, columns: requested ?? widthFor(DOCK_COLUMNS) })
+  await $.ui.open({ id: MENU_PANE, title: 'Settings', focus: true, closeOnEscape: true, columns: requested ?? widthFor(DOCK_COLUMNS), rows: SPIKE_ROWS })
+}
+
+// PROTOTYPE #199 (throwaway): a log of focus, scroll, press and render timings.
+const SPIKE_LOG = '/tmp/claude-1000/-home-a1exk-Projects-claude-tui/f99e00bf-3cea-469b-9bfe-2d61b2f658fd/scratchpad/spike.log'
+const SPIKE_ROWS: number = 24
+const GEN = Math.random().toString(36).slice(2, 6)
+let logChain: Promise<void> = Promise.resolve()
+let focusAt = 0 // $.clock.now() of the last ui.focus
+let lastLag = ''
+function note($: EngineInterface, line: string) {
+  const stamp = new Date().toISOString().slice(11, 23)
+  logChain = logChain.then(async () => {
+    let old = ''
+    try { old = await $.fs.read(SPIKE_LOG) } catch { /* first line */ }
+    try { await $.fs.write(SPIKE_LOG, `${old}${stamp} [${GEN}] ${line}\n`) } catch { /* ignore */ }
+  })
 }
 
 async function menuOf($: EngineInterface): Promise<Menu> {
@@ -768,6 +784,7 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     void registerMenu($).catch(() => undefined)
+    void $.command.register({ name: 'ctuispike', description: 'PROTOTYPE: next /ctui row look', immediate: true }).catch(() => undefined)
     // A reload from elsewhere (`/config`) drops the order timer: start it again.
     const { pending, ...menu } = await menuOf($)
     if (pending?.join(',') === config.order.join(',')) await setMenu($, menu)
@@ -1245,9 +1262,23 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'ctui' }, async ($) => {
     if (!(await hasConfig($))) return { text: NO_CONFIG }
     await flushOrder($)
-    await setMenu($, MENU_START)
+    await setMenu($, { ...MENU_START, variant: (await menuOf($)).variant })
     await openMenu($)
     return {}
+  })
+
+  // PROTOTYPE #199: /ctuispike cycles the row look; arrows' ui.scroll is logged.
+  on('command.run', { command: 'ctuispike' }, async ($) => {
+    const menu = await menuOf($)
+    const variant = VARIANTS[(VARIANTS.indexOf((menu.variant ?? 'T1') as never) + 1) % VARIANTS.length]
+    await setMenu($, { ...menu, variant, ring: undefined })
+    note($, `variant ${variant}`)
+    await openMenu($)
+    return {}
+  })
+  on('ui.scroll', { component: 'Pane', requestId: MENU_PANE }, async ($, e, next) => {
+    note($, `ui.scroll by=${e.by}`)
+    return next(e)
   })
 
   on('ui.render', { component: 'Pane', requestId: MENU_PANE }, async ($, e) => {
@@ -1259,7 +1290,22 @@ export const register: Register = (on, options) => {
       return plugin ? [{ id: plugin.id, title: plugin.title, enable: config[plugin.id].enable }] : []
     })
     const open = sections.find((section) => section.id === menu.focus)
+    if (focusAt) {
+      lastLag = `${(await $.clock.now()) - focusAt}ms`
+      note($, `render ring=${menu.ring} lag=${lastLag}`)
+      focusAt = 0
+    }
+    const { value: glass } = await $.state.get(GLASS)
+    const themed = await (look ??= themeLook($, config.theme))
+    note($, `render level=${menu.level} placement=${e.props.placement} bodyRows=${e.props.scroll.bodyRows} bodyColumns=${e.props.bodyColumns} focused=${e.props.isFocused}`)
     return menuView({
+      colors: themed.colors,
+      ...((themed.background ?? (inherit ? glass : undefined)) && { background: themed.background ?? glass ?? undefined }),
+      bodyRows: e.props.scroll.bodyRows,
+      bodyColumns: e.props.bodyColumns,
+      placement: e.props.placement,
+      dockColumns: widthFor(e.viewport?.columns ?? DOCK_COLUMNS),
+      debug: `${menu.variant ?? 'A'} ${e.props.placement === 'inline' ? 'in' : 'dk'} ${e.props.scroll.bodyRows}r ${lastLag}`,
       ui,
       menu,
       themes: await themeNamesOf($),
@@ -1274,8 +1320,8 @@ export const register: Register = (on, options) => {
   on('ui.select', { plugin: 'ctui', element: KEYS.top }, async ($, e, next) => {
     const result = await next(e)
     const menu = await menuOf($)
-    if (e.value === 'plugins' || e.value === 'themes') {
-      await setMenu($, { ...menu, level: e.value, filter: '', picks: { ...menu.picks, top: e.value } })
+    if (e.value === 'plugins' || e.value === 'themes' || e.value === 'probe') {
+      await setMenu($, { ...menu, level: e.value, filter: '', ring: undefined, picks: { ...menu.picks, top: e.value } })
     }
     return result
   })
@@ -1290,10 +1336,18 @@ export const register: Register = (on, options) => {
 
   // The ring on a Plugins row names the plugin `x`, `k` and `j` act on.
   on('ui.focus', { component: 'Pane', requestId: MENU_PANE }, async ($, e, next) => {
+    // F1: the hidden hotkeys never take the ring; it stays on the row.
+    const saved = (await menuOf($)).variant
+    const mode = 'F1'
+    void saved
+    if (mode === 'F1' && e.element && HOTKEYS.includes(e.element)) return { deny: 'hidden hotkey' }
     const result = await next(e)
+    focusAt = await $.clock.now()
+    note($, `ui.focus element=${e.element}`)
     const id = rowId(e.element)
     const menu = await menuOf($)
-    if (id && menu.focus !== id) await setMenu($, { ...menu, focus: id })
+    if (menu.ring !== e.element || (id && menu.focus !== id)) await setMenu($, { ...menu, ring: e.element, ...(id && { focus: id }) })
+    else focusAt = 0
     return result
   })
 
@@ -1307,8 +1361,15 @@ export const register: Register = (on, options) => {
     const order = menu.pending ?? config.order
     const id = menu.focus ?? order[0]
     const row = rowId(e.element)
-    if (row) {
-      await setMenu($, { ...menu, level: 'plugin', focus: row })
+    note($, `ui.press element=${e.element} ring=${menu.ring}`)
+    const top = e.element === ROW('plugins') ? 'plugins' : e.element === ROW('themes') ? 'themes' : e.element === ROW('probe') ? 'probe' : undefined
+    if (top) {
+      await setMenu($, { ...menu, level: top, filter: '', ring: undefined, picks: { ...menu.picks, top } })
+    } else if (e.element.startsWith('theme-')) {
+      const slug = e.element.slice('theme-'.length)
+      if (slug !== config.theme) await writeSetting($, { key: 'ctui.theme', value: slug })
+    } else if (row) {
+      await setMenu($, { ...menu, level: 'plugin', focus: row, ring: undefined })
       // The ring keeps its place from the list: start it on the first setting.
       const opened = sections.find((plugin) => plugin.id === row)
       const [setting] = opened ? settingRows(opened.id, config) : []
@@ -1383,7 +1444,7 @@ export const register: Register = (on, options) => {
       $.clock.after(0, () => flushOrder($))
       return result
     }
-    await setMenu($, { ...menu, level: up, filter: '' })
+    await setMenu($, { ...menu, level: up, filter: '', ring: up === 'plugins' && menu.focus ? rowKey(menu.focus) : up === 'top' ? ROW(menu.picks.top ?? 'plugins') : undefined })
     // Take the keys back first: the order's write reloads the mod, and an
     // open from the old module after that is lost (live, 2.1.292).
     $.clock.after(0, async () => {
