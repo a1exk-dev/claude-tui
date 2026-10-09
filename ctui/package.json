@@ -1,6 +1,6 @@
 {
   "name": "@a1exk-dev/ctui",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A skin for the Claude Code TUI: a docked sidebar with git, context, limits, MCP, todo and agent sections, plus agent and shell toasts.",
   "license": "MIT",
   "keywords": ["claude-code", "plugin", "tui", "sidebar"],
