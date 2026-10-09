@@ -7,7 +7,8 @@ import type { Todo } from '../types'
 
 // The `todo` Sidebar plugin: its view with sample lists, and scenarios through
 // register.tsx's hooks: Task tool calls draw rows, no task tools draws a hint,
-// and `session.start` sets CLAUDE_CODE_ENABLE_TODO_TOOLS.
+// `session.start` sets CLAUDE_CODE_ENABLE_TODO_TOOLS, and Task tools keeps the
+// task tools and a task-list section in Claude's prompt.
 
 const LIST: Todo = {
   tools: 'task',
@@ -408,4 +409,95 @@ test('Task tools off after ctui set the variable unsets it', { options: { todo_t
   await clock.settle()
   expect(world.env.CLAUDE_CODE_ENABLE_TODO_TOOLS).toBeUndefined()
   expect(state.ours).toBe(false)
+})
+
+// The pin (MEMORY.md "The `todo` Sidebar plugin turns the task tools on by
+// default"): with Task tools on, TaskCreate, TaskUpdate and TodoWrite are kept
+// in Claude's prompt, so their own text nudges Claude to keep a list.
+
+// Each tool as core describes it on 2.1.292: every task tool deferred.
+const DESCRIBED = ['TaskCreate', 'TaskUpdate', 'TodoWrite', 'TaskList', 'TaskGet', 'TaskStop'].map((tool) => ({
+  tool,
+  description: `${tool} text`,
+  isDeferred: true as const,
+  provider: { plugin: 'engine', tier: 'core' as const },
+}))
+
+// Starts a session with core answering `tool.describe` and `ui.invalidate`
+// recorded, and returns what each tool comes back as, by name.
+async function describeWorld($: Engine, on: On) {
+  const invalidated: string[] = []
+  on('ui.invalidate', (_, e) => {
+    invalidated.push(e.event)
+    return { value: undefined }
+  })
+  on('tool.describe', (_, e) => ({ description: e.description, ...(e.isDeferred && { isDeferred: true }) }))
+  const clock = mock.clock(on, { now: 0 })
+  host(on, { tools: ['TaskCreate', 'TaskList', 'TaskUpdate'], tasks: [], env: {} })
+  await start($)
+  await clock.settle()
+  const answers = Object.fromEntries(await Promise.all(DESCRIBED.map(async (e) => [e.tool, await $.tool.describe(e)])))
+  return { answers, invalidated }
+}
+
+test('Task tools on keeps TaskCreate, TaskUpdate and TodoWrite in the prompt', async ($, on) => {
+  const { answers } = await describeWorld($, on)
+  for (const tool of ['TaskCreate', 'TaskUpdate', 'TodoWrite']) {
+    expect(answers[tool]).toEqual({ description: `${tool} text`, isDeferred: false })
+  }
+  for (const tool of ['TaskList', 'TaskGet', 'TaskStop']) {
+    expect(answers[tool]).toEqual({ description: `${tool} text`, isDeferred: true })
+  }
+})
+
+test('Task tools off pins nothing', { options: { todo_tools: false } }, async ($, on) => {
+  const { answers } = await describeWorld($, on)
+  for (const { tool } of DESCRIBED) expect(answers[tool]).toEqual({ description: `${tool} text`, isDeferred: true })
+})
+
+// The test kit doesn't reload: `session.start` with the new options is the reload.
+test('a reload invalidates tool.describe, so a Task tools change applies', { options: { todo_tools: false } }, async ($, on) => {
+  const { invalidated } = await describeWorld($, on)
+  expect(invalidated).toContain('tool.describe')
+})
+
+// The section: with Task tools on and a tool that starts a list in the
+// request, ctui appends `ctui:todo` to the system prompt.
+
+const TASK_SECTION = `# Task list
+The user follows your progress in a task list shown beside the conversation. For any request that needs 2 or more distinct steps (edits, fixes, checks, delegated agents), your first action is to create one task per step with TaskCreate, before reading files or delegating. Set each task in_progress with TaskUpdate when you start it and completed as soon as it is done. Skip the list only for a single-step request or a pure question.`
+
+// Starts a session with core composing a one-section prompt, and returns the
+// sections composed for a request offering `tools`.
+async function composeWorld($: Engine, on: On, tools: string[]) {
+  on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude.', scope: 'shared' }] }))
+  const clock = mock.clock(on, { now: 0 })
+  host(on, { tools, tasks: [], env: {} })
+  await start($)
+  await clock.settle()
+  const facts = { model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: ['terminal'] as const }
+  return (await $.prompt.compose({ ...facts, tools, outputStyle: null, traits: [] })).sections
+}
+
+test('Task tools on with TaskCreate ends the prompt with the task list section', async ($, on) => {
+  const sections = await composeWorld($, on, ['Read', 'TaskCreate', 'TaskList', 'TaskUpdate'])
+  expect(sections.map((section) => section.id)).toEqual(['intro', 'ctui:todo'])
+  expect(sections.at(-1)).toEqual({ id: 'ctui:todo', text: TASK_SECTION, scope: 'session' })
+})
+
+test('with TodoWrite the section names TodoWrite', async ($, on) => {
+  const sections = await composeWorld($, on, ['Read', 'TodoWrite'])
+  expect(sections.at(-1)?.text).toBe(
+    TASK_SECTION.replace('with TaskCreate', 'with TodoWrite').replace('with TaskUpdate', 'with TodoWrite'),
+  )
+})
+
+test('no section without TaskCreate or TodoWrite', async ($, on) => {
+  const sections = await composeWorld($, on, ['Read', 'TaskList'])
+  expect(sections.map((section) => section.id)).toEqual(['intro'])
+})
+
+test('Task tools off adds no section', { options: { todo_tools: false } }, async ($, on) => {
+  const sections = await composeWorld($, on, ['Read', 'TaskCreate', 'TaskList', 'TaskUpdate'])
+  expect(sections.map((section) => section.id)).toEqual(['intro'])
 })

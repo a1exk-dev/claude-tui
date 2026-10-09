@@ -416,6 +416,13 @@ async function setTodoEnv($: EngineInterface, tools: boolean) {
   }
 }
 
+// The task tools `todo_tools` keeps out of ToolSearch; TaskList, TaskGet and TaskStop stay deferred.
+const PINNED_TASK_TOOLS = new Set(['TaskCreate', 'TaskUpdate', 'TodoWrite'])
+
+// The `ctui:todo` section, as tested live in #220, naming the tools the request offers.
+const taskSection = (create: string, update: string) => `# Task list
+The user follows your progress in a task list shown beside the conversation. For any request that needs 2 or more distinct steps (edits, fixes, checks, delegated agents), your first action is to create one task per step with ${create}, before reading files or delegating. Set each task in_progress with ${update} when you start it and completed as soon as it is done. Skip the list only for a single-step request or a pure question.`
+
 const TODO_STATUSES = new Set<string>(['pending', 'in_progress', 'completed'])
 
 const todoToolsOf = (names: readonly string[]): Todo['tools'] =>
@@ -793,6 +800,8 @@ export const register: Register = (on, options) => {
       orderTimer = $.clock.after(1000, () => flushOrder($))
     }
     await setTodoEnv($, config.todo.tools)
+    // `tool.describe` answers are cached for the session: re-ask them, so the pin follows `todo_tools`.
+    $.ui.invalidate('tool.describe')
     void refreshModel($).catch(() => undefined)
     if (needs.has('todo')) void loadTodo($)
     if (needs.has('skills')) void refillSkills($).catch(() => undefined)
@@ -833,11 +842,26 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // Names a server's row as /mcp does. Observe only.
-  on('tool.describe', ($, e, next) => {
+  // Names a server's row as /mcp does, and with Task tools on keeps the tools
+  // that start and move a list in the prompt, so their own text nudges Claude to keep one.
+  on('tool.describe', async ($, e, next) => {
     const [segment, name] = serverName(e.tool, e.provider.plugin) ?? []
     if (segment && name) mcpNames[segment] = name
+    if (config.todo.tools && PINNED_TASK_TOOLS.has(e.tool)) return { ...(await next(e)), isDeferred: false }
     return next(e)
+  })
+
+  // With Task tools on, tells Claude the user follows a task list. Pure: it
+  // also runs for /context's measuring render.
+  on('prompt.compose', async ($, e, next) => {
+    const answer = await next(e)
+    if (!config.todo.tools) return answer
+    const text = e.tools.includes('TaskCreate')
+      ? taskSection('TaskCreate', 'TaskUpdate')
+      : e.tools.includes('TodoWrite')
+        ? taskSection('TodoWrite', 'TodoWrite')
+        : undefined
+    return text ? { sections: [...answer.sections, { id: 'ctui:todo', text, scope: 'session' }] } : answer
   })
 
   // After /cd the disabled list is another project's: re-derive its key, and
