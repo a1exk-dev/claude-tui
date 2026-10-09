@@ -1,3 +1,5 @@
+import type { ElementTable } from 'claude-code'
+
 import type { Todo, TodoItem } from '../../types'
 import type { Role } from '../colors'
 import type { SidebarPlugin } from '../plugin'
@@ -10,6 +12,21 @@ const STATUSES: Record<Exclude<TodoItem['status'], 'in_progress'>, { glyph: stri
 
 // The item in progress's spinner frames, one every `ms` (`spinner.tsx`).
 const SPINNER = { frames: ['⠴', '⠦', '⠖', '⠲'], ms: 100 }
+
+// PROTOTYPE (prototype/todo-icons): Nerd Font icon sets, one sample list each.
+const ARCS = ['\uee06', '\uee07', '\uee08', '\uee09', '\uee0a', '\uee0b']
+const SLICES = ['\u{f0a9e}', '\u{f0a9f}', '\u{f0aa0}', '\u{f0aa1}', '\u{f0aa2}', '\u{f0aa3}', '\u{f0aa4}', '\u{f0aa5}']
+const SETS: { label: string; done: string; waiting: string; frames: string[]; ms: number }[] = [
+  { label: 'N1 Font Awesome', done: '\uf00c', waiting: '\uf10c', frames: ARCS, ms: 100 },
+  { label: 'N2 Material circles', done: '\u{f0133}', waiting: '\u{f0130}', frames: SLICES, ms: 100 },
+  { label: 'N3 Codicons', done: '\ueba4', waiting: '\uebb5', frames: ARCS, ms: 100 },
+]
+const SAMPLE: { status: TodoItem['status']; text: string }[] = [
+  { status: 'completed', text: 'Read the spec' },
+  { status: 'in_progress', text: 'Writing tests' },
+  { status: 'pending', text: 'Run the live checks' },
+  { status: 'pending', text: 'Open the pull request' },
+]
 
 const textOf = (item: TodoItem) => (item.status === 'in_progress' ? (item.activeForm ?? item.subject) : item.subject)
 
@@ -28,8 +45,43 @@ const plugin: SidebarPlugin = {
   slot: 'section',
   needs: ['todo'],
   list: true,
-  cap: 8, // a typical plan shows whole (#209)
-  view: ({ todo }, { Box, Text, Client }, cfg, _width, c) => {
+  cap: 40, // PROTOTYPE: room for the sample lists; 8 for real (#209)
+  view: ({ todo }, ui, cfg, _width, c) => {
+    const { Box, Text, Client } = ui as ElementTable<'terminal'>
+    // PROTOTYPE: the sets draw whatever the list holds.
+    // Your real tasks when there are any, else the sample list.
+    const items = todo && todo.tools !== 'none' && todo.items.length
+      ? todo.items.map((item) => ({ status: item.status, text: textOf(item) }))
+      : SAMPLE
+    if (SETS.length) return SETS.flatMap((set) => [
+      <Text color={c.faint} wrap="truncate-end">
+        {set.label}
+      </Text>,
+      ...items.map(({ status, text }) =>
+        status === 'in_progress' ? (
+          <Box flexDirection="row">
+            <Box width={1} flexShrink={0}>
+              <Client
+                key={`spinner-${set.label}`}
+                module="./spinner.tsx"
+                props={{ frames: set.frames, ms: set.ms, color: c.warning }}
+              />
+            </Box>
+            <Text color={c.main} wrap="truncate-end">
+              {' '}
+              {text}
+            </Text>
+          </Box>
+        ) : (
+          <Text wrap="truncate-end">
+            <Text color={status === 'completed' ? c.muted : c.faint}>
+              {status === 'completed' ? set.done : set.waiting}
+            </Text>{' '}
+            <Text color={c.muted}>{text}</Text>
+          </Text>
+        ),
+      ),
+    ])
     if (!todo) return []
     if (todo.tools === 'none') {
       const hints = cfg.tools
