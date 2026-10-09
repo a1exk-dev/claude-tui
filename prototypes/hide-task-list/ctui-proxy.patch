@@ -1,0 +1,43 @@
+diff --git i/ctui/hooks/register.tsx w/ctui/hooks/register.tsx
+index 66f7900..cb67816 100644
+--- i/ctui/hooks/register.tsx
++++ w/ctui/hooks/register.tsx
+@@ -130,6 +130,13 @@ let stepModel: string | undefined // the last main-loop turn.step's model
+ let lastTurn: { turn: Turn; at: number } | undefined // the latest main-loop turn.complete's record
+ const drawnFooters = new Set<string>() // TurnDuration instances drawn since load
+ 
++// PROTOTYPE #212: a hook's answer from its own call, the result alone, so core
++// maps it for this call's tool_use_id.
++async function ownCall<R extends { deny?: string; isError?: true; result?: unknown }>(call: Promise<R>): Promise<R> {
++  const ran = await call
++  return ran.deny !== undefined || ran.isError ? ran : ({ result: ran.result } as R)
++}
++
+ // A run still going takes this refresh as one more run after it ends.
+ async function refreshGit($: EngineInterface) {
+   if (gitRunning) {
+@@ -858,9 +865,14 @@ export const register: Register = (on, options) => {
+     }
+   })
+ 
++  // PROTOTYPE #212: while the Sidebar is docked with Todo on, a main-loop task call
++  // runs as ctui's own `$.tool.call`, so the tool's `set_expanded_view` progress
++  // never reaches the REPL and Claude Code's own list stays closed.
++  const hidesList = (agentId: string | undefined) => agentId === undefined && dockColumns > 0 && needs.has('todo')
++
+   // A task tool's call reloads the list. Observe only.
+   on('tool.call', { tool: 'TaskCreate' }, async ($, e, next) => {
+-    const done = await next(e)
++    const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
+     if (needs.has('todo') && done.result && !done.isError) {
+       await keepActiveForm($, done.result.task.id, e.activeForm)
+       void loadTodo($)
+@@ -869,7 +881,7 @@ export const register: Register = (on, options) => {
+   })
+ 
+   on('tool.call', { tool: 'TaskUpdate' }, async ($, e, next) => {
+-    const done = await next(e)
++    const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
+     if (needs.has('todo') && done.result && !done.isError) {
+       await keepActiveForm($, e.taskId, e.activeForm)
+       void loadTodo($)

@@ -1,0 +1,50 @@
+
+ ▐▛███▛█   Claude Code v2.1.292
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.claude/jobs/2925df56/tmp/work
+
+
+┃
+┃  Use TaskCreate to make 3 tasks: Alpha, Beta, Gamma. Then for each in turn: TaskUpdate it to
+┃  in_progress, run `sleep 4` with Bash, TaskUpdate it to completed. Nothing else.
+┃
+
+● TaskCreate
+
+● TaskCreate
+
+● TaskCreate
+
+● TaskUpdate
+  $ Bash  sleep 4 · no output
+
+● TaskUpdate
+
+  Alpha's done. Moving on to Beta.
+
+● TaskUpdate
+  $ Bash  sleep 4 · running
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+✻ Beta… (21s · ↓ 654 tokens)
+  ⎿  ✔ Alpha
+     ◼ Beta
+     ◻ Gamma
+                                                             ✔ Update installed · Restart to apply
+────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle) · esc to interrupt · ctrl+t to hide tasks · ← 5 agents
+  claude-opus-5-5 · medium effort

@@ -1,0 +1,50 @@
+                                                                                                                               │                                                                      ✕
+ ▐▛███▛█   Claude Code v2.1.292                                                                                                │
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max                                                                            │  ~/.claude/jobs/2925df56/tmp/work
+ ▝▝   ▝▝   ~/.claude/jobs/2925df56/tmp/work                                                                                    │
+                                                                                                                               │   master
+                                                                                                                               │   +1  !1  ?7
+┃                                                                                                                              │   +43 -1 lines changed
+┃  Use TaskCreate to make 3 tasks: Alpha, Beta, Gamma. Then for each in turn: TaskUpdate it to in_progress, run `sleep 4`      │
+┃  with Bash, TaskUpdate it to completed. Nothing else.                                                                        │  ════════════════════════════════════════════════════════════════════
+┃                                                                                                                              │
+                                                                                                                               │  ▼ Context:
+● TaskCreate                                                                                                                   │
+                                                                                                                               │    ━━───────────────────────────────────────────────────────────   4%
+● TaskCreate                                                                                                                   │    43,768 / 1M tokens
+                                                                                                                               │
+● TaskCreate                                                                                                                   │  ────────────────────────────────────────────────────────────────────
+                                                                                                                               │  ▼ Limits:
+● TaskUpdate                                                                                                                   │
+  $ Bash  sleep 4 · no output                                                                                                  │    5h    ━━━━━━━━━━─────────────────────────────────────────────  18%
+                                                                                                                               │          resets in 3h 20m
+● TaskUpdate                                                                                                                   │    week  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━──────────────────  67%
+                                                                                                                               │          resets in 2d 17h, Mon 09:00
+● TaskUpdate                                                                                                                   │
+  $ Bash  sleep 4 · no output                                                                                                  │  ────────────────────────────────────────────────────────────────────
+                                                                                                                               │  ▼ Todo:                                                          3/3
+  Alpha's done and Beta just finished its sleep. Marking it done and moving on to Gamma.                                       │
+                                                                                                                               │    ✓ Alpha
+● TaskUpdate                                                                                                                   │    ✓ Beta
+                                                                                                                               │    ✓ Gamma
+● TaskUpdate                                                                                                                   │
+  $ Bash  sleep 4 · no output                                                                                                  │  ────────────────────────────────────────────────────────────────────
+                                                                                                                               │  ▼ Skills:                                                          0
+● TaskUpdate                                                                                                                   │
+                                                                                                                               │    no skills used yet
+  I ran Alpha, Beta and Gamma in that order. Each one went to in_progress, ran sleep 4, then went to completed. All three are  │
+  now completed.                                                                                                               │  ────────────────────────────────────────────────────────────────────
+                                                                                                                               │  ▶︎ MCP:                                                           ● 2
+✻ auto mode · claude-opus-5-5 · Brewed for 29s · done 3:38 PM                                                                  │  ────────────────────────────────────────────────────────────────────
+                                                                                                                               │  ▼ Agents & shells:                                         0 running
+                                                                                                                               │
+                                                                                                                               │    nothing running
+                                                                                                                               │
+                                                                                                                               │  claude cli: 2.1.292 │ ctui: 0.4.0, inherit
+                                                                                                                               │
+                                                                                        ✔ Update installed · Restart to apply  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ hide-proxy: #212 proxied TaskUpdate
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 5 agents                                                                                                                    claude-opus-5-5 · medium effort
