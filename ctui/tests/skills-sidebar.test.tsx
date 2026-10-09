@@ -4,6 +4,7 @@ import { type Engine, expect, mock, test } from 'claude-code/testing'
 import { colors } from '../plugins/colors'
 import skills from '../plugins/skills'
 import type { SkillRow } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `skills` Sidebar plugin (#175): its view with sample rows, and
 // scenarios where `skill.prompt` and a resumed transcript fill it through
@@ -33,7 +34,7 @@ const PANE = {
 // Draws the view's rows in a test Pane, `width` cells wide as a section row is.
 async function draw($: Engine, on: On, rows: SkillRow[], width = 36) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column" width={width}>{skills.view({ skills: rows }, ui, { enable: true }, width, colors())}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })

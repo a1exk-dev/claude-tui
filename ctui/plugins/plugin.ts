@@ -19,8 +19,11 @@ export type SidebarData = {
   versions?: Versions
 }
 
+// The Sidebar's element table: the surfaces that draw a Client.
+export type SidebarUi = ElementTable<'terminal' | 'desktop'>
+
 // `width` is the row's width in cells. `colors` holds each role's color.
-type Draw<T> = (data: SidebarData, ui: ElementTable, cfg: SectionConfig, width: number, colors: Colors) => T
+type Draw<T> = (data: SidebarData, ui: SidebarUi, cfg: SectionConfig, width: number, colors: Colors) => T
 
 // A Sidebar plugin: pure, never receives `$`. register.tsx loads the data
 // each plugin `needs` and passes the element table from `$.ui.resolve(e)`.

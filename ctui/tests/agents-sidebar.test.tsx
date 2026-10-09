@@ -4,6 +4,7 @@ import { type Engine, expect, mock, test } from 'claude-code/testing'
 import agents from '../plugins/agents'
 import { colors } from '../plugins/colors'
 import type { Task } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `agents` Sidebar plugin and the toasts: the view with sample tasks, and
 // scenarios through register.tsx's hooks, from spawns and background shells
@@ -36,7 +37,7 @@ const task = (fields: Partial<Task> & Pick<Task, 'id'>): Task => ({
 // Draws the view's rows in a test Pane.
 async function draw($: Engine, on: On, tasks: Record<string, Task>, now: number) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column">{agents.view({ tasks, now }, ui, { enable: true }, 36, colors())}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })

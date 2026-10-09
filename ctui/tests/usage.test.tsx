@@ -7,6 +7,7 @@ import context from '../plugins/context'
 import limits from '../plugins/limits'
 import type { SidebarData, SidebarPlugin } from '../plugins/plugin'
 import type { Usage } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `context` and `limits` Sidebar plugins: unit views with sample usage,
 // and a scenario where `session.measure` moves the Sidebar's rows.
@@ -37,7 +38,7 @@ const OFF: SectionConfig = { ...AUTO, cost: 'off' }
 // Draws one plugin's view rows in a test Pane, as the Sidebar does.
 async function draw($: Engine, on: On, plugin: SidebarPlugin, data: SidebarData, cfg: SectionConfig = AUTO, width = WIDTH) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column">{plugin.view(data, ui, cfg, width, colors())}</ui.Box>
   })
   return $.ui.mount({

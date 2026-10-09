@@ -2,12 +2,14 @@ import type { Todo, TodoItem } from '../../types'
 import type { Role } from '../colors'
 import type { SidebarPlugin } from '../plugin'
 
-// Each status's glyph and its role, and the role of the item's text.
-const STATUSES: Record<TodoItem['status'], { glyph: string; role: Role; textRole: Role }> = {
+// A done or waiting item's glyph and its role, and the role of its text.
+const STATUSES: Record<Exclude<TodoItem['status'], 'in_progress'>, { glyph: string; role: Role; textRole: Role }> = {
   completed: { glyph: '✓', role: 'muted', textRole: 'muted' },
-  in_progress: { glyph: '◐', role: 'warning', textRole: 'main' },
-  pending: { glyph: '○', role: 'faint', textRole: 'muted' },
+  pending: { glyph: '⠶', role: 'faint', textRole: 'muted' },
 }
+
+// The item in progress's spinner frames, one every `ms` (`spinner.tsx`).
+const SPINNER = { frames: ['⠴', '⠦', '⠖', '⠲'], ms: 100 }
 
 const textOf = (item: TodoItem) => (item.status === 'in_progress' ? (item.activeForm ?? item.subject) : item.subject)
 
@@ -27,7 +29,7 @@ const plugin: SidebarPlugin = {
   needs: ['todo'],
   list: true,
   cap: 8, // a typical plan shows whole (#209)
-  view: ({ todo }, { Text }, cfg, _width, c) => {
+  view: ({ todo }, { Box, Text, Client }, cfg, _width, c) => {
     if (!todo) return []
     if (todo.tools === 'none') {
       const hints = cfg.tools
@@ -45,7 +47,25 @@ const plugin: SidebarPlugin = {
           no tasks yet
         </Text>,
       ]
-    return todo.items.map((item) => {
+    return todo.items.map((item, index) => {
+      // The spinner turns on its own surface, outside the focus ring, so it
+      // stays a Client while the Pane is focused.
+      if (item.status === 'in_progress')
+        return (
+          <Box flexDirection="row">
+            <Box width={1} flexShrink={0}>
+              <Client
+                key={`spinner-${item.id ?? index}`}
+                module="./spinner.tsx"
+                props={{ ...SPINNER, color: c.warning }}
+              />
+            </Box>
+            <Text color={c.main} wrap="truncate-end">
+              {' '}
+              {textOf(item)}
+            </Text>
+          </Box>
+        )
       const { glyph, role, textRole } = STATUSES[item.status]
       return (
         <Text wrap="truncate-end">
