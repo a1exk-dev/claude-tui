@@ -1,3 +1,5 @@
+import type { ElementTable } from 'claude-code'
+
 import type { Todo, TodoItem } from '../../types'
 import type { Role } from '../colors'
 import type { SidebarPlugin } from '../plugin'
@@ -8,6 +10,24 @@ const STATUSES: Record<TodoItem['status'], { glyph: string; role: Role; textRole
   in_progress: { glyph: '◐', role: 'warning', textRole: 'main' },
   pending: { glyph: '○', role: 'faint', textRole: 'muted' },
 }
+
+// PROTOTYPE (prototype/todo-spinner): a sample list around the A2 spinner.
+const A2 = { frames: ['⠴', '⠦', '⠖', '⠲'], ms: 100 }
+const SAMPLE: { status: TodoItem['status']; text: string }[] = [
+  { status: 'completed', text: 'Draft the spinner module' },
+  { status: 'in_progress', text: 'Running tests' },
+  { status: 'pending', text: 'Run the live checks' },
+  { status: 'pending', text: 'Open the pull request' },
+]
+// Candidate roles for the spinner, one sample list each, waiting tasks in P1.
+const WAITING = '⠶'
+const SPIN_ROLES: { label: string; role: Role }[] = [
+  { label: 'C0 warning (now)', role: 'warning' },
+  { label: 'C1 accent', role: 'accent' },
+  { label: 'C2 main', role: 'main' },
+  { label: 'C3 muted', role: 'muted' },
+  { label: 'C4 success', role: 'success' },
+]
 
 const textOf = (item: TodoItem) => (item.status === 'in_progress' ? (item.activeForm ?? item.subject) : item.subject)
 
@@ -26,33 +46,62 @@ const plugin: SidebarPlugin = {
   slot: 'section',
   needs: ['todo'],
   list: true,
-  cap: 8, // a typical plan shows whole (#209)
-  view: ({ todo }, { Text }, cfg, _width, c) => {
-    if (!todo) return []
-    if (todo.tools === 'none') {
-      const hints = cfg.tools
-        ? ['no task tools in this session']
-        : ['no task tools on this model', 'turn on ctui Task tools in /config']
-      return hints.map((hint) => (
-        <Text color={c.muted} wrap="truncate-end">
-          {hint}
-        </Text>
-      ))
+  cap: 40, // PROTOTYPE: room for the sample lists; 8 for real (#209)
+  view: ({ todo }, ui, cfg, _width, c) => {
+    const { Box, Text, Client } = ui as ElementTable<'terminal'>
+    // PROTOTYPE: the spinners draw whatever the list holds.
+    const demo = SPIN_ROLES.flatMap(({ label, role: spinRole }) => [
+      <Text color={c.faint} wrap="truncate-end">
+        {label}
+      </Text>,
+      ...SAMPLE.map(({ status, text }) => {
+        const { glyph, role, textRole } = STATUSES[status]
+        return status === 'in_progress' ? (
+          <Box flexDirection="row">
+            <Box width={1} flexShrink={0}>
+              <Client key={`spinner-${label}`} module="./spinner.tsx" props={{ ...A2, color: c[spinRole] }} />
+            </Box>
+            <Text color={c[textRole]} wrap="truncate-end">
+              {' '}
+              {text}
+            </Text>
+          </Box>
+        ) : (
+          <Text wrap="truncate-end">
+            <Text color={c[role]}>{status === 'pending' ? WAITING : glyph}</Text>{' '}
+            <Text color={c[textRole]}>{text}</Text>
+          </Text>
+        )
+      }),
+    ])
+    const rows = () => {
+      if (!todo) return []
+      if (todo.tools === 'none') {
+        const hints = cfg.tools
+          ? ['no task tools in this session']
+          : ['no task tools on this model', 'turn on ctui Task tools in /config']
+        return hints.map((hint) => (
+          <Text color={c.muted} wrap="truncate-end">
+            {hint}
+          </Text>
+        ))
+      }
+      if (!todo.items.length)
+        return [
+          <Text color={c.muted} wrap="truncate-end">
+            no tasks yet
+          </Text>,
+        ]
+      return todo.items.map((item) => {
+        const { glyph, role, textRole } = STATUSES[item.status]
+        return (
+          <Text wrap="truncate-end">
+            <Text color={c[role]}>{glyph}</Text> <Text color={c[textRole]}>{textOf(item)}</Text>
+          </Text>
+        )
+      })
     }
-    if (!todo.items.length)
-      return [
-        <Text color={c.muted} wrap="truncate-end">
-          no tasks yet
-        </Text>,
-      ]
-    return todo.items.map((item) => {
-      const { glyph, role, textRole } = STATUSES[item.status]
-      return (
-        <Text wrap="truncate-end">
-          <Text color={c[role]}>{glyph}</Text> <Text color={c[textRole]}>{textOf(item)}</Text>
-        </Text>
-      )
-    })
+    return [...demo, ...rows()]
   },
   count: ({ todo }) => done(todo),
   summary: ({ todo }) => {
