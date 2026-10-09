@@ -21,7 +21,7 @@ import {
 } from './month'
 import { inheritGlass, themeFile } from './glass'
 import { addSkill, skillsFromMessages, sourceOf } from './skills'
-import { deniedText, isMonthlyKey, KEYS, MENU_START, monthlyKey, type Setting, settingKey, settingRows, menuView, moveId, NO_CONFIG, PARENT, rowId, rowKey, takenBy, type ThemeName } from './menu'
+import { deniedText, HOTKEYS, isMonthlyKey, KEYS, MENU_START, monthlyKey, type Setting, settingKey, settingRows, menuView, moveId, NO_CONFIG, PARENT, rowId, rowKey, takenBy, themeSlug, type ThemeName, topKey, type TopPick, topPick } from './menu'
 import { type Control, controlKey, foldRowKey, sidebar, type SidebarInput } from './sidebar'
 import { assistantMessage } from './skin/assistant'
 import { promptLabelRow } from './skin/prompt'
@@ -606,8 +606,9 @@ async function registerMenu($: EngineInterface) {
 
 // Opens the menu with the keys: a first open, or one taking them back after Esc's deny.
 async function openMenu($: EngineInterface) {
-  // As wide as the Sidebar it docks over; the dock ignores it inline.
-  await $.ui.open({ id: MENU_PANE, title: 'ctui', focus: true, closeOnEscape: true, columns: requested ?? widthFor(DOCK_COLUMNS) })
+  // As wide as the Sidebar it docks over; inline ignores it, and fits the
+  // menu's content up to `rows`.
+  await $.ui.open({ id: MENU_PANE, title: 'Settings', focus: true, closeOnEscape: true, columns: requested ?? widthFor(DOCK_COLUMNS), rows: 24 })
 }
 
 async function menuOf($: EngineInterface): Promise<Menu> {
@@ -1252,15 +1253,22 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: MENU_PANE }, async ($, e) => {
     const ui = $.ui.resolve(e)
-    if (!('Select' in ui)) return <ui.Box />
+    if (!('Input' in ui)) return <ui.Box />
     const menu = await menuOf($)
     const plugins = (menu.pending ?? config.order).flatMap((id) => {
       const plugin = sections.find((section) => section.id === id)
-      return plugin ? [{ id: plugin.id, title: plugin.title, enable: config[plugin.id].enable }] : []
+      return plugin ? [{ id: plugin.id, title: plugin.title, enable: config[plugin.id].enable, folded: config[plugin.id].folded ?? false }] : []
     })
     const open = sections.find((section) => section.id === menu.focus)
+    const { value: glass } = await $.state.get(GLASS)
     return menuView({
       ui,
+      // The Sidebar's roles and background.
+      ...(await (look ??= themeLook($, config.theme))),
+      ...(inherit && glass && { background: glass }),
+      placement: e.props.placement,
+      bodyRows: e.props.scroll.bodyRows,
+      bodyColumns: e.props.bodyColumns,
       menu,
       themes: await themeNamesOf($),
       theme: config.theme,
@@ -1270,45 +1278,41 @@ export const register: Register = (on, options) => {
     })
   })
 
-  // Each hook lets the element's handler run before a write redraws it away.
-  on('ui.select', { plugin: 'ctui', element: KEYS.top }, async ($, e, next) => {
-    const result = await next(e)
-    const menu = await menuOf($)
-    if (e.value === 'plugins' || e.value === 'themes') {
-      await setMenu($, { ...menu, level: e.value, filter: '', picks: { ...menu.picks, top: e.value } })
-    }
-    return result
-  })
-
-  // A pick writes at once; the reload keeps the menu, its level and filter in
-  // `$.state`. The Select shows the `theme` setting, so the pick needs no copy.
-  on('ui.select', { plugin: 'ctui', element: KEYS.themes }, async ($, e, next) => {
-    const result = await next(e)
-    if (e.value !== config.theme) await writeSetting($, { key: 'ctui.theme', value: e.value })
-    return result
-  })
-
-  // The ring on a Plugins row names the plugin `x`, `k` and `j` act on.
+  // The ring is tracked so a redraw and a reload keep it; on a Plugins row it
+  // names the plugin `x`, `k` and `j` act on. The hidden hotkeys never take
+  // it, so Down stops on the last row. Each hook lets the element's handler
+  // run before a write redraws it away.
   on('ui.focus', { component: 'Pane', requestId: MENU_PANE }, async ($, e, next) => {
+    if (e.element && HOTKEYS.includes(e.element)) return { deny: 'The ring stays on the rows' }
     const result = await next(e)
     const id = rowId(e.element)
     const menu = await menuOf($)
-    if (id && menu.focus !== id) await setMenu($, { ...menu, focus: id })
+    if (menu.ring !== e.element || (id && menu.focus !== id)) await setMenu($, { ...menu, ring: e.element, ...(id && { focus: id }) })
     return result
   })
 
-  // Enter on a row opens its plugin's screen, even when it's off; `x` flips
-  // it, saving at once; `k`/`j` move it, saving the order a second after the
-  // last move, and keep the ring on it. On a plugin's screen, Enter on a
-  // setting writes its next value.
+  // Enter on a top row opens its screen. Enter on a Theme row writes it at
+  // once; the reload keeps the menu, its level and filter in `$.state`.
+  // Enter on a Plugins row opens its plugin's screen, even when it's off; `x`
+  // flips it, saving at once; `k`/`j` move it, saving the order a second
+  // after the last move, and keep the ring on it. On a plugin's screen,
+  // Enter on a setting writes its next value.
   on('ui.press', { component: 'Pane', requestId: MENU_PANE }, async ($, e, next) => {
     const result = await next(e)
     const menu = await menuOf($)
     const order = menu.pending ?? config.order
     const id = menu.focus ?? order[0]
     const row = rowId(e.element)
-    if (row) {
-      await setMenu($, { ...menu, level: 'plugin', focus: row })
+    const top = topPick(e.element)
+    const slug = themeSlug(e.element)
+    if (top) {
+      const { ring: _, ...rest } = menu
+      await setMenu($, { ...rest, level: top, filter: '', picks: { ...menu.picks, top } })
+    } else if (slug) {
+      if (slug !== config.theme) await writeSetting($, { key: 'ctui.theme', value: slug })
+    } else if (row) {
+      const { ring: _, ...rest } = menu
+      await setMenu($, { ...rest, level: 'plugin', focus: row })
       // The ring keeps its place from the list: start it on the first setting.
       const opened = sections.find((plugin) => plugin.id === row)
       const [setting] = opened ? settingRows(opened.id, config) : []
@@ -1383,7 +1387,8 @@ export const register: Register = (on, options) => {
       $.clock.after(0, () => flushOrder($))
       return result
     }
-    await setMenu($, { ...menu, level: up, filter: '' })
+    // The ring goes back to the row just left.
+    await setMenu($, { ...menu, level: up, filter: '', ring: up === 'top' ? topKey(menu.level as TopPick) : menu.focus && rowKey(menu.focus) })
     // Take the keys back first: the order's write reloads the mod, and an
     // open from the old module after that is lost (live, 2.1.292).
     $.clock.after(0, async () => {
