@@ -73,25 +73,46 @@ const start = ($: Engine) => $.session.start({ cwd: '/srv/x', surface: 'terminal
 const run = ($: Engine, args = '') =>
   $.command.run({ command: 'ctui', args, origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 150 } })
 
-const menu = ($: Engine) =>
+const menu = ($: Engine, placement: 'dock' | 'inline' = 'dock') =>
   $.ui.mount({
     plugin: 'ctui',
     surface: 'terminal',
     component: 'Pane',
     requestId: 'ctui',
     props: {
-      title: 'ctui',
+      title: 'Settings',
       isFocused: true,
       bodyColumns: 42,
-      placement: 'dock',
+      placement,
       scroll: { offset: 0, bodyRows: 30 },
       view: {},
     },
   })
 
-type Option = { value: string; label?: string }
-const optionsOf = async (pane: Awaited<ReturnType<typeof menu>>, key: string) =>
-  (await pane.find({ type: 'Select', key }))?.props.options as Option[] | undefined
+type Pane = Awaited<ReturnType<typeof menu>>
+type Node = { type?: string; key?: string; props?: Record<string, unknown>; children?: unknown[] }
+
+// What each Text in `node` shows, outermost first: a row's lead, label and value.
+const cellsOf = (node: Node): string[] =>
+  node.type === 'Text'
+    ? [(node.children ?? []).map((child) => (typeof child === 'string' ? child : cellsOf(child as Node).join(''))).join('')]
+    : (node.children ?? []).flatMap((child) => (typeof child === 'string' ? [] : cellsOf(child as Node)))
+
+// The menu's rows whose `›` Button's key starts with `prefix`, as their cells.
+const rowsOf = async (pane: Pane, prefix: string) =>
+  (await pane.findAll({ type: 'Box' }))
+    .filter(({ children }) => {
+      const [first] = children as Node[]
+      return first?.type === 'Button' && String(first.key ?? first.props?.key).startsWith(prefix)
+    })
+    .map((row) => cellsOf(row as Node))
+
+// The Theme rows' slugs, in order.
+const themesOf = async (pane: Pane) =>
+  (await pane.findAll({ type: 'Button' })).flatMap(({ key }) => (key?.startsWith('theme-') ? [key.slice('theme-'.length)] : []))
+
+// The footer: the `key: label` pairs under the `─` rule.
+const footerOf = async (pane: Pane) => (await pane.findAll({ type: 'Box', text: /^↑↓: move|^type: filter/ })).at(-1)?.text
 
 // The person's Esc on the focused menu: `closeOnEscape` raises `ui.close`,
 // origin `person`. The test kit has no driver for it, so this calls ctui's
@@ -130,13 +151,39 @@ test('session start registers /ctui as an immediate command', async ($, on) => {
   expect(seen.registered).toEqual([{ name: 'ctui', description: expect.any(String), immediate: true }])
 })
 
-test('/ctui opens the focused menu at its top level, whatever follows it', async ($, on) => {
+const OPEN = { id: 'ctui', title: 'Settings', focus: true, closeOnEscape: true, columns: 42, rows: 24 }
+
+test('/ctui opens the focused menu at its top level, whatever follows it', { options: { theme: 'tokyo-night', todo_enable: false } }, async ($, on) => {
   const seen = host(on)
   expect(await run($, 'themes everforest')).toEqual({})
-  expect(seen.opens).toEqual([{ id: 'ctui', title: 'ctui', focus: true, closeOnEscape: true, columns: 42 }])
+  expect(seen.opens).toEqual([OPEN])
   const pane = await menu($)
-  expect((await optionsOf(pane, 'menu-top'))?.map((option) => option.label)).toEqual(['Plugins ›', 'Themes ›'])
+  expect(await pane.find({ type: 'Text', text: /^Settings/ })).toMatchObject({ text: 'Settings', props: { bold: true } })
+  expect(await rowsOf(pane, 'row-')).toEqual([
+    ['Plugins', '5/6 ›'],
+    ['Themes', 'Tokyo Night ›'],
+  ])
+  // The ring starts on Plugins.
+  expect((await pane.find({ type: 'Button', key: 'row-plugins' }))?.props.autoFocus).toBe(true)
+  expect(await footerOf(pane)).toBe('↑↓: move · enter: open · esc: close')
   expect(seen.sets).toEqual([])
+})
+
+test('docked, the menu fills the body rows; inline it fits its content', async ($, on) => {
+  host(on)
+  await run($)
+  const docked = await menu($)
+  expect((await docked.find({ type: 'Box' }))?.props).toMatchObject({ width: 42, height: 30 })
+  await docked.unmount()
+  expect((await (await menu($, 'inline')).find({ type: 'Box' }))?.props).not.toHaveProperty('height')
+})
+
+test('the ring never lands on the hidden hotkeys', async ($, on) => {
+  host(on)
+  await openPlugins($)
+  for (const element of ['menu-toggle', 'menu-up', 'menu-down']) {
+    expect(await $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element, origin: { kind: 'person' } })).toEqual({ deny: expect.any(String) })
+  }
 })
 
 test('under claude -p /ctui prints the fixed line and opens nothing', async ($, on) => {
@@ -170,57 +217,92 @@ test('who holds /ctui, from the engine’s refusal', () => {
   expect(takenBy('"/ctui" refused: it is the user\'s /ctui')).toBe('your own /ctui')
 })
 
-test('Themes: inherit, then the Themes by name A–Z, the current one selected', { options: { theme: 'tokyo-night' } }, async ($, on) => {
-  host(on)
+const openThemes = async ($: Engine) => {
   await run($)
   const pane = await menu($)
-  await pane.select({ key: 'menu-top', value: 'themes' })
-  expect(await pane.find({ type: 'Input', key: 'menu-filter' })).toBeDefined()
-  expect(await optionsOf(pane, 'menu-themes')).toEqual([
-    { value: 'inherit', label: 'inherit' },
-    { value: 'catppuccin', label: 'Catppuccin' },
-    { value: 'everforest', label: 'Everforest' },
-    { value: 'tokyo-night', label: 'Tokyo Night' },
-  ])
-  expect((await pane.find({ type: 'Select', key: 'menu-themes' }))?.props.value).toBe('tokyo-night')
+  await pane.press({ key: 'row-themes' })
+  return pane
+}
+
+test('Themes: inherit, then the Themes by name A–Z, the current one marked', { options: { theme: 'tokyo-night' } }, async ($, on) => {
+  host(on)
+  const pane = await openThemes($)
+  expect(await pane.find({ type: 'Text', text: /^Settings/ })).toMatchObject({ text: 'Settings › Themes' })
+  expect((await pane.find({ type: 'Input', key: 'menu-filter' }))?.props.autoFocus).toBe(true)
+  expect(await rowsOf(pane, 'theme-')).toEqual([['inherit'], ['Catppuccin'], ['Everforest'], ['Tokyo Night', '●']])
+  expect((await pane.find({ type: 'Text', text: '●' }))?.props.color).toBe('suggestion')
+  expect(await footerOf(pane)).toBe('type: filter · ↑↓: move · enter: pick · esc: back')
+})
+
+test('the Theme rows scroll with the ring, ↑ more and ↓ more marking what is cut off', async ($, on) => {
+  host(on)
+  await (await openThemes($)).unmount()
+  // 15 body rows leave 2 Theme rows under the frame, the field and the footer.
+  const short = await $.ui.mount({
+    plugin: 'ctui',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'ctui',
+    props: { title: 'Settings', isFocused: true, bodyColumns: 42, placement: 'dock', scroll: { offset: 0, bodyRows: 15 }, view: {} },
+  })
+  expect(await themesOf(short)).toEqual(['inherit', 'catppuccin'])
+  expect(await short.find({ type: 'Text', text: '↓ more' })).toBeDefined()
+  await $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: 'theme-tokyo-night', origin: { kind: 'person' } })
+  await short.redraw()
+  expect(await themesOf(short)).toEqual(['everforest', 'tokyo-night'])
+  expect(await short.find({ type: 'Text', text: '↑ more' })).toBeDefined()
+  expect(await short.find({ type: 'Text', text: '↓ more' })).toBeUndefined()
+  // The ringed row keeps the ring through a redraw.
+  expect((await short.find({ type: 'Button', key: 'theme-tokyo-night' }))?.props.autoFocus).toBe(true)
+  expect((await short.find({ type: 'Input', key: 'menu-filter' }))?.props.autoFocus).toBeUndefined()
+})
+
+test('the Theme window follows the ring above the current Theme', { options: { theme: 'tokyo-night' } }, async ($, on) => {
+  host(on)
+  await (await openThemes($)).unmount()
+  const short = await $.ui.mount({
+    plugin: 'ctui',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'ctui',
+    props: { title: 'Settings', isFocused: true, bodyColumns: 42, placement: 'dock', scroll: { offset: 0, bodyRows: 15 }, view: {} },
+  })
+  // It opens on the current Theme, then moves up with the ring.
+  expect(await themesOf(short)).toEqual(['everforest', 'tokyo-night'])
+  await $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: 'theme-catppuccin', origin: { kind: 'person' } })
+  await short.redraw()
+  expect(await themesOf(short)).toEqual(['inherit', 'catppuccin'])
 })
 
 test('the filter narrows the Themes on each keystroke; nothing left reads no match', async ($, on) => {
   host(on)
-  await run($)
-  const pane = await menu($)
-  await pane.select({ key: 'menu-top', value: 'themes' })
+  const pane = await openThemes($)
   await pane.input({ key: 'menu-filter', text: 'N', kind: 'change' })
-  expect((await optionsOf(pane, 'menu-themes'))?.map((option) => option.value)).toEqual(['inherit', 'catppuccin', 'tokyo-night'])
+  expect(await themesOf(pane)).toEqual(['inherit', 'catppuccin', 'tokyo-night'])
   await pane.input({ key: 'menu-filter', text: 'xyz', kind: 'change' })
-  expect(await pane.find({ type: 'Select', key: 'menu-themes' })).toBeUndefined()
+  expect(await themesOf(pane)).toEqual([])
   expect(await pane.find({ type: 'Text', text: 'no match' })).toBeDefined()
 })
 
 test('a pick writes the theme once; the menu stays on Themes with its filter', async ($, on) => {
   const clock = mock.clock(on)
   const seen = host(on)
-  await run($)
-  const pane = await menu($)
-  await pane.select({ key: 'menu-top', value: 'themes' })
+  const pane = await openThemes($)
   await pane.input({ key: 'menu-filter', text: 'ever', kind: 'change' })
-  await pane.select({ key: 'menu-themes', value: 'everforest' })
+  await pane.press({ key: 'theme-everforest' })
   await clock.settle()
   expect(seen.sets).toEqual([{ key: 'ctui.theme', value: 'everforest' }])
   expect(seen.closes).toEqual([])
   // The reload's redraw reads the menu back from $.state.
   await pane.redraw()
   expect((await pane.find({ type: 'Input', key: 'menu-filter' }))?.props.value).toBe('ever')
-  expect((await optionsOf(pane, 'menu-themes'))?.map((option) => option.value)).toEqual(['everforest'])
+  expect(await themesOf(pane)).toEqual(['everforest'])
 })
 
 test('picking the current Theme writes nothing', async ($, on) => {
   const clock = mock.clock(on)
   const seen = host(on)
-  await run($)
-  const pane = await menu($)
-  await pane.select({ key: 'menu-top', value: 'themes' })
-  await pane.select({ key: 'menu-themes', value: 'inherit' })
+  await (await openThemes($)).press({ key: 'theme-inherit' })
   await clock.settle()
   expect(seen.sets).toEqual([])
 })
@@ -229,10 +311,7 @@ test('a refused pick toasts the deny, even with agent toasts off', { options: { 
   const clock = mock.clock(on)
   const toasts: string[] = []
   host(on, { deny: 'locked by policy', toasts })
-  await run($)
-  const pane = await menu($)
-  await pane.select({ key: 'menu-top', value: 'themes' })
-  await pane.select({ key: 'menu-themes', value: 'everforest' })
+  await (await openThemes($)).press({ key: 'theme-everforest' })
   await clock.settle()
   expect(toasts).toEqual(["Can't switch the Sidebar theme to everforest: locked by policy"])
 })
@@ -242,9 +321,10 @@ for (const level of ['themes', 'plugins'] as const) {
     const state: { menu?: MenuState } = { menu: { level, filter: '', picks: { top: level } } }
     const opens: PaneOpenArgs[] = []
     expect(await esc(state, opens)).toEqual({ deny: expect.any(String) })
-    expect(state.menu).toEqual({ level: 'top', filter: '', picks: { top: level } })
+    // The ring goes back to the row just left.
+    expect(state.menu).toEqual({ level: 'top', filter: '', picks: { top: level }, ring: `row-${level}` })
     // The deny hands the keys to the prompt: the menu opens again to take them back.
-    expect(opens).toEqual([{ id: 'ctui', title: 'ctui', focus: true, closeOnEscape: true, columns: 42 }])
+    expect(opens).toEqual([OPEN])
     expect(await esc(state, opens)).toBe('closed')
   })
 }
@@ -254,7 +334,7 @@ for (const level of ['themes', 'plugins'] as const) {
 const openPlugins = async ($: Engine) => {
   await run($)
   const pane = await menu($)
-  await pane.select({ key: 'menu-top', value: 'plugins' })
+  await pane.press({ key: 'row-plugins' })
   return pane
 }
 
@@ -262,22 +342,29 @@ const openPlugins = async ($: Engine) => {
 const focusRow = ($: Engine, id: string) =>
   $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: `plugin-${id}`, origin: { kind: 'person' } })
 
-const rowsOf = async (pane: Awaited<ReturnType<typeof menu>>) =>
-  (await pane.findAll({ type: 'Button' })).filter((button) => button.key?.startsWith('plugin-')).map((button) => button.text)
+// The Plugins rows' titles, in order.
+const titlesOf = async (pane: Pane) => (await rowsOf(pane, 'plugin-')).map(([, title]) => title)
 
-test('Plugins lists each section in the saved order: on or off, its title, ›; then the keys', { options: { order: 'mcp', todo_enable: false } }, async ($, on) => {
+const EYE = '\u{f06e}  '
+const EYE_SLASH = '\u{f070}  '
+
+test('Plugins lists each section in the saved order: an eye when shown, its title, expanded or folded; then the keys', { options: { order: 'mcp', todo_enable: false, limits_folded: true } }, async ($, on) => {
   host(on)
   const pane = await openPlugins($)
-  expect(await rowsOf(pane)).toEqual([
-    '✓ MCP              ›',
-    '✓ Context          ›',
-    '✓ Limits           ›',
-    '✗ Todo             ›',
-    '✓ Skills           ›',
-    '✓ Agents & shells  ›',
+  expect(await pane.find({ type: 'Text', text: /^Settings/ })).toMatchObject({ text: 'Settings › Plugins' })
+  expect(await rowsOf(pane, 'plugin-')).toEqual([
+    [EYE, 'MCP', 'expanded ›'],
+    [EYE, 'Context', 'expanded ›'],
+    [EYE, 'Limits', 'folded ›'],
+    [EYE_SLASH, 'Todo', 'expanded ›'],
+    [EYE, 'Skills', 'expanded ›'],
+    [EYE, 'Agents & shells', 'expanded ›'],
   ])
-  expect(await pane.find({ type: 'Text', text: /enter settings/ })).toBeDefined()
+  expect((await pane.find({ type: 'Text', text: EYE_SLASH }))?.props.color).toBe('inactive')
+  expect(await footerOf(pane)).toBe('↑↓: move · enter: settings · x: show/hide · k/j: move row · esc: back')
+  // `x`, `k` and `j` are hotkeys, drawn nowhere.
   expect((await pane.findAll({ type: 'Button' })).map((button) => button.props.hotkey).filter(Boolean)).toEqual(['x', 'k', 'j'])
+  expect((await pane.find({ type: 'Box', text: /^show\/hide/ }))?.props.display).toBe('none')
 })
 
 test('x turns the focused plugin on or off, saving once', { options: { todo_enable: false } }, async ($, on) => {
@@ -300,7 +387,7 @@ test('k/j move the focused row at once, keep the ring on it, and save the order 
   await clock.advance(500)
   await pane.press({ key: 'menu-down' })
   await clock.advance(100)
-  expect((await rowsOf(pane)).map((row) => row.split(/\s+/)[1])).toEqual(['Limits', 'Todo', 'Context', 'Skills', 'MCP', 'Agents'])
+  expect(await titlesOf(pane)).toEqual(['Limits', 'Todo', 'Context', 'Skills', 'MCP', 'Agents & shells'])
   expect(seen.sets).toEqual([])
   await clock.advance(1000)
   expect(seen.sets).toEqual([{ key: 'ctui.order', value: 'limits,todo,context,skills,mcp,agents' }])
@@ -338,10 +425,10 @@ test('Enter opens a plugin’s screen, even off; Esc returns to its row', { opti
   host(on)
   const pane = await openPlugins($)
   await pane.press({ key: 'plugin-mcp' })
-  expect(await pane.find({ type: 'Text', text: 'ctui › Plugins › MCP' })).toBeDefined()
-  const state: { menu?: MenuState } = { menu: { level: 'plugin', filter: '', picks: { top: 'plugins' }, focus: 'mcp' } }
+  expect(await pane.find({ type: 'Text', text: /^Settings/ })).toMatchObject({ text: 'Settings › Plugins › MCP' })
+  const state: { menu?: MenuState } = { menu: { level: 'plugin', filter: '', picks: { top: 'plugins' }, focus: 'mcp', ring: 'setting-mcp_folded' } }
   expect(await esc(state, [])).toEqual({ deny: expect.any(String) })
-  expect(state.menu).toMatchObject({ level: 'plugins', focus: 'mcp' })
+  expect(state.menu).toMatchObject({ level: 'plugins', focus: 'mcp', ring: 'plugin-mcp' })
 })
 
 // Plugin settings screens (#177).
@@ -352,16 +439,16 @@ const openPlugin = async ($: Engine, id: string) => {
   return pane
 }
 
-const settingsOf = async (pane: Awaited<ReturnType<typeof menu>>) =>
-  (await pane.findAll({ type: 'Button' })).filter((button) => button.key?.startsWith('setting-')).map((button) => button.text)
+const settingsOf = async (pane: Pane) => (await rowsOf(pane, 'setting-')).map((cells) => cells.join('  '))
 
 test('Limits: Start folded, Cost and a Monthly cost field holding the saved value; then the keys', async ($, on) => {
   host(on)
   const pane = await openPlugin($, 'limits')
-  expect(await pane.find({ type: 'Text', text: 'ctui › Plugins › Limits' })).toBeDefined()
-  expect(await settingsOf(pane)).toEqual(['Start folded  off', 'Cost          auto'])
+  expect(await pane.find({ type: 'Text', text: /^Settings/ })).toMatchObject({ text: 'Settings › Plugins › Limits' })
+  expect(await settingsOf(pane)).toEqual(['Start folded  off', 'Cost  auto'])
+  expect((await pane.find({ type: 'Button', key: 'setting-limits_folded' }))?.props.autoFocus).toBe(true)
   expect((await pane.find({ type: 'Input', key: 'menu-monthly-0' }))?.props.value).toBe('100')
-  expect(await pane.find({ type: 'Text', text: 'enter change · esc back' })).toBeDefined()
+  expect(await footerOf(pane)).toBe('↑↓: move · enter: change · esc: back')
 })
 
 test('every plugin gets Start folded; Todo adds Task tools, Agents & shells Toasts', { options: { todo_tools: false } }, async ($, on) => {
@@ -373,8 +460,8 @@ test('every plugin gets Start folded; Todo adds Task tools, Agents & shells Toas
     return rows
   }
   expect(await rowsFor('mcp')).toEqual(['Start folded  off'])
-  expect(await rowsFor('todo')).toEqual(['Start folded  off', 'Task tools    off'])
-  expect(await rowsFor('agents')).toEqual(['Start folded  off', 'Toasts        on'])
+  expect(await rowsFor('todo')).toEqual(['Start folded  off', 'Task tools  off'])
+  expect(await rowsFor('agents')).toEqual(['Start folded  off', 'Toasts  on'])
 })
 
 test('Start folded saves the flip, pinning the section’s current fold first', async ($, on) => {
