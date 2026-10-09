@@ -86,13 +86,21 @@ test('before the first response context reads 0%', async ($, on) => {
 })
 
 for (const [percent, color] of [
-  [60, 'warning'],
+  [49, 'success'],
+  [50, 'warning'],
+  [84, 'warning'],
   [85, 'error'],
 ] as const) {
   test(`context at ${percent}% fills in ${color}`, async ($, on) => {
     const usage: Usage = { context: { tokens: percent * 2000, window: 200000, percent }, rateLimits: [] }
     const pane = await draw($, on, context, { usage })
     expect((await barOf(pane, new RegExp(`${percent}%$`))).colors).toEqual([color, 'subtle', 'text'])
+  })
+
+  test(`a limits row at ${percent}% fills in ${color}`, async ($, on) => {
+    const usage: Usage = { context: FRESH.context, rateLimits: [{ kind: 'five_hour', percentUsed: percent, resetsAt: at(0, 2) }] }
+    const pane = await draw($, on, limits, { usage, now: NOW, monthCost: 0 })
+    expect((await barOf(pane, /^5h/)).colors).toEqual([color, 'subtle', 'text'])
   })
 }
 
@@ -326,7 +334,12 @@ function host(on: On, usage: SessionUsage, world: World = { transcripts: {}, gre
   on('store.keys', () => ({ value: Object.keys(store) }))
   on('session.version', () => ({ value: { version: '2.1.288' } }))
   on('agent.list', () => ({ value: [] }))
-  on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
+  // The manifest, and one Theme as `themes/<slug>.json` holds it, trimmed.
+  on('fs.read', (_, e) => ({
+    value: e.path.endsWith('/themes/tokyo-night.json')
+      ? JSON.stringify({ name: 'Tokyo Night', base: 'dark', overrides: {} })
+      : '{ "version": "0.0.0" }',
+  }))
   on('fs.exists', () => ({ value: false }))
   on('fs.stat', () => {
     throw new Error('ENOENT')
@@ -428,16 +441,26 @@ test('after /clear empties $.state, the tick reloads the usage and the versions'
   await clock.settle()
   const pane = await $.ui.mount(SIDEBAR)
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()
-  expect(await pane.find({ text: 'claude-cli 2.1.288' })).toBeDefined()
+  expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
 
   cleared.add('usage').add('versions')
   await pane.redraw()
   expect(await pane.find({ text: /tokens/ })).toBeUndefined()
-  expect(await pane.find({ text: /claude-cli/ })).toBeUndefined()
+  expect(await pane.find({ text: /claude cli/ })).toBeUndefined()
   await clock.advance(1000)
   await pane.redraw()
-  expect(await pane.find({ text: 'claude-cli 2.1.288' })).toBeDefined()
+  expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()
+})
+
+// The footer names the selected Theme by its file's `name`, as `/theme` lists it.
+test('with a Theme selected the footer names it', { options: { theme: 'tokyo-night' } }, async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  host(on, { startedAt: NOW, ...FRESH })
+  await $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  const pane = await $.ui.mount(SIDEBAR)
+  expect(await pane.find({ text: 'ctui: 0.0.0, Tokyo Night' })).toBeDefined()
 })
 
 // Scenarios: the cost row's month total, from the transcripts' `cost-state` lines.

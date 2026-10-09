@@ -53,7 +53,13 @@ const keys = words(
     .map((key) => key.replace(/_enable$/, '')),
 )
 same('Sidebar plugin folders and ctui/plugins/index.ts imports', folders, imports)
-same('Sidebar plugin folders and <id>_enable keys', folders, keys)
+// The git header and versions footer are always on: every other plugin is a section with an `<id>_enable` key.
+const FIXED = ['git', 'versions']
+same(
+  'Sidebar section folders (all but git and versions) and <id>_enable keys',
+  words(folders.split(' ').filter((id) => !FIXED.includes(id))),
+  keys,
+)
 // The `theme` options: `inherit`, then every Theme file's slug A–Z.
 const themes = readdirSync('ctui/themes')
   .map((f) => f.replace(/\.json$/, ''))

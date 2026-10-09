@@ -309,27 +309,30 @@ const BUSY: SidebarData = {
     ],
   },
   now: 0,
-  mcp: Array.from({ length: 7 }, (_, i) => ({ server: `s${i}`, label: `server ${i}`, state: 'ok' as const, tools: 3 })),
+  mcp: Array.from({ length: 7 }, (_, i) => ({ server: `s${i}`, label: `server ${i}`, source: 'user', state: 'ok' as const, tools: 3 })),
   todo: { tools: 'task', items: Array.from({ length: 8 }, (_, i) => ({ id: `${i}`, subject: `task ${i}`, status: 'pending' as const })) },
   tasks: {
     a: { id: 'a', kind: 'agent', type: 'Explore', label: 'map', status: 'running', startedAt: 0 },
     b: { id: 'b', kind: 'agent', type: 'Plan', label: 'plan', status: 'running', startedAt: 1 },
   },
-  versions: { ctui: '0.3.0', claude: '2.1.292' },
+  versions: { ctui: '0.3.0', claude: '2.1.292', theme: 'inherit' },
 }
 
 // The sections window: from after the double rule's blank row to the flexible space before the footer.
 const windowOf = (sizes: (string | number)[]) => sizes.slice(sizes.indexOf(D) + 2, sizes.lastIndexOf(''))
-const busy = ($: Engine, on: On, scroll: number) => draw($, on, { plugins, data: BUSY, bodyRows: 34, scroll })
+// #85's section order: MCP before Todo.
+const BUSY_ORDER = ['git', 'context', 'limits', 'mcp', 'todo', 'agents', 'versions']
+const busyPlugins = BUSY_ORDER.map((id) => plugins.find((plugin) => plugin.id === id)!)
+const busy = ($: Engine, on: On, scroll: number) => draw($, on, { plugins: busyPlugins, data: BUSY, bodyRows: 34, scroll })
 
-test("#85's busy data at 34 body rows: 37 section rows overflow 23 free rows", async ($, on) => {
+test("#85's busy data at 34 body rows: 37 section rows overflow 22 free rows", async ($, on) => {
   const top = await busy($, on, 0)
   const window = windowOf(layout(top.tree))
-  // A 4-row header (path, blank row, branch, counts) leaves 23 free rows.
-  // `↓ more` leaves 22, which hold Context, Limits and MCP (22 rows) but
-  // not Todo's blank row, rule, title and spacer (4 more).
-  expect(window.slice(-4)).toEqual(['● server 23 tools', '● server 33 tools', '▸ 3 more', '↓ more'])
-  expect(height(window)).toBe(23)
+  // A 4-row header (path, blank row, branch, counts) and the 2-row footer
+  // leave 22 free rows. `↓ more` leaves 21, which hold Context, Limits and
+  // MCP to its fourth server (21 rows) but not `▸ 3 more`.
+  expect(window.slice(-4)).toEqual(['● server 1user · 3 tools', '● server 2user · 3 tools', '● server 3user · 3 tools', '↓ more'])
+  expect(height(window)).toBe(22)
   expect(window.filter((size) => size === B)).toHaveLength(5)
   expect(window.filter((size) => size === R)).toHaveLength(2)
   // One stop per row: from MCP's first row (stop 10) the rest, 20 rows, fits
@@ -339,7 +342,7 @@ test("#85's busy data at 34 body rows: 37 section rows overflow 23 free rows", a
 
 test("#85's busy data scrolled to the end", async ($, on) => {
   const window = windowOf(layout((await busy($, on, 99)).tree))
-  expect(window.slice(0, 2)).toEqual(['↑ more', '● server 03 tools'])
+  expect(window.slice(0, 2)).toEqual(['↑ more', '● server 0user · 3 tools'])
   expect(window.at(-1)).toBe('◐ Plan · plan0s')
   expect(height(window)).toBe(21)
 })

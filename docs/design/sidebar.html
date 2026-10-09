@@ -18,6 +18,8 @@
   with 1 blank row on each side parts the git header from the sections. In
   the header, 1 blank row parts the path from the git rows, each led by its
   Devicons glyph in muted: U+E725 branch, U+E702 changeset, U+E728 lines.
+  At the Sidebar's 42 columns the footer takes two rows: `claude cli: <v>`,
+  then `ctui: <v>, <Theme name>`.
 -->
 <html lang="en">
 <head>
@@ -102,7 +104,6 @@
   .gap { height: var(--row); }
   .indent { padding-left: calc(2 * var(--col)); }
   .more { text-align: right; }
-  .rule { position: absolute; left: 176px; margin-top: -0.5px; width: 1px; height: 21px; background: var(--faint); }
 </style>
 </head>
 <body>
@@ -111,8 +112,8 @@
   // sections window overflows into `↓ more`.
   const RENDERS = {
     1: { name: 'all-folded', expanded: [] },
-    2: { name: 'some-folded', expanded: ['context', 'todo', 'agents'] },
-    3: { name: 'all-expanded', expanded: ['context', 'limits', 'mcp', 'todo', 'agents'], lists: ['mcp', 'todo'], more: true },
+    2: { name: 'some-folded', expanded: ['skills', 'mcp'] },
+    3: { name: 'all-expanded', expanded: ['context', 'limits', 'todo', 'skills', 'mcp', 'agents'], more: true },
   }
 
   const span = (cls, text) => `<span class="${cls}">${text}</span>`
@@ -148,20 +149,6 @@
       ],
     },
     {
-      id: 'mcp', title: 'MCP',
-      summary: `${span('g', '●')}${span('m', ' 5 ')}${span('r', '✕')}${span('m', ' 1 ○ 1')}`,
-      count: span('m', '5/7'),
-      list: [
-        split(`${span('g', '●')} playwright`, span('m', '22 tools')),
-        split(`${span('g', '●')} Claude Docs`, span('m', '9 tools')),
-        split(`${span('r', '✕')} sentry`, span('r', 'failed')),
-        split(`${span('g', '●')} context7`, span('m', '2 tools')),
-        split(`${span('g', '●')} linear`, span('m', '31 tools')),
-        split(`${span('g', '●')} postgres`, span('m', '6 tools')),
-        split(`${span('m', '○')} github`, span('m', 'off')),
-      ],
-    },
-    {
       id: 'todo', title: 'Todo',
       summary: `${span('m', '2/8 · ')}write the test`,
       count: span('m', '2/8'),
@@ -174,6 +161,34 @@
         row(span('m', '○ check Windows paths')),
         row(span('m', '○ run full test suite')),
         row(span('m', '○ write changelog entry')),
+      ],
+    },
+    {
+      id: 'skills', title: 'Skills',
+      summary: span('m', '5'),
+      count: span('m', '5'),
+      // A–Z by name, then source; a long name truncates, the source never does.
+      list: [
+        split('artifact-capabilit…', span('m', 'anthropic-skills')),
+        split('git-guardrails-claude-code', span('m', 'user')),
+        split('review', span('m', 'code-tools')),
+        split('review', span('m', 'pr-kit')),
+        split('tdd', span('m', 'user')),
+      ],
+    },
+    {
+      id: 'mcp', title: 'MCP',
+      summary: `${span('g', '●')}${span('m', ' 5 ')}${span('r', '✕')}${span('m', ' 1 ○ 1')}`,
+      count: span('m', '5/7'),
+      // A–Z, off rows last; the source and its · muted, the status in its role.
+      list: [
+        split(`${span('g', '●')} Claude Docs`, span('m', 'claude.ai · 9 tools')),
+        split(`${span('g', '●')} context7`, span('m', 'context7 · 2 tools')),
+        split(`${span('g', '●')} linear`, span('m', 'claude.ai · 31 tools')),
+        split(`${span('g', '●')} playwright`, span('m', 'user · 22 tools')),
+        split(`${span('g', '●')} postgres`, span('m', 'project · 6 tools')),
+        split(`${span('r', '✕')} sentry`, `${span('m', 'user · ')}${span('r', 'down')}`),
+        split(`${span('m', '○')} github`, span('m', 'user · off')),
       ],
     },
     {
@@ -272,8 +287,8 @@
           ${render.more ? row(span('m', '↓ more'), 'more') : ''}
           <div class="fill"></div>
           ${row('')}
-          ${split(`${span('m', 'claude-tui')} 0.1.1<i class="rule"></i>`, `${span('m', 'opencode')} 1.0`)}
-          ${row(`${span('m', 'claude-cli')} 2.1.288`)}
+          ${row(`${span('m', 'claude cli:')} 2.1.292`)}
+          ${row(`${span('m', 'ctui:')} 0.4.0, inherit`)}
         </div></div>
       </div>`
   }

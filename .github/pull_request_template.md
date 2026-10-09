@@ -11,5 +11,5 @@ Sections of `docs/testing/live-checks.md` run on the pinned Claude Code (see `CO
 - [ ] Toasts
 - [ ] Render-site rewrites
 - [ ] Themes
-- [ ] Commands and pickers
+- [ ] The `/ctui` menu
 - [ ] `claude -p`

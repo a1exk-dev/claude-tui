@@ -8,7 +8,7 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 export type Level = 'success' | 'warning' | 'error'
 
 // The role of a bar's fill.
-export const level = (percent: number): Level => (percent < 60 ? 'success' : percent < 85 ? 'warning' : 'error')
+export const level = (percent: number): Level => (percent < 50 ? 'success' : percent < 85 ? 'warning' : 'error')
 
 // `18,402`
 export const formatTokens = (tokens: number) => tokens.toLocaleString('en-US')

@@ -19,10 +19,7 @@ const STATES: Record<McpRow['state'], State> = {
 }
 const ORDER = Object.keys(STATES) as McpRow['state'][]
 
-// First-seen order with off rows last.
-const shown = (rows: readonly McpRow[]) => [...rows].sort((a, b) => +(a.state === 'off') - +(b.state === 'off'))
-
-// The MCP servers seen with tools this session plus disabled ones, each with its state.
+// The MCP servers seen with tools this session plus disabled ones, each with its source and state.
 const plugin: SidebarPlugin = {
   id: 'mcp',
   title: 'MCP',
@@ -30,7 +27,7 @@ const plugin: SidebarPlugin = {
   needs: ['mcp'],
   list: true,
   view: ({ mcp = [] }, { Box, Text }, _cfg, _width, c) =>
-    shown(mcp).map((row) => {
+    mcp.map((row) => {
       const { glyph, role, text, textRole } = STATES[row.state]
       return (
         <Box flexGrow={1} justifyContent="space-between" columnGap={1}>
@@ -38,7 +35,9 @@ const plugin: SidebarPlugin = {
             <Text color={c[role]}>{glyph}</Text> {row.label}
           </Text>
           <Box flexShrink={0}>
-            <Text color={c[textRole]}>{text(row)}</Text>
+            <Text color={c.muted}>
+              {row.source} · <Text color={c[textRole]}>{text(row)}</Text>
+            </Text>
           </Box>
         </Box>
       )

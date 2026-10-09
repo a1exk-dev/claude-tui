@@ -6,11 +6,11 @@ The docked pane the mod draws beside the transcript, specified by the renders in
 
 ## Sidebar plugin
 
-A pure module in `ctui/plugins/<id>/` that draws one foldable block of the **Sidebar**: `git` (header), `context`, `limits`, `mcp`, `todo`, `agents` ("Agents & shells"), or `versions` (footer). It is enabled by the `<id>_enable` setting or by `/ctui:plugins:enable|disable`. Its folded state is separate from enablement. It is not a Claude Code plugin: "the plugin" alone means `ctui`, the Claude Code plugin this repo ships.
+A pure module in `ctui/plugins/<id>/` that draws one foldable block of the **Sidebar**: `git` (header), `context`, `limits`, `todo`, `skills`, `mcp`, `agents` ("Agents & shells"), or `versions` (footer). The `git` header and `versions` footer are always on and never move. A section between them is enabled by the `<id>_enable` setting or in the `/ctui` menu's Plugins screen, and drawn in the order the `order` setting gives. Its folded state is separate from enablement. It is not a Claude Code plugin: "the plugin" alone means `ctui`, the Claude Code plugin this repo ships.
 
 ## Theme
 
-A `ctui/themes/<slug>.json` file in Claude Code's theme format, selected in `/ctui:theme`, that recolors the **Sidebar** and paints its background. ctui bundles one per built-in Omarchy theme, generated from that theme's palette. Claude Code also lists each file in `/theme`, where it recolors all of Claude Code and the Sidebar's dock. `inherit`, the default, means no file: the Sidebar uses the user's current Claude Code theme and paints no background.
+A `ctui/themes/<slug>.json` file in Claude Code's theme format, selected in the `/ctui` menu's Themes screen, that recolors the **Sidebar** and paints its background. ctui bundles one per built-in Omarchy theme, generated from that theme's palette. Claude Code also lists each file in `/theme`, where it recolors all of Claude Code and the Sidebar's dock. `inherit`, the default, means no file: the Sidebar uses the user's current Claude Code theme and paints no background.
 
 ## ctui
 

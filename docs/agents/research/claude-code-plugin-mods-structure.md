@@ -1,5 +1,7 @@
 # Claude Code plugin and mod structure, and a repo layout for claude-tui
 
+> Superseded in part by ctui 0.4.0 (#168): the one `/ctui` menu replaced the `/ctui:*` commands, and the `git` header and `versions` footer lost their enable settings. The text below records the earlier state.
+
 > Researched 2026-10-03 against Claude Code **2.1.288** (`claude --version`).
 >
 > Source keys used below:

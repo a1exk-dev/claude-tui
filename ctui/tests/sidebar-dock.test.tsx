@@ -111,8 +111,8 @@ test('seated inline, the Sidebar draws nothing and closes', async ($, on) => {
 // straight to the plugin's hook.
 test('the person can’t close the Sidebar; a plugin close passes', async () => {
   let close: ((...args: unknown[]) => unknown) | undefined
-  const record = (event: string, _matcher: unknown, hook: (...args: unknown[]) => unknown) => {
-    if (event === 'ui.close') close = hook
+  const record = (event: string, matcher: { id?: string }, hook: (...args: unknown[]) => unknown) => {
+    if (event === 'ui.close' && matcher.id === 'sidebar') close = hook
   }
   register(record as unknown as On, {})
   const next = () => 'closed'
@@ -148,6 +148,26 @@ test('a section starts from <id>_folded and folds on a press', { options: { mcp_
   expect((await pane.find({ in: 'fold-mcp' }))?.text).toBe('▼')
   expect((await pane.find({ in: 'fold-todo' }))?.text).toBe('▶\uFE0E')
 })
+
+// The sections in drawn order, by their title rows' keys.
+const sectionsOf = async (pane: { findAll(query: { type: 'Client' }): Promise<{ key?: string }[]> }) =>
+  (await pane.findAll({ type: 'Client' })).flatMap(({ key }) => /^foldrow-(\w+)$/.exec(key ?? '')?.slice(1) ?? [])
+
+test('with no order set, the sections draw in registry order between the header and footer', async ($, on) => {
+  mock.clock(on)
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 60) })
+  expect(await sectionsOf(pane)).toEqual(['context', 'limits', 'todo', 'skills', 'mcp', 'agents'])
+})
+
+test(
+  'the order setting reorders the sections; a disabled one stays out',
+  { options: { order: 'agents,mcp,nope', todo_enable: false } },
+  async ($, on) => {
+    mock.clock(on)
+    const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 60) })
+    expect(await sectionsOf(pane)).toEqual(['agents', 'mcp', 'context', 'limits', 'skills'])
+  },
+)
 
 test('a fold arrow draws muted, and accent under the pointer', async ($) => {
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
@@ -283,8 +303,8 @@ test('git refreshes at session start, every 5 s and after a file-changing tool',
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
   expect(await pane.find({ text: '~/Projects/x' })).toBeDefined()
   expect(await pane.find({ text: `${BRANCH} main` })).toBeDefined()
-  expect(await pane.find({ text: 'ctui 0.0.0' })).toBeDefined()
-  expect(await pane.find({ text: 'claude-cli 2.1.288' })).toBeDefined()
+  expect(await pane.find({ text: 'ctui: 0.0.0, inherit' })).toBeDefined()
+  expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
 
   await clock.advance(4000)
   expect(statusRuns(git.runs)).toBe(1)
@@ -301,6 +321,21 @@ test('git refreshes at session start, every 5 s and after a file-changing tool',
   await pane.redraw()
   expect(await pane.find({ text: `${BRANCH} next` })).toBeDefined()
 })
+
+// A `git_enable` or `versions_enable` an earlier ctui saved stays in settings.json.
+test(
+  'the git header and versions footer draw whatever an old setting says',
+  { options: { git_enable: false, versions_enable: false } },
+  async ($, on) => {
+    const clock = mock.clock(on)
+    host(on, { runs: [], status: STATUS })
+    await $.session.start({ cwd: '/home/a/Projects/x', surface: 'terminal', isInteractive: true })
+    await clock.settle()
+    const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+    expect(await pane.find({ text: `${BRANCH} main` })).toBeDefined()
+    expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
+  },
+)
 
 test('outside a repo the header is the path alone', async ($, on) => {
   const clock = mock.clock(on)

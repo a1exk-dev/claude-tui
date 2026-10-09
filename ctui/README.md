@@ -1,6 +1,6 @@
 # ctui
 
-ctui is a skin for the Claude Code terminal UI. It docks a sidebar beside the transcript with git, context, limits, MCP, todo, and agents-and-shells sections, and it restyles the lines under the prompt input. It also raises short toasts when a subagent or a background shell starts, finishes, or fails.
+ctui is a skin for the Claude Code terminal UI. It docks a sidebar beside the transcript with git, context, limits, todo, skills, MCP, and agents-and-shells sections, and it restyles the lines under the prompt input. It also raises short toasts when a subagent or a background shell starts, finishes, or fails.
 
 Tested with Claude Code 2.1.292 ([all tested versions](COMPATIBILITY.md)).
 
@@ -37,10 +37,10 @@ Every setting, the sidebar sections and their options, an example Claude Code th
 
 ## Commands
 
-- `/ctui:theme [theme]` switches the sidebar theme. `inherit`, the default, follows your Claude Code theme.
-- `/ctui:plugins:enable [plugin]` and `/ctui:plugins:disable [plugin]` turn a sidebar section on or off.
+- `/ctui` opens the ctui menu at once, even while Claude is replying. **Themes** lists `inherit` (the default, which follows your Claude Code theme) and every bundled theme by name, with a filter field: type to narrow the list, pick to switch. Esc goes back one level, and closes the menu at the top.
+- **Plugins** in the same menu lists the sidebar sections in their order: `x` turns the focused one on or off, `k`/`j` move it up or down (saved a second after the last move), and Enter opens its settings.
 
-With no argument, each command opens a list to pick from. Each section and the toasts also have a row in `/config`. Settings are saved to your user `settings.json`, so a change applies to every session.
+If another command already holds `/ctui`, ctui says so in a toast once per session; change its settings in `/config` instead. Each section and the toasts also have a row in `/config`. Settings are saved to your user `settings.json`, so a change applies to every session.
 
 ## Task tools
 
@@ -48,7 +48,7 @@ The todo section shows Claude's task list. Claude Code gives Claude the Task too
 
 ## What ctui watches
 
-ctui runs as a mod in every Claude Code session where the plugin is enabled. It watches Bash tool calls and subagent events to show background shells and agents, watches Claude's task tool calls and reads the session's task list for the todo section, runs `git` in the working directory for the sidebar header, reads the list of MCP servers you turned off from `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`), and, with the `inherit` theme and a custom Claude Code theme, reads that theme's file from `~/.claude/themes/` to tint the sidebar. It makes no network calls and sends nothing anywhere.
+ctui runs as a mod in every Claude Code session where the plugin is enabled. It watches Bash tool calls and subagent events to show background shells and agents, watches Claude's task tool calls and reads the session's task list for the todo section, watches which skills and commands the chat invokes, and reads the skill and command lists and, after a resume, the transcript, for the skills section, runs `git` in the working directory for the sidebar header, reads the names of your MCP servers and the ones you turned off from `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`), the `.mcp.json` files from the working directory up, your settings and the managed MCP settings, and which server a finished MCP tool call came from, to show where each server comes from (never a server's config, which can hold secrets), and, with the `inherit` theme and a custom Claude Code theme, reads that theme's file from `~/.claude/themes/` to tint the sidebar. It makes no network calls and sends nothing anywhere.
 
 ## Known differences
 

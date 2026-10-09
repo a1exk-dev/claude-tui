@@ -17,7 +17,8 @@ export type GitRepo = {
 // `repo` is absent outside a repo.
 export type GitSnapshot = { path: string; repo?: GitRepo }
 
-export type Versions = { ctui: string; claude: string }
+// `theme` is the selected Theme file's `name`, or `inherit`.
+export type Versions = { ctui: string; claude: string; theme: string }
 
 // `$.session.usage()`'s figures, as `session.measure` pushes them. The
 // contract is self-contained, so the engine's types are restated here.
@@ -31,10 +32,14 @@ export type Usage = {
 export type McpRow = {
   server: string // the tool-name segment, `mcp__<server>__<tool>`
   label: string
+  source: string // `user`, `project`, `local`, `claude.ai`, a plugin's name, `managed`, `enterprise`, `dynamic`
   state: 'ok' | 'auth' | 'connecting' | 'down' | 'off'
   tools?: number
   since?: number
 }
+
+// One invoked skill: its name as `/skills` lists it (`kit:review`) and its source.
+export type SkillRow = { name: string; source: string }
 
 // One todo row: a Task tool task (`id` set) or a `TodoWrite` todo.
 export type TodoItem = {
@@ -63,6 +68,20 @@ export type Task = {
   listed?: string // agent only: the status $.agent.list() last gave
 }
 
+// The `/ctui` menu's level, its Theme filter, and the top level's last pick.
+// `plugin` is one plugin's screen, `focus` the plugin whose row has the ring,
+// `ring` the element holding it, `pending` a section order moved but not yet saved.
+export type MenuLevel = 'top' | 'plugins' | 'plugin' | 'themes'
+export type Menu = {
+  level: MenuLevel
+  filter: string
+  picks: Partial<Record<MenuLevel, string>>
+  focus?: string
+  ring?: string
+  pending?: string[]
+  entry?: number // bumped on a refused Monthly cost: a new field shows the saved value again
+}
+
 // A finished main-loop turn, matched to its footer by `durationMs`.
 export type Turn = { durationMs: number; mode: string; model: string }
 
@@ -76,8 +95,10 @@ declare module 'claude-code' {
       git?: GitSnapshot
       usage?: Usage
       month?: { month: string; session: string; usd: number } // the ended sessions' cost in the local month `2026-10`, the current session left out
-      mcp: McpRow[] // first-seen order
+      mcp: McpRow[] // A–Z, off rows last
+      mcpObserved: Record<string, string> // tool segment → the source a run of its tool reported
       todo?: Todo
+      skills?: SkillRow[] // every skill the chat invoked, first use first; unset until loaded
       activeForms: Record<string, string> // Task id → activeForm, from TaskCreate/TaskUpdate inputs
       todoEnvSet?: boolean // ctui set CLAUDE_CODE_ENABLE_TODO_TOOLS
       versions?: Versions
@@ -86,6 +107,8 @@ declare module 'claude-code' {
       effort?: string | null // the session's effort; null when the model takes none
       turns: Turn[] // every finished turn of the session: old footers redraw on scroll
       glass?: string | null // under `inherit`, the active custom /theme's glass; null or unset paints nothing
+      menu?: Menu // the open `/ctui` menu: it outlives each settings reload
+      menuTaken?: boolean // this session toasted that `/ctui` is taken
     }
   }
 }
