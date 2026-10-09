@@ -2,14 +2,16 @@ import type { Todo, TodoItem } from '../../types'
 import type { Role } from '../colors'
 import type { SidebarPlugin } from '../plugin'
 
-// A done or waiting item's glyph and its role, and the role of its text.
+// A done or waiting item's Nerd Font glyph (nf-md-checkbox_marked_circle,
+// nf-md-checkbox_blank_circle_outline) and its role, and the role of its text.
 const STATUSES: Record<Exclude<TodoItem['status'], 'in_progress'>, { glyph: string; role: Role; textRole: Role }> = {
-  completed: { glyph: '✓', role: 'muted', textRole: 'muted' },
-  pending: { glyph: '⠶', role: 'faint', textRole: 'muted' },
+  completed: { glyph: '\u{f0133}', role: 'muted', textRole: 'muted' },
+  pending: { glyph: '\u{f0130}', role: 'faint', textRole: 'muted' },
 }
 
-// The item in progress's spinner frames, one every `ms` (`spinner.tsx`).
-const SPINNER = { frames: ['⠴', '⠦', '⠖', '⠲'], ms: 100 }
+// The item in progress's spinner frames, nf-md-circle_slice_1 to 8 (a circle
+// filling up), one every `ms` (`spinner.tsx`).
+const SPINNER = { frames: Array.from({ length: 8 }, (_, i) => String.fromCodePoint(0xf0a9e + i)), ms: 100 }
 
 const textOf = (item: TodoItem) => (item.status === 'in_progress' ? (item.activeForm ?? item.subject) : item.subject)
 
