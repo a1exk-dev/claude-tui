@@ -130,6 +130,13 @@ let stepModel: string | undefined // the last main-loop turn.step's model
 let lastTurn: { turn: Turn; at: number } | undefined // the latest main-loop turn.complete's record
 const drawnFooters = new Set<string>() // TurnDuration instances drawn since load
 
+// A hook's answer from its own call: the result alone, so core maps it for this
+// call's tool_use_id. A deny or error passes through unchanged.
+async function ownCall<R extends { deny?: string; isError?: true; result?: unknown }>(call: Promise<R>): Promise<R> {
+  const ran = await call
+  return ran.deny !== undefined || ran.isError ? ran : ({ result: ran.result } as R)
+}
+
 // A run still going takes this refresh as one more run after it ends.
 async function refreshGit($: EngineInterface) {
   if (gitRunning) {
@@ -748,10 +755,19 @@ async function setEffort($: EngineInterface, effort: string | null) {
   if (value !== effort) await $.state.set(EFFORT, effort)
 }
 
+// A change of the dock's columns redraws what fits around it.
+function setDock($: EngineInterface, dock: number) {
+  if (dock !== dockColumns) {
+    dockColumns = dock
+    redrawLater($)
+  }
+}
+
 async function openSidebar($: EngineInterface, columns: number) {
   requested = columns
   const opened = await $.ui.open({ id: SIDEBAR, title: 'Sidebar', columns })
   waiting = !opened.isPlaced
+  if (waiting) setDock($, 0)
 }
 
 export const register: Register = (on, options) => {
@@ -858,9 +874,15 @@ export const register: Register = (on, options) => {
     }
   })
 
-  // A task tool's call reloads the list. Observe only.
+  // While the Sidebar is docked with Todo on, a main-loop task call runs as ctui's
+  // own `$.tool.call`: the tool's `set_expanded_view` progress never reaches the
+  // REPL, so Claude Code's own list stays closed. It runs here, not in a hook of
+  // its own, since ctui's own call skips ctui's `tool.call` hooks.
+  const hidesList = (agentId: string | undefined) => agentId === undefined && dockColumns > 0 && needs.has('todo')
+
+  // A task tool's call reloads the list.
   on('tool.call', { tool: 'TaskCreate' }, async ($, e, next) => {
-    const done = await next(e)
+    const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
       await keepActiveForm($, done.result.task.id, e.activeForm)
       void loadTodo($)
@@ -869,7 +891,7 @@ export const register: Register = (on, options) => {
   })
 
   on('tool.call', { tool: 'TaskUpdate' }, async ($, e, next) => {
-    const done = await next(e)
+    const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
       await keepActiveForm($, e.taskId, e.activeForm)
       void loadTodo($)
@@ -1033,9 +1055,10 @@ export const register: Register = (on, options) => {
       $.clock.after(0, async () => {
         try {
           // Open or waiting: the pane is placed, or the engine places it as the terminal widens.
-          if (!(await $.ui.panes()).some((pane) => pane.id === SIDEBAR)) {
-            await openSidebar($, widthFor(viewport.columns))
-          }
+          const pane = (await $.ui.panes()).find((pane) => pane.id === SIDEBAR)
+          // Closed or waiting, it isn't docked, and its last docked columns go.
+          if (!pane?.isPlaced) setDock($, 0)
+          if (!pane) await openSidebar($, widthFor(viewport.columns))
         } finally {
           checking = false
         }
@@ -1069,11 +1092,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'Pane', requestId: SIDEBAR }, async ($, e) => {
     const ui = $.ui.resolve(e)
     if (!('Client' in ui)) return <ui.Box />
-    const dock = e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1
-    if (dock !== dockColumns) {
-      dockColumns = dock
-      redrawLater($)
-    }
+    setDock($, e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1)
     if (e.props.placement === 'inline') {
       $.clock.after(0, () => void $.ui.close({ id: SIDEBAR }))
       return <ui.Box />

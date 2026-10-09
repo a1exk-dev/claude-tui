@@ -96,7 +96,11 @@ type Task = { id: string; subject: string; status: 'pending' | 'in_progress' | '
 
 // The world beneath the plugin: a session outside any repo, the tool list,
 // a Task store answering the Task tools, and an environment `$.env.set` writes.
-function host(on: On, world: { tools: string[]; tasks: Task[]; env: Record<string, string | undefined> }) {
+// `world.callers` records whose call reached each Task tool: `ctui` for its own.
+function host(
+  on: On,
+  world: { tools: string[]; tasks: Task[]; env: Record<string, string | undefined>; callers?: string[] },
+) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/srv/x' }))
   on('session.version', () => ({ value: { version: '2.1.288' } }))
@@ -121,15 +125,24 @@ function host(on: On, world: { tools: string[]; tasks: Task[]; env: Record<strin
   on('tool.list', () => ({
     value: world.tools.map((name): ToolInfo => ({ name, description: '', mcp: false })),
   }))
-  on('tool.call', { tool: 'TaskCreate' }, (_, e) => {
+  // Answers as core does, with the text the model reads.
+  on('tool.call', { tool: 'TaskCreate' }, (_, e, next) => {
+    world.callers?.push(next.origin.plugin)
     const task = { id: String(world.tasks.length + 1), subject: e.subject, status: 'pending' as const }
     world.tasks.push(task)
-    return { result: { task: { id: task.id, subject: task.subject } } }
+    return {
+      result: { task: { id: task.id, subject: task.subject } },
+      text: `Task #${task.id} created successfully: ${task.subject}`,
+    }
   })
-  on('tool.call', { tool: 'TaskUpdate' }, (_, e) => {
+  on('tool.call', { tool: 'TaskUpdate' }, (_, e, next) => {
+    world.callers?.push(next.origin.plugin)
     const task = world.tasks.find((t) => t.id === e.taskId)
     if (task && e.status && e.status !== 'deleted') task.status = e.status
-    return { result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }
+    return {
+      result: { success: true, taskId: e.taskId, updatedFields: ['status'] },
+      text: `Updated task #${e.taskId} status`,
+    }
   })
   on('tool.call', { tool: 'TaskList' }, () => {
     if (!world.tools.includes('TaskList')) throw new Error('no tool named "TaskList" in this session')
@@ -245,6 +258,96 @@ test('TodoWrite feeds the list when the Task tools are off', async ($, on) => {
   await clock.settle()
   await pane.redraw()
   expect(await rows()).toEqual(['✓ alpha', '◐ Doing beta'])
+})
+
+// Hiding Claude Code's own list (MEMORY.md "While docked with Todo on, ctui runs
+// Claude's task calls itself to hide Claude Code's list"): ctui's own call
+// answers with `{ result }` alone, and core's `next(e)` with its text.
+
+const CREATE = { tool: 'TaskCreate', subject: 'alpha', description: 'a', activeForm: 'Doing alpha' } as const
+const UPDATE = { tool: 'TaskUpdate', taskId: '1', status: 'in_progress' } as const
+
+// `beneath` registers more hooks beneath the plugin before the session starts.
+async function taskWorld($: Engine, on: On, beneath?: () => void) {
+  const clock = mock.clock(on, { now: 0 })
+  const world = { tools: ['TaskCreate', 'TaskList', 'TaskUpdate'], tasks: [] as Task[], env: {}, callers: [] as string[] }
+  beneath?.()
+  host(on, world)
+  await start($)
+  await clock.settle()
+  return { clock, world }
+}
+
+test('docked with Todo on, ctui runs TaskCreate and TaskUpdate itself and answers { result } alone', async ($, on) => {
+  const { clock, world } = await taskWorld($, on)
+  const { pane, rows } = await sidebarOf($)
+  expect(await $.tool.call(CREATE)).toEqual({ result: { task: { id: '1', subject: 'alpha' } } })
+  expect(await $.tool.call(UPDATE)).toEqual({ result: { success: true, taskId: '1', updatedFields: ['status'] } })
+  expect(world.callers).toEqual(['ctui', 'ctui'])
+  await clock.settle()
+  await pane.redraw()
+  expect(await rows()).toEqual(['◐ Doing alpha'])
+})
+
+test('docked, then seated inline, a task call goes on to core', async ($, on) => {
+  const { clock, world } = await taskWorld($, on, () => on('ui.close', () => ({ value: undefined })))
+  const { pane } = await sidebarOf($)
+  await pane.unmount()
+  await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar', props: { ...PANE.props, placement: 'inline' } })
+  expect((await $.tool.call(CREATE)).text).toBe('Task #1 created successfully: alpha')
+  expect(world.callers).not.toContain('ctui')
+  await clock.settle()
+})
+
+test('with Todo off, a task call goes on to core', { options: { todo_enable: false } }, async ($, on) => {
+  const { world } = await taskWorld($, on)
+  await sidebarOf($)
+  await $.tool.call(CREATE)
+  await $.tool.call(UPDATE)
+  expect(world.callers).not.toContain('ctui')
+})
+
+test('a subagent’s task call goes on to core', async ($, on) => {
+  const { clock, world } = await taskWorld($, on)
+  await sidebarOf($)
+  const subagent = { agentId: 'a1' }
+  await $.tool.call({ ...CREATE, ...subagent })
+  expect(world.callers).not.toContain('ctui')
+  await clock.settle()
+})
+
+test('docked, a deny from ctui’s own call passes through unchanged', async ($, on) => {
+  const { world } = await taskWorld($, on, () => on('tool.call', { tool: 'TaskCreate' }, () => ({ deny: 'no tasks here' })))
+  await sidebarOf($)
+  expect(await $.tool.call(CREATE)).toEqual({ deny: 'no tasks here' })
+  expect(world.tasks).toEqual([])
+})
+
+test('after the Sidebar was docked and now waits unplaced, a task call goes on to core', async ($, on) => {
+  const { clock, world } = await taskWorld($, on, () => {
+    on('ui.render', { component: 'SessionMode' }, ($, e) => {
+      const { Box } = $.ui.resolve(e)
+      return <Box />
+    })
+    on('ui.panes', () => ({
+      value: [{ id: 'sidebar', title: 'Sidebar', isShown: true, isFocused: false, isPlaced: false }],
+    }))
+  })
+  // Drawn docked once, then undrawn as it waits.
+  const { pane } = await sidebarOf($)
+  await pane.unmount()
+  const site = await $.ui.mount({
+    plugin: 'ctui',
+    surface: 'terminal',
+    component: 'SessionMode',
+    props: { modes: [] },
+    viewport: { columns: 130, rows: 40, isFullscreen: true },
+  })
+  await site.unmount()
+  await clock.settle()
+  expect((await $.tool.call(CREATE)).text).toBe('Task #1 created successfully: alpha')
+  expect(world.callers).not.toContain('ctui')
+  await clock.settle()
 })
 
 // `todoEnvSet` beneath the plugin, as `$.state` holds it across a reload:

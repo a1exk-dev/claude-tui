@@ -83,6 +83,8 @@ Fullscreen means the `"tui": "fullscreen"` setting or `CLAUDE_CODE_NO_FLICKER=1`
 | The previous row | Run `/clear` | Within a second Todo reads a bare `Todo:` and `no tasks yet`. |
 | `/config`: ctui Task tools off, then restart the session | Look at Todo | It reads `no task tools on this model` and `turn on ctui Task tools in /config`, in `inactive`, and no count. `/model` to Haiku 4.5: within a second the hints give way to `no tasks yet`, still with no count. |
 | Task tools on, start with `--tools Bash,Read` | Look at Todo | It reads `no task tools in this session`, in `inactive`. |
+| Sidebar docked, Task tools on, the default model | Ask Claude to plan three steps with its task tools and work through them; then press ctrl+t | While Claude works, the spinner has no task list under it and the footer reads `ctrl+t to show tasks`. Todo follows the list. ctrl+t opens Claude Code's own list. |
+| Fullscreen at 100 columns (the Sidebar can't dock), Task tools on, the default model | Ask Claude to plan three steps with its task tools and work through them | Claude Code's own list draws under the spinner as before, and the footer reads `ctrl+t to hide tasks`. |
 | Task tools on, start with `CLAUDE_CODE_ENABLE_TODO_TOOLS=0` set in the shell | Ask Claude to run `echo $CLAUDE_CODE_ENABLE_TODO_TOOLS`; then set Task tools off in `/config` and ask again | It prints `0` both times: ctui keeps the person's value. |
 | Task tools on, the variable unset | Ask Claude to run `echo $CLAUDE_CODE_ENABLE_TODO_TOOLS`; set Task tools off in `/config` and ask again | It prints `1`, then nothing. |
 | Sidebar docked, a new session | Look at Agents & shells | It reads `nothing running`, in `inactive`, and the header `0 running`. |
