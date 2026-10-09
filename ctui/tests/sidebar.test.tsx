@@ -239,6 +239,31 @@ test('a long list caps at 4 rows', async ($, on) => {
   expect(layout(capped.tree)).toEqual(['▼ mcp:6', B, 'mcp 1', 'mcp 2', 'mcp 3', 'mcp 4', '▸ 2 more', ''])
 })
 
+// 9 Todo tasks and 5 MCP servers, both expanded.
+const CAPS: SidebarData = {
+  todo: { tools: 'task', items: Array.from({ length: 9 }, (_, i) => ({ id: `${i}`, subject: `task ${i}`, status: 'pending' as const })) },
+  mcp: Array.from({ length: 5 }, (_, i) => ({ server: `s${i}`, label: `server ${i}`, source: 'user', state: 'ok' as const, tools: 3 })),
+}
+const capsPlugins = ['git', 'todo', 'mcp', 'versions'].map((id) => plugins.find((plugin) => plugin.id === id)!)
+const tasksOf = (sizes: (string | number)[]) => sizes.filter((size) => typeof size === 'string' && size.startsWith('○ '))
+
+test('Todo caps at its own 8 rows; another list section keeps 4', async ($, on) => {
+  const sizes = layout((await draw($, on, { plugins: capsPlugins, data: CAPS, bodyRows: 60 })).tree)
+  const tasks = tasksOf(sizes)
+  expect(tasks).toEqual(Array.from({ length: 8 }, (_, i) => `○ task ${i}`))
+  expect(sizes[sizes.indexOf(tasks[7]!) + 1]).toBe('▸ 1 more')
+  const servers = sizes.filter((size) => typeof size === 'string' && size.startsWith('● server'))
+  expect(servers).toHaveLength(4)
+  expect(sizes[sizes.indexOf(servers[3]!) + 1]).toBe('▸ 1 more')
+})
+
+test('an expanded Todo shows every task and show less', async ($, on) => {
+  const sizes = layout((await draw($, on, { plugins: capsPlugins, data: CAPS, bodyRows: 60, expanded: { todo: true } })).tree)
+  const tasks = tasksOf(sizes)
+  expect(tasks).toHaveLength(9)
+  expect(sizes[sizes.indexOf(tasks[8]!) + 1]).toBe('▾ show less')
+})
+
 test('an expanded list shows every row and show less', async ($, on) => {
   const open = await draw($, on, { plugins: [list('mcp', 6)], expanded: { mcp: true } })
   expect(rows(open.tree).map((row) => row.text).slice(-3)).toEqual(['mcp 6', '▾ show less', ''])
@@ -325,7 +350,7 @@ const BUSY_ORDER = ['git', 'context', 'limits', 'mcp', 'todo', 'agents', 'versio
 const busyPlugins = BUSY_ORDER.map((id) => plugins.find((plugin) => plugin.id === id)!)
 const busy = ($: Engine, on: On, scroll: number) => draw($, on, { plugins: busyPlugins, data: BUSY, bodyRows: 34, scroll })
 
-test("#85's busy data at 34 body rows: 37 section rows overflow 22 free rows", async ($, on) => {
+test("#85's busy data at 34 body rows: 40 section rows overflow 22 free rows", async ($, on) => {
   const top = await busy($, on, 0)
   const window = windowOf(layout(top.tree))
   // A 4-row header (path, blank row, branch, counts) and the 2-row footer
@@ -335,16 +360,16 @@ test("#85's busy data at 34 body rows: 37 section rows overflow 22 free rows", a
   expect(height(window)).toBe(22)
   expect(window.filter((size) => size === B)).toHaveLength(5)
   expect(window.filter((size) => size === R)).toHaveLength(2)
-  // One stop per row: from MCP's first row (stop 10) the rest, 20 rows, fits
-  // the 22 under `↑ more`; from MCP's title stop (4 rows) before it is 24.
-  expect(top.maxScroll).toBe(10)
+  // One stop per row: from MCP's third row (stop 12) the rest, 21 rows (Todo's
+  // 8 whole), fills the 21 under `↑ more`; from its second row it is 22.
+  expect(top.maxScroll).toBe(12)
 })
 
 test("#85's busy data scrolled to the end", async ($, on) => {
   const window = windowOf(layout((await busy($, on, 99)).tree))
-  expect(window.slice(0, 2)).toEqual(['↑ more', '● server 0user · 3 tools'])
+  expect(window.slice(0, 2)).toEqual(['↑ more', '● server 2user · 3 tools'])
   expect(window.at(-1)).toBe('◐ Plan · plan0s')
-  expect(height(window)).toBe(21)
+  expect(height(window)).toBe(22)
 })
 
 test('scrollWindow marks hidden rows on both sides', () => {

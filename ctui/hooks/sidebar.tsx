@@ -130,10 +130,11 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     if (folded) continue
     const body = plugin.view(data, ui, cfg, width - 2, c)
     const expanded = input.expanded[plugin.id] ?? false
-    const capped = plugin.list && body.length > CAP
-    sections.push(...(capped && !expanded ? body.slice(0, CAP) : body).map((node) => line(node, 2)))
+    const cap = plugin.cap ?? CAP
+    const capped = plugin.list && body.length > cap
+    sections.push(...(capped && !expanded ? body.slice(0, cap) : body).map((node) => line(node, 2)))
     if (capped) {
-      const label = expanded ? '▾ show less' : `▸ ${body.length - CAP} more`
+      const label = expanded ? '▾ show less' : `▸ ${body.length - cap} more`
       sections.push(line(control({ kind: 'more', id: plugin.id }, label), 2))
     }
   }
