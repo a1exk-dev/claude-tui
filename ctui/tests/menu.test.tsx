@@ -1,8 +1,9 @@
 import type { ConfigRow, ConfigSetInput, On, PaneOpenArgs } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
-import { takenBy } from '../hooks/menu'
+import { deniedText, moveId, takenBy } from '../hooks/menu'
 import { register } from '../hooks/register'
+import type { Menu } from '../types'
 
 // Scenario: the `/ctui` menu (#173) through `$.command.run` and its pane, with
 // this test's own `config.set` hook standing in for the engine's writer. A
@@ -60,6 +61,7 @@ function host(on: On, world: World = {}) {
     world.toasts?.push(e.text)
     return { value: undefined }
   })
+  on('ui.focus', () => ({}))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('env.set', () => ({ value: undefined }))
   return seen
@@ -93,9 +95,10 @@ const optionsOf = async (pane: Awaited<ReturnType<typeof menu>>, key: string) =>
 
 // The person's Esc on the focused menu: `closeOnEscape` raises `ui.close`,
 // origin `person`. The test kit has no driver for it, so this calls ctui's
-// hook as the engine would, with a `$` holding the menu's state, the opens
-// and a clock that runs at once.
-async function esc(state: { menu?: { level: string } }, opens: PaneOpenArgs[]) {
+// hook as the engine would, with a `$` holding the menu's state, the opens,
+// the writes and a clock that runs at once.
+type MenuState = Menu
+async function esc(state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[] = []) {
   let close: ((...args: unknown[]) => unknown) | undefined
   const record = (event: string, matcher: { id?: string }, hook: (...args: unknown[]) => unknown) => {
     if (event === 'ui.close' && matcher.id === 'ctui') close = hook
@@ -106,9 +109,15 @@ async function esc(state: { menu?: { level: string } }, opens: PaneOpenArgs[]) {
     clock: { after: (_: number, run: () => Promise<unknown>) => void work.push(run()) },
     state: {
       get: async () => ({ value: state.menu }),
-      set: async (_: unknown, value: { level: string }) => void (state.menu = value),
+      set: async (_: unknown, value: MenuState) => void (state.menu = value),
     },
     ui: { open: async (args: PaneOpenArgs) => void opens.push(args) },
+    config: {
+      set: async (args: { key: string; value: unknown }) => {
+        sets.push(args)
+        return { value: args.value }
+      },
+    },
   }
   const answer = await close?.($, { id: 'ctui', origin: { kind: 'person' } }, () => 'closed')
   await Promise.all(work)
@@ -228,9 +237,9 @@ test('a refused pick toasts the deny, even with agent toasts off', { options: { 
   expect(toasts).toEqual(["Can't switch the Sidebar theme to everforest: locked by policy"])
 })
 
-for (const level of ['themes', 'plugins']) {
+for (const level of ['themes', 'plugins'] as const) {
   test(`Esc in ${level} goes back to the top and takes the keys back; Esc at the top closes`, async () => {
-    const state = { menu: { level, filter: '', picks: { top: level } } }
+    const state: { menu?: MenuState } = { menu: { level, filter: '', picks: { top: level } } }
     const opens: PaneOpenArgs[] = []
     expect(await esc(state, opens)).toEqual({ deny: expect.any(String) })
     expect(state.menu).toEqual({ level: 'top', filter: '', picks: { top: level } })
@@ -240,11 +249,110 @@ for (const level of ['themes', 'plugins']) {
   })
 }
 
-test('Plugins is a placeholder until its screen lands', async ($, on) => {
-  host(on)
+// The Plugins screen (#176).
+
+const openPlugins = async ($: Engine) => {
   await run($)
   const pane = await menu($)
   await pane.select({ key: 'menu-top', value: 'plugins' })
-  expect(await pane.find({ type: 'Select', key: 'menu-top' })).toBeUndefined()
-  expect(await pane.find({ type: 'Text', text: /Esc goes back/ })).toBeDefined()
+  return pane
+}
+
+// The ring on a plugin's row, as the arrows move it.
+const focusRow = ($: Engine, id: string) =>
+  $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: `plugin-${id}`, origin: { kind: 'person' } })
+
+const rowsOf = async (pane: Awaited<ReturnType<typeof menu>>) =>
+  (await pane.findAll({ type: 'Button' })).filter((button) => button.key?.startsWith('plugin-')).map((button) => button.text)
+
+test('Plugins lists each section in the saved order: on or off, its title, ›; then the keys', { options: { order: 'mcp', todo_enable: false } }, async ($, on) => {
+  host(on)
+  const pane = await openPlugins($)
+  expect(await rowsOf(pane)).toEqual([
+    '✓ MCP              ›',
+    '✓ Context          ›',
+    '✓ Limits           ›',
+    '✗ Todo             ›',
+    '✓ Skills           ›',
+    '✓ Agents & shells  ›',
+  ])
+  expect(await pane.find({ type: 'Text', text: /enter settings/ })).toBeDefined()
+  expect((await pane.findAll({ type: 'Button' })).map((button) => button.props.hotkey).filter(Boolean)).toEqual(['x', 'k', 'j'])
+})
+
+test('x turns the focused plugin on or off, saving once', { options: { todo_enable: false } }, async ($, on) => {
+  const clock = mock.clock(on)
+  const seen = host(on)
+  const pane = await openPlugins($)
+  await focusRow($, 'todo')
+  await pane.press({ key: 'menu-toggle' })
+  await clock.settle()
+  expect(seen.sets).toEqual([{ key: 'ctui.todo_enable', value: true }])
+  expect(seen.closes).toEqual([])
+})
+
+test('k/j move the focused row at once, keep the ring on it, and save the order once, a second after the last move', async ($, on) => {
+  const clock = mock.clock(on)
+  const seen = host(on)
+  const pane = await openPlugins($)
+  await focusRow($, 'context')
+  await pane.press({ key: 'menu-down' })
+  await clock.advance(500)
+  await pane.press({ key: 'menu-down' })
+  await clock.advance(100)
+  expect((await rowsOf(pane)).map((row) => row.split(/\s+/)[1])).toEqual(['Limits', 'Todo', 'Context', 'Skills', 'MCP', 'Agents'])
+  expect(seen.sets).toEqual([])
+  await clock.advance(1000)
+  expect(seen.sets).toEqual([{ key: 'ctui.order', value: 'limits,todo,context,skills,mcp,agents' }])
+  // The moved row keeps the ring: the redraw focuses it.
+  expect((await pane.find({ type: 'Button', key: 'plugin-context' }))?.props.autoFocus).toBe(true)
+})
+
+test('x with an order waiting writes the order first', async ($, on) => {
+  const clock = mock.clock(on)
+  const seen = host(on)
+  const pane = await openPlugins($)
+  await focusRow($, 'mcp')
+  await pane.press({ key: 'menu-up' })
+  await pane.press({ key: 'menu-toggle' })
+  await clock.settle()
+  expect(seen.sets).toEqual([
+    { key: 'ctui.order', value: 'context,limits,todo,mcp,skills,agents' },
+    { key: 'ctui.mcp_enable', value: false },
+  ])
+  // The timer finds nothing left to write.
+  await clock.advance(2000)
+  expect(seen.sets).toHaveLength(2)
+})
+
+test('Esc on Plugins with an order waiting writes it, then goes back', async () => {
+  const state: { menu?: MenuState } = { menu: { level: 'plugins', filter: '', picks: { top: 'plugins' }, pending: ['mcp', 'context'], focus: 'mcp' } }
+  const sets: unknown[] = []
+  expect(await esc(state, [], sets)).toEqual({ deny: expect.any(String) })
+  expect(sets).toEqual([{ key: 'ctui.order', value: 'mcp,context' }])
+  expect(state.menu?.level).toBe('top')
+  expect(state.menu?.pending).toBeUndefined()
+})
+
+test('Enter opens a plugin’s screen, even off; Esc returns to its row', { options: { mcp_enable: false } }, async ($, on) => {
+  host(on)
+  const pane = await openPlugins($)
+  await pane.press({ key: 'plugin-mcp' })
+  expect(await pane.find({ type: 'Text', text: 'ctui › Plugins › MCP' })).toBeDefined()
+  const state: { menu?: MenuState } = { menu: { level: 'plugin', filter: '', picks: { top: 'plugins' }, focus: 'mcp' } }
+  expect(await esc(state, [])).toEqual({ deny: expect.any(String) })
+  expect(state.menu).toMatchObject({ level: 'plugins', focus: 'mcp' })
+})
+
+test('a deny’s toast names the change', () => {
+  expect(deniedText({ key: 'ctui.mcp_enable', value: false }, 'locked')).toBe("Can't disable mcp: locked")
+  expect(deniedText({ key: 'ctui.todo_enable', value: true }, 'locked')).toBe("Can't enable todo: locked")
+  expect(deniedText({ key: 'ctui.order', value: 'mcp,context' }, 'locked')).toBe("Can't save the Sidebar order: locked")
+  expect(deniedText({ key: 'ctui.theme', value: 'tokyo' }, 'locked')).toBe("Can't switch the Sidebar theme to tokyo: locked")
+})
+
+test('a move holds at either end', () => {
+  expect(moveId(['a', 'b', 'c'], 'a', -1)).toEqual(['a', 'b', 'c'])
+  expect(moveId(['a', 'b', 'c'], 'a', 1)).toEqual(['b', 'a', 'c'])
+  expect(moveId(['a', 'b', 'c'], 'c', 1)).toEqual(['a', 'b', 'c'])
 })

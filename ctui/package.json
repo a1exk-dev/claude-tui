@@ -11,7 +11,6 @@
   },
   "files": [
     ".claude-plugin/plugin.json",
-    "commands",
     "hooks",
     "plugins",
     "themes",
