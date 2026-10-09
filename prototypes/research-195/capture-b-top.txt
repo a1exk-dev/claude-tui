@@ -1,0 +1,40 @@
+                                                                                       │                                                                      ✕
+ ▐▛███▛█   Claude Code v2.1.292                                                        │
+▝▜██████▀  Haiku 4.5 · Claude Max                                                      │  ~/Projects/claude-tui-band/prototypes/research-195
+ ▝▝   ▝▝   ~/Projects/claude-tui-band/prototypes/research-195                          │
+                                                                                       │   prototype/ctui-menu-band
+                                                                                       │   ↑0  ↓0
+                                                                                       │
+                                                                                       │  ════════════════════════════════════════════════════════════════════
+                                                                                       │
+                                                                                       │  ▼ Todo:                                                          0/0
+                                                                                       │
+                                                                                       │
+                                                                                       │  ────────────────────────────────────────────────────────────────────
+                                                                                       │  ▼ Skills:                                                          0
+                                                                                       │
+                                                                                       │    no skills used yet
+                                                                                       │
+                                                                                       │  ────────────────────────────────────────────────────────────────────
+                                                                                       │  ▶︎ MCP:                                                           ● 2
+                                                                                       │  ────────────────────────────────────────────────────────────────────
+                                                                                       │  ▼ Agents & shells:                                         0 running
+                                                                                       │
+                                                                                       │    nothing running
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+[spike ew5i] keys: BAND holds them                                                 [-] │
+last band event: ui.press band-back 0s ago · maxRows 15 · working false                │
+on /ctuiband: $.ui.focus → deny: that site does not hold the keyboard                  │
+                                                                                       │
+  ctui                                                                                 │
+  Plugins › ▾                                                                          │
+                                                                                       │  claude cli: 2.1.292 │ ctui: 0.4.0, inherit
+9: back (Esc can't) · 0: close                                                         │
+                                           Update available! Run: mise upgrade claude  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts · ← 5 agents                                                                                    claude-haiku-4-5-20251001

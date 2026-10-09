@@ -1,0 +1,40 @@
+                                                                                       │ Sidebar   ctui                                                       ✕
+ ▐▛███▛█   Claude Code v2.1.292                                                        │
+▝▜██████▀  Haiku 4.5 · Claude Max                                                      │  ctui › Themes
+ ▝▝   ▝▝   ~/Projects/claude-tui-band/prototypes/research-195                          │  filter : type to filter ⏎ submit
+                                                                                       │  Osaka Jade ▾
+                                                                                       │
+● ctui: reloaded (25 hooks: session.start, session.measure, tool.describe,             │
+  classic.CwdChanged, classic.PostToolUse, tool.call, agent.spawn,                     │
+  classic.StopFailure, prompt.submit, session.append, skill.prompt,                    │
+  session.end, ui.render, ui.message, ui.close, ui.scroll, turn.step,                  │
+  command.run, classic.UserPromptSubmit, classic.Stop, turn.complete,                  │
+  ui.select, ui.focus, ui.press, ui.input)                                             │
+                                                                                       │
+● ctui: options changed — reloaded (25 hooks: session.start, session.measure,          │
+  tool.describe, classic.CwdChanged, classic.PostToolUse, tool.call,                   │
+  agent.spawn, classic.StopFailure, prompt.submit, session.append,                     │
+  skill.prompt, session.end, ui.render, ui.message, ui.close, ui.scroll,               │
+  turn.step, command.run, classic.UserPromptSubmit, classic.Stop,                      │
+  turn.complete, ui.select, ui.focus, ui.press, ui.input)                              │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                                                                       │
+                                           Update available! Run: mise upgrade claude  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts · ← 5 agents                                                                                    claude-haiku-4-5-20251001

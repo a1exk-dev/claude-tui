@@ -1,0 +1,45 @@
+                                                                                       │                                                                      ✕
+ ▐▛███▛█   Claude Code v2.1.292                                                        │
+▝▜██████▀  Haiku 4.5 · Claude Max                                                      │  ~/Projects/claude-tui-band/prototypes/research-195
+ ▝▝   ▝▝   ~/Projects/claude-tui-band/prototypes/research-195                          │
+                                                                                       │   prototype/ctui-menu-band
+                                                                                       │   ↑0  ↓0
+● ctui: reloaded (25 hooks: session.start, session.measure, tool.describe,             │
+  classic.CwdChanged, classic.PostToolUse, tool.call, agent.spawn,                     │  ════════════════════════════════════════════════════════════════════
+  classic.StopFailure, prompt.submit, session.append, skill.prompt,                    │
+  session.end, ui.render, ui.message, ui.close, ui.scroll, turn.step,                  │  ▼ Todo:                                                          0/0
+  command.run, classic.UserPromptSubmit, classic.Stop, turn.complete,                  │
+  ui.select, ui.focus, ui.press, ui.input)                                             │
+                                                                                       │  ────────────────────────────────────────────────────────────────────
+● ctui: options changed — reloaded (25 hooks: session.start, session.measure,          │  ▼ Skills:                                                          0
+  tool.describe, classic.CwdChanged, classic.PostToolUse, tool.call,                   │
+  agent.spawn, classic.StopFailure, prompt.submit, session.append,                     │    no skills used yet
+  skill.prompt, session.end, ui.render, ui.message, ui.close, ui.scroll,               │
+  turn.step, command.run, classic.UserPromptSubmit, classic.Stop,                      │  ────────────────────────────────────────────────────────────────────
+  turn.complete, ui.select, ui.focus, ui.press, ui.input)                              │  ▶︎ MCP:                                                           ● 2
+                                                                                       │  ────────────────────────────────────────────────────────────────────
+                                                                                       │  ▼ Agents & shells:                                         0 running
+                                                                                       │
+                                                                                       │    nothing running
+                                                                                       │
+                                                                                       │
+[spike 71o3] keys: BAND holds them                                                 [-] │
+last band event: ui.press menu-toggle 0s ago · maxRows 17 · working false              │
+on /ctuiband: $.ui.focus → deny: that site does not hold the keyboard                  │
+                                                                                       │
+  ctui › Plugins                                                                       │
+  ✗ Context          ›                                                                 │
+  ✓ Todo             ›                                                                 │
+  ✗ Limits           ›                                                                 │
+  ✓ Skills           ›                                                                 │
+  ✓ MCP              ›                                                                 │
+  ✓ Agents & shells  ›                                                                 │
+                                                                                       │
+  enter settings · x: on/off · k: up · j: down · esc back                              │
+                                                                                       │  claude cli: 2.1.292 │ ctui: 0.4.0, inherit
+9: back (Esc can't) · 0: close                                                         │
+                                           Update available! Run: mise upgrade claude  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts · ← 5 agents                                                                                    claude-haiku-4-5-20251001

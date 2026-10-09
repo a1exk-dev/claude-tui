@@ -1,0 +1,45 @@
+                                                                                       │                                                                      ✕
+● ctui: options changed — reloaded (25 hooks: session.start, session.measure,          │
+  tool.describe, classic.CwdChanged, classic.PostToolUse, tool.call,                   │  ~/Projects/claude-tui-band/prototypes/research-195
+  agent.spawn, classic.StopFailure, prompt.submit, session.append,                     │
+  skill.prompt, session.end, ui.render, ui.message, ui.close, ui.scroll,               │   prototype/ctui-menu-band
+  turn.step, command.run, classic.UserPromptSubmit, classic.Stop,                      │   ↑0  ↓0
+  turn.complete, ui.select, ui.focus, ui.press, ui.input)                              │
+                                                                                       │  ════════════════════════════════════════════════════════════════════
+┃                                                                                      │
+┃  Write a 600-word story about a lighthouse. No tools.                                │  ▼ Todo:                                                          0/0
+┃                                                                                      │
+                                                                                       │
+● The Lighthouse Keeper's Last Light                                                   │  ────────────────────────────────────────────────────────────────────
+                                                                                       │  ▼ Skills:                                                          0
+  The beam swept across the dark water for the ten-thousandth time that year, a        │
+  rhythmic pulse of white light that had marked the passage of forty years. Samuel     │    no skills used yet
+  stood in the gallery of Beacon Point Lighthouse, watching the storm gather like a    │
+  bruise across the horizon.                                                           │  ────────────────────────────────────────────────────────────────────
+                                                                                       │  ▶︎ MCP:                                                           ● 2
+  He was eighty-three now, and the Maritime Commission had made it clear this would be │  ────────────────────────────────────────────────────────────────────
+  his final season. Automation was coming—satellites and GPS had rendered lighthouses  │  ▼ Agents & shells:                                         0 running
+  like his quaint relics. Soon, the light would turn itself on and off. No one would   │
+  need to climb these three hundred steps anymore.                                     │    nothing running
+                                                                                       │
+  The storm hit just after sunset, winds screaming like something alive. Samuel had    │
+[spike 71o3] keys: BAND holds them                                                 [-] │
+last band event: ui.focus plugin-limits (person) 0s ago · maxRows 17 · working tr…     │
+on /ctuiband: $.ui.focus → deny: that site does not hold the keyboard                  │
+                                                                                       │
+  ctui › Plugins                                                                       │
+  ✗ Context          ›                                                                 │
+  ✓ Todo             ›                                                                 │
+  ✗ Limits           ›                                                                 │
+  ✓ Skills           ›                                                                 │
+  ✓ MCP              ›                                                                 │
+  ✓ Agents & shells  ›                                                                 │
+                                                                                       │
+  enter settings · x: on/off · k: up · j: down · esc back                              │
+                                                                                       │  claude cli: 2.1.292 │ ctui: 0.4.0, inherit
+9: back (Esc can't) · 0: close                                                         │
+                                           Update available! Run: mise upgrade claude  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · esc to interrupt · ← 5 agents                                                                                   claude-haiku-4-5-20251001

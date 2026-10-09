@@ -1,0 +1,45 @@
+
+[38;2;215;119;87m ▐[48;2;0;0;0m▛███▛█[39m[49m   [1mClaude Code[0m [38;2;148;154;165mv2.1.292[39m
+[38;2;215;119;87m▝▜[48;2;0;0;0m█████[49m█▀[39m  [38;2;148;154;165mHaiku 4.5 · Claude Max[39m
+[38;2;215;119;87m ▝▝   ▝▝ [39m  [38;2;148;154;165m~/Projects/claude-tui-band/prototypes/research-195[39m
+
+
+[38;2;148;154;165m●[39m [38;2;148;154;165mctui: hooks module did not load: /home/a1exk/Projects/claude-tui-band/prototypes/research-195/run-a/hooks/register.tsx, compiled line 1263 [39m
+  [38;2;148;154;165m`on("ui.focus", { component: "Pane", requestId: MENU_PANE }, onMenuFocus);`: the hook "onMenuFocus" is not a function declared at the top of this file[39m
+  [38;2;148;154;165m(a function declaration, or a const bound to a function), nor imported from one of the module's own files; $ is always spelled $.noun.event(...) at [39m
+  [38;2;148;154;165mthe call site, on is always on("<event>", hook), and next.to always next.to(e, "<tier>")[39m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                                    [38;2;235;203;139mUpdate available! Run: [1mmise upgrade claude[0m
+[38;2;129;161;193m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[39m❯ [2mTry "how does register.tsx work?"[0m
+[38;2;129;161;193m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[39m  [38;2;148;154;165m⏸ manual mode on · ? for shortcuts · ← 5 agents[39m

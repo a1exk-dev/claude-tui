@@ -1,0 +1,28 @@
+10:13:49.988 [ew5i] session.start band={"open":false}
+10:13:51.831 [ew5i] ctuiband: open, $.ui.focus → deny: that site does not hold the keyboard
+10:13:52.915 [ew5i] event ui.focus menu-top (person)
+10:13:53.035 [ew5i] held false -> true
+10:13:54.718 [ew5i] event ui.select menu-top "plugins"
+10:13:56.229 [ew5i] event ui.focus plugin-todo (person)
+10:14:03.443 [ew5i] event ui.press band-back
+10:14:07.883 [ew5i] event ui.press band-back
+10:14:07.918 [ew5i] poll: lost the keys (that site does not hold the keyboard)
+10:14:07.919 [ew5i] held true -> false
+10:14:29.873 [klvn] session.start band={"open":false,"held":false,"poll":true,"openTry":"$.ui.focus → deny: that site does not hold the keyboard","event":"ui.press band-back","at":1791540847885}
+10:14:31.769 [klvn] ctuiband: open, $.ui.focus → deny: that site does not hold the keyboard
+10:14:32.861 [klvn] event ui.focus menu-top (person)
+10:14:32.978 [klvn] held false -> true
+10:14:34.264 [klvn] event ui.select menu-top "themes"
+10:14:35.779 [klvn] event ui.focus menu-themes (person)
+10:14:44.052 [klvn] event ui.focus menu-filter (person)
+10:14:44.652 [klvn] event ui.input menu-filter change "k"
+10:14:45.051 [klvn] event ui.input menu-filter change "ka"
+10:14:46.265 [klvn] event ui.focus menu-themes (person)
+10:14:46.868 [klvn] event ui.select menu-themes "kanagawa"
+10:14:46.975 [j1rx] session.start band={"open":true,"held":true,"poll":true,"openTry":"$.ui.focus → deny: that site does not hold the keyboard","event":"ui.select menu-themes \"kanagawa\"","at":1791540886868}
+10:14:57.286 [j1rx] event ui.select menu-themes "osaka-jade"
+10:14:57.382 [9ufe] session.start band={"open":true,"held":true,"poll":true,"openTry":"$.ui.focus → deny: that site does not hold the keyboard","event":"ui.select menu-themes \"osaka-jade\"","at":1791540897286}
+10:14:58.594 [9ufe] poll: lost the keys (that site does not hold the keyboard)
+10:14:58.594 [9ufe] held true -> false
+10:14:58.597 [9ufe] poll: lost the keys (that site does not hold the keyboard)
+10:14:58.597 [9ufe] held true -> false

@@ -1,0 +1,45 @@
+
+ ▐▛███▛█   Claude Code v2.1.292
+▝▜██████▀  Haiku 4.5 · Claude Max
+ ▝▝   ▝▝   ~/Projects/claude-tui-band/prototypes/research-195
+
+
+● ctui: hooks module did not load: /home/a1exk/Projects/claude-tui-band/prototypes/research-195/run-a/hooks/register.tsx, compiled line 1263
+  `on("ui.focus", { component: "Pane", requestId: MENU_PANE }, onMenuFocus);`: the hook "onMenuFocus" is not a function declared at the top of this file
+  (a function declaration, or a const bound to a function), nor imported from one of the module's own files; $ is always spelled $.noun.event(...) at
+  the call site, on is always on("<event>", hook), and next.to always next.to(e, "<tier>")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                                    Update available! Run: mise upgrade claude
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "how does register.tsx work?"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts · ← 5 agents

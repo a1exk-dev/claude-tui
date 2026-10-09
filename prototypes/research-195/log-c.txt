@@ -1,0 +1,9 @@
+10:15:36.534 [52jj] session.start band={"open":false}
+10:15:38.356 [52jj] ctuiband: open, $.ui.focus → deny: that site does not hold the keyboard
+10:15:39.749 [52jj] event ui.focus menu-top (person)
+10:15:39.960 [52jj] held false -> true
+10:15:40.749 [52jj] event ui.select menu-top "plugins"
+10:15:53.171 [52jj] poll: lost the keys (that site does not hold the keyboard)
+10:15:53.172 [52jj] held true -> false
+10:15:53.177 [52jj] poll: lost the keys (that site does not hold the keyboard)
+10:15:53.177 [52jj] held true -> false

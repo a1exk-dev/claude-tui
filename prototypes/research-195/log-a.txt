@@ -1,0 +1,41 @@
+10:12:14.434 [yzqs] session.start band={"open":false}
+10:12:18.599 [yzqs] ctuiband: open, $.ui.focus → deny: that site does not hold the keyboard
+10:12:25.325 [yzqs] event ui.focus menu-top (person)
+10:12:25.413 [yzqs] held false -> true
+10:12:32.683 [yzqs] event ui.select menu-top "themes"
+10:12:33.899 [yzqs] event ui.focus menu-themes (person)
+10:12:36.033 [yzqs] poll: lost the keys (no element of its own is drawn under that key)
+10:12:36.034 [yzqs] held true -> false
+10:12:36.244 [yzqs] held false -> true
+10:12:36.434 [yzqs] poll: lost the keys (no element of its own is drawn under that key)
+10:12:36.434 [yzqs] held true -> false
+10:12:36.644 [yzqs] held false -> true
+10:12:36.837 [yzqs] poll: lost the keys (no element of its own is drawn under that key)
+10:12:36.837 [yzqs] held true -> false
+10:12:37.044 [yzqs] held false -> true
+10:12:44.333 [6nf4] session.start band={"open":true,"held":true,"poll":true,"openTry":"$.ui.focus → deny: that site does not hold the keyboard","event":"ui.focus menu-themes (person)","at":1791540753902}
+10:12:45.920 [6nf4] poll: lost the keys (that site does not hold the keyboard)
+10:12:45.921 [6nf4] held true -> false
+10:12:53.258 [6nf4] event ui.focus menu-filter (person)
+10:12:53.565 [6nf4] held false -> true
+10:12:55.568 [6nf4] poll: lost the keys (that site does not hold the keyboard)
+10:12:55.568 [6nf4] held true -> false
+10:13:02.660 [6nf4] event ui.press band-back
+10:13:03.765 [6nf4] event ui.focus menu-top (person)
+10:13:03.997 [6nf4] held false -> true
+10:13:05.267 [6nf4] event ui.select menu-top "plugins"
+10:13:10.728 [6nf4] event ui.press menu-toggle
+10:13:10.841 [8lf6] session.start band={"open":true,"held":true,"poll":true,"openTry":"$.ui.focus → deny: that site does not hold the keyboard","event":"ui.press menu-toggle","at":1791540790729}
+10:13:13.741 [8lf6] event ui.focus plugin-limits (person)
+10:13:14.242 [8lf6] event ui.press menu-down
+10:13:15.334 [x805] session.start band={"open":true,"held":true,"poll":true,"openTry":"$.ui.focus → deny: that site does not hold the keyboard","event":"ui.press menu-down","at":1791540794244}
+10:13:23.033 [x805] event ui.press menu-toggle
+10:13:23.142 [71o3] session.start band={"open":true,"held":true,"poll":true,"openTry":"$.ui.focus → deny: that site does not hold the keyboard","event":"ui.press menu-toggle","at":1791540803034}
+10:13:26.056 [71o3] poll: lost the keys (that site does not hold the keyboard)
+10:13:26.056 [71o3] held true -> false
+10:13:37.382 [71o3] event ui.focus plugin-limits (person)
+10:13:37.581 [71o3] held false -> true
+10:13:38.780 [71o3] poll: lost the keys (that site does not hold the keyboard)
+10:13:38.781 [71o3] held true -> false
+10:14:47.986 [cdl0] session.start band={"open":true,"held":false,"poll":true,"openTry":"$.ui.focus → deny: that site does not hold the keyboard","event":"ui.focus plugin-limits (person)","at":1791540817382}
+10:14:58.377 [dob0] session.start band={"open":true,"held":false,"poll":true,"openTry":"$.ui.focus → deny: that site does not hold the keyboard","event":"ui.focus plugin-limits (person)","at":1791540817382}
