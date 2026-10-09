@@ -245,12 +245,12 @@ const CAPS: SidebarData = {
   mcp: Array.from({ length: 5 }, (_, i) => ({ server: `s${i}`, label: `server ${i}`, source: 'user', state: 'ok' as const, tools: 3 })),
 }
 const capsPlugins = ['git', 'todo', 'mcp', 'versions'].map((id) => plugins.find((plugin) => plugin.id === id)!)
-const tasksOf = (sizes: (string | number)[]) => sizes.filter((size) => typeof size === 'string' && size.startsWith('○ '))
+const tasksOf = (sizes: (string | number)[]) => sizes.filter((size) => typeof size === 'string' && size.startsWith('⠶ '))
 
 test('Todo caps at its own 8 rows; another list section keeps 4', async ($, on) => {
   const sizes = layout((await draw($, on, { plugins: capsPlugins, data: CAPS, bodyRows: 60 })).tree)
   const tasks = tasksOf(sizes)
-  expect(tasks).toEqual(Array.from({ length: 8 }, (_, i) => `○ task ${i}`))
+  expect(tasks).toEqual(Array.from({ length: 8 }, (_, i) => `⠶ task ${i}`))
   expect(sizes[sizes.indexOf(tasks[7]!) + 1]).toBe('▸ 1 more')
   const servers = sizes.filter((size) => typeof size === 'string' && size.startsWith('● server'))
   expect(servers).toHaveLength(4)

@@ -3,9 +3,11 @@ import type { ClientSurface, ElementTable } from 'claude-code'
 import FoldRow, { type FoldRowProps } from '../hooks/foldrow'
 import Press, { type PressProps } from '../hooks/press'
 import type { SidebarInput } from '../hooks/sidebar'
+import Spinner, { type SpinnerProps } from '../plugins/todo/spinner'
 
 // A test plugin loads no surface module, so each Sidebar `Client` draws as
-// the tree its module draws at rest: `press.tsx` or `foldrow.tsx`.
+// the tree its module draws at rest: `press.tsx`, `foldrow.tsx` or
+// `spinner.tsx` on its first frame.
 export function clientsAsTrees(ui: ElementTable): SidebarInput['ui'] {
   if (!('Client' in ui)) throw new Error('the Sidebar draws on the terminal')
   const surface = <S,>() =>
@@ -24,6 +26,7 @@ export function clientsAsTrees(ui: ElementTable): SidebarInput['ui'] {
   const draws: Record<string, (props: unknown) => ReturnType<typeof Press>> = {
     'press.tsx': (props) => Press(props as PressProps, surface()),
     'foldrow.tsx': (props) => FoldRow(props as FoldRowProps, surface()),
+    'spinner.tsx': (props) => Spinner(props as SpinnerProps, surface()),
   }
   return {
     ...ui,
