@@ -115,20 +115,22 @@ const themesOf = async (pane: Pane) =>
 const footerOf = async (pane: Pane) => (await pane.findAll({ type: 'Box', text: /^↑↓: move|^type: filter/ })).at(-1)?.text
 
 // ctui's own hook for `event` on the menu pane, called as the engine would,
-// with a `$` holding the menu's state, the opens, the writes, the ring moves
-// (each with the opens made before it) and a clock that runs at once. The test
-// kit raises no `ui.close` for Esc and doesn't report the mod's own ring moves.
+// with a `$` holding the menu's state, the opens, the writes (each denied with
+// `deny`, when given), the ring moves (each with the opens made before it) and
+// a clock that runs every timer at once, soonest first. The test kit
+// raises no `ui.close` for Esc and doesn't report the mod's own ring moves.
 type MenuState = Menu
 type Focus = { requestId: string; key: string; opensBefore: number }
-async function callHook(event: 'ui.close' | 'ui.press', e: unknown, next: () => unknown, state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[], focuses: Focus[]) {
+async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input', e: unknown, next: () => unknown, state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[], focuses: Focus[], deny?: string) {
   let hook: ((...args: unknown[]) => unknown) | undefined
   const record = (name: string, matcher: { id?: string; requestId?: string }, run: (...args: unknown[]) => unknown) => {
     if (name === event && (matcher.id ?? matcher.requestId) === 'ctui') hook = run
   }
   register(record as unknown as On, {})
-  const work: Promise<unknown>[] = []
+  let now = 0
+  const timers: { at: number; run: () => Promise<unknown> }[] = []
   const $ = {
-    clock: { after: (_: number, run: () => Promise<unknown>) => void work.push(run()) },
+    clock: { after: (ms: number, run: () => Promise<unknown>) => void timers.push({ at: now + ms, run }), now: async () => now, sleep: async () => undefined },
     state: {
       get: async () => ({ value: state.menu }),
       set: async (_: unknown, value: MenuState) => void (state.menu = value),
@@ -136,16 +138,20 @@ async function callHook(event: 'ui.close' | 'ui.press', e: unknown, next: () => 
     ui: {
       open: async (args: PaneOpenArgs) => void opens.push(args),
       focus: async (args: { requestId: string; key: string }) => void focuses.push({ ...args, opensBefore: opens.length }),
+      toast: async () => undefined,
     },
     config: {
       set: async (args: { key: string; value: unknown }) => {
         sets.push(args)
-        return { value: args.value }
+        return deny === undefined ? { value: args.value } : { deny }
       },
     },
   }
   const answer = await hook?.($, e, next)
-  await Promise.all(work)
+  for (let timer; (timer = timers.sort((a, b) => a.at - b.at).shift()); ) {
+    now = timer.at
+    await timer.run()
+  }
   return answer
 }
 
@@ -563,14 +569,30 @@ test('Monthly cost text that isn’t a number toasts and writes nothing; the fie
   expect((await pane.find({ type: 'Input', key: 'menu-monthly-1' }))?.props.value).toBe('100')
 })
 
+const NEGATIVE = 'ctui limits_cost_monthly doesn\'t accept "-5". It takes a number between 0 and ∞.'
+
 test('a Monthly cost the engine denies toasts its reason', { options: { agents_toasts: false } }, async ($, on) => {
   const clock = mock.clock(on)
   const toasts: string[] = []
-  host(on, { toasts, deny: 'ctui limits_cost_monthly doesn\'t accept "-5". It takes a number between 0 and ∞.' })
+  host(on, { toasts, deny: NEGATIVE })
   await (await openPlugin($, 'limits')).input({ key: 'menu-monthly-0', text: '-5' })
   await clock.settle()
-  expect(toasts).toEqual(['Can\'t set the monthly cost: ctui limits_cost_monthly doesn\'t accept "-5". It takes a number between 0 and ∞.'])
+  expect(toasts).toEqual([`Can't set the monthly cost: ${NEGATIVE}`])
 })
+
+// The ring leaves the new field's index and comes back, so the cursor lands after the value.
+for (const [text, deny] of [
+  ['-5', NEGATIVE],
+  ['100abc', undefined],
+] as const) {
+  test(`after a refused Monthly cost of ${text}, the ring goes to Cost, then to the new field`, async () => {
+    const state: { menu?: MenuState } = { menu: { level: 'plugin', filter: '', picks: { top: 'plugins' }, focus: 'limits', ring: 'menu-monthly-0' } }
+    const focuses: Focus[] = []
+    const e = { component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: 'menu-monthly-0', kind: 'submit', value: text }
+    await callHook('ui.input', e, () => ({}), state, [], [], focuses, deny)
+    expect(focuses.map(({ key }) => key)).toEqual(['setting-limits_cost', 'menu-monthly-1'])
+  })
+}
 
 test('a deny’s toast names the change', () => {
   expect(deniedText({ key: 'ctui.mcp_enable', value: false }, 'locked')).toBe("Can't disable mcp: locked")

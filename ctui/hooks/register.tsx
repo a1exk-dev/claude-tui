@@ -641,9 +641,10 @@ async function writeSetting($: EngineInterface, set: Setting) {
   return deny === undefined
 }
 
-// Puts the menu's ring on `key` once the redraw has drawn it, as #160's spike did.
-function focusLater($: EngineInterface, key: string) {
-  $.clock.after(50, () => $.ui.focus({ requestId: MENU_PANE, key }).catch(() => undefined))
+// Puts the menu's ring on `key` once the redraw has drawn it, as #160's spike
+// did: 50 ms on, or `ms` to follow another move.
+function focusLater($: EngineInterface, key: string, ms = 50) {
+  $.clock.after(ms, () => $.ui.focus({ requestId: MENU_PANE, key }).catch(() => undefined))
 }
 
 // Writes an order the Plugins screen moved, if one waits. Its reload drops
@@ -1406,11 +1407,14 @@ export const register: Register = (on, options) => {
       saved = await writeSetting($, set)
     }
     // A save reloads and draws the new value; otherwise a new field shows the saved one.
+    // The ring leaves for Cost and comes back after it, at #240's probe timing,
+    // so the engine puts the cursor after the value, not where the text ended.
     if (!saved) {
       const menu = await menuOf($)
       const entry = (menu.entry ?? 0) + 1
       await setMenu($, { ...menu, entry })
-      focusLater($, monthlyKey(entry))
+      focusLater($, settingKey('limits_cost'))
+      focusLater($, monthlyKey(entry), 150)
     }
     return result
   })
