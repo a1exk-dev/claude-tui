@@ -1,10 +1,10 @@
 .agents/
-.claude/
+.claude/*
+!.claude/skills/
 .codex/
 .opencode/
 .scratch/
 AGENTS.override.md
 CLAUDE.local.md
-skills-lock.json
 prototypes/
 node_modules/

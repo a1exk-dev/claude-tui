@@ -4,6 +4,7 @@ import { type Engine, expect, mock, test } from 'claude-code/testing'
 import agents from '../plugins/agents'
 import { colors } from '../plugins/colors'
 import type { Task } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `agents` Sidebar plugin and the toasts: the view with sample tasks, and
 // scenarios through register.tsx's hooks, from spawns and background shells
@@ -36,7 +37,7 @@ const task = (fields: Partial<Task> & Pick<Task, 'id'>): Task => ({
 // Draws the view's rows in a test Pane.
 async function draw($: Engine, on: On, tasks: Record<string, Task>, now: number) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column">{agents.view({ tasks, now }, ui, { enable: true }, 36, colors())}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
@@ -345,6 +346,31 @@ test("a subagent's shell ends through the row delivered into that subagent's loo
   const { rows } = await sidebarOf($)
   expect(await rows()).toEqual(['◐ general-purpose · nested sleeper', '└ ✓ $ sleep 5'])
   expect(world.toasts.at(-1)).toBe('✓ shell done · sleep 5 · 5s')
+})
+
+// #246, 2.1.292: an agent that ends its turn to wait on its own background
+// shell reads `waiting`, then `running` when the shell wakes it.
+test('an agent waiting on its own shell keeps its row and the shell under it', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  const world = { agents: [] as AgentInfo[], toasts: [] as string[] }
+  host(on, world)
+  await start($)
+  await spawn($, 'bg waiter', 'general-purpose')
+  await background($, 'sleep 25', 'a1')
+  await clock.advance(6000)
+  const toasts = [...world.toasts]
+  world.agents[0]!.status = 'waiting'
+  await clock.advance(10_000)
+  const { rows } = await sidebarOf($)
+  expect(await rows()).toEqual(['◐ general-purpose · bg waiter', '└ ◐ $ sleep 25'])
+  expect(world.toasts).toEqual(toasts)
+
+  world.agents[0]!.status = 'running'
+  await clock.advance(1000)
+  world.agents[0]!.status = 'completed'
+  await clock.advance(2100)
+  expect((await rows())[0]).toBe('✓ general-purpose · bg waiter')
+  expect(world.toasts.at(-1)).toBe('✓ general-purpose done · bg waiter · 18s')
 })
 
 // `tasks` beneath the plugin, so a test can empty it as /clear does.

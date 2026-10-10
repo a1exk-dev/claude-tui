@@ -114,36 +114,54 @@ const themesOf = async (pane: Pane) =>
 // The footer: the `key: label` pairs under the `─` rule.
 const footerOf = async (pane: Pane) => (await pane.findAll({ type: 'Box', text: /^↑↓: move|^type: filter/ })).at(-1)?.text
 
-// The person's Esc on the focused menu: `closeOnEscape` raises `ui.close`,
-// origin `person`. The test kit has no driver for it, so this calls ctui's
-// hook as the engine would, with a `$` holding the menu's state, the opens,
-// the writes and a clock that runs at once.
+// ctui's own hook for `event` on the menu pane, called as the engine would,
+// with a `$` holding the menu's state, the opens, the writes (each denied with
+// `deny`, when given), the ring moves (each with the opens made before it) and
+// a clock that runs every timer at once, soonest first. The test kit
+// raises no `ui.close` for Esc and doesn't report the mod's own ring moves.
 type MenuState = Menu
-async function esc(state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[] = []) {
-  let close: ((...args: unknown[]) => unknown) | undefined
-  const record = (event: string, matcher: { id?: string }, hook: (...args: unknown[]) => unknown) => {
-    if (event === 'ui.close' && matcher.id === 'ctui') close = hook
+type Focus = { requestId: string; key: string; opensBefore: number }
+async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input', e: unknown, next: () => unknown, state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[], focuses: Focus[], deny?: string) {
+  let hook: ((...args: unknown[]) => unknown) | undefined
+  const record = (name: string, matcher: { id?: string; requestId?: string }, run: (...args: unknown[]) => unknown) => {
+    if (name === event && (matcher.id ?? matcher.requestId) === 'ctui') hook = run
   }
   register(record as unknown as On, {})
-  const work: Promise<unknown>[] = []
+  let now = 0
+  const timers: { at: number; run: () => Promise<unknown> }[] = []
   const $ = {
-    clock: { after: (_: number, run: () => Promise<unknown>) => void work.push(run()) },
+    clock: { after: (ms: number, run: () => Promise<unknown>) => void timers.push({ at: now + ms, run }), now: async () => now, sleep: async () => undefined },
     state: {
       get: async () => ({ value: state.menu }),
       set: async (_: unknown, value: MenuState) => void (state.menu = value),
     },
-    ui: { open: async (args: PaneOpenArgs) => void opens.push(args) },
+    ui: {
+      open: async (args: PaneOpenArgs) => void opens.push(args),
+      focus: async (args: { requestId: string; key: string }) => void focuses.push({ ...args, opensBefore: opens.length }),
+      toast: async () => undefined,
+    },
     config: {
       set: async (args: { key: string; value: unknown }) => {
         sets.push(args)
-        return { value: args.value }
+        return deny === undefined ? { value: args.value } : { deny }
       },
     },
   }
-  const answer = await close?.($, { id: 'ctui', origin: { kind: 'person' } }, () => 'closed')
-  await Promise.all(work)
+  const answer = await hook?.($, e, next)
+  for (let timer; (timer = timers.sort((a, b) => a.at - b.at).shift()); ) {
+    now = timer.at
+    await timer.run()
+  }
   return answer
 }
+
+// The person's Esc on the focused menu: `closeOnEscape` raises `ui.close`, origin `person`.
+const esc = (state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[] = [], focuses: Focus[] = []) =>
+  callHook('ui.close', { id: 'ctui', origin: { kind: 'person' } }, () => 'closed', state, opens, sets, focuses)
+
+// The person's Enter on the ringed `element` of the menu.
+const enter = (state: { menu?: MenuState }, element: string, focuses: Focus[]) =>
+  callHook('ui.press', { component: 'Pane', requestId: 'ctui', plugin: 'ctui', element }, () => ({}), state, [], [], focuses)
 
 test('session start registers /ctui as an immediate command', async ($, on) => {
   const seen = host(on)
@@ -234,6 +252,16 @@ test('Themes: inherit, then the Themes by name A–Z, the current one marked', {
   expect(await footerOf(pane)).toBe('type: filter · ↑↓: move · enter: pick · esc: back')
 })
 
+// The ring keeps its index from the top level, where Themes is the second row,
+// and the filter's autoFocus doesn't move it: the pick moves it (#239).
+test('Enter on Themes puts the ring on the filter', async () => {
+  const state: { menu?: MenuState } = { menu: { level: 'top', filter: '', picks: {}, ring: 'row-themes' } }
+  const focuses: Focus[] = []
+  await enter(state, 'row-themes', focuses)
+  expect(state.menu).toMatchObject({ level: 'themes' })
+  expect(focuses).toEqual([{ requestId: 'ctui', key: 'menu-filter', opensBefore: 0 }])
+})
+
 test('the Theme rows scroll with the ring, ↑ more and ↓ more marking what is cut off', async ($, on) => {
   host(on)
   await (await openThemes($)).unmount()
@@ -320,11 +348,14 @@ for (const level of ['themes', 'plugins'] as const) {
   test(`Esc in ${level} goes back to the top and takes the keys back; Esc at the top closes`, async () => {
     const state: { menu?: MenuState } = { menu: { level, filter: '', picks: { top: level } } }
     const opens: PaneOpenArgs[] = []
-    expect(await esc(state, opens)).toEqual({ deny: expect.any(String) })
+    const focuses: Focus[] = []
+    expect(await esc(state, opens, [], focuses)).toEqual({ deny: expect.any(String) })
     // The ring goes back to the row just left.
     expect(state.menu).toEqual({ level: 'top', filter: '', picks: { top: level }, ring: `row-${level}` })
-    // The deny hands the keys to the prompt: the menu opens again to take them back.
+    // The deny hands the keys to the prompt: the menu opens again to take them back,
+    // then moves the ring, which keeps its index through the open (#238).
     expect(opens).toEqual([OPEN])
+    expect(focuses).toEqual([{ requestId: 'ctui', key: `row-${level}`, opensBefore: 1 }])
     expect(await esc(state, opens)).toBe('closed')
   })
 }
@@ -427,8 +458,10 @@ test('Enter opens a plugin’s screen, even off; Esc returns to its row', { opti
   await pane.press({ key: 'plugin-mcp' })
   expect(await pane.find({ type: 'Text', text: /^Settings/ })).toMatchObject({ text: 'Settings › Plugins › MCP' })
   const state: { menu?: MenuState } = { menu: { level: 'plugin', filter: '', picks: { top: 'plugins' }, focus: 'mcp', ring: 'setting-mcp_folded' } }
-  expect(await esc(state, [])).toEqual({ deny: expect.any(String) })
+  const focuses: Focus[] = []
+  expect(await esc(state, [], [], focuses)).toEqual({ deny: expect.any(String) })
   expect(state.menu).toMatchObject({ level: 'plugins', focus: 'mcp', ring: 'plugin-mcp' })
+  expect(focuses).toEqual([{ requestId: 'ctui', key: 'plugin-mcp', opensBefore: 1 }])
 })
 
 // Plugin settings screens (#177).
@@ -536,14 +569,30 @@ test('Monthly cost text that isn’t a number toasts and writes nothing; the fie
   expect((await pane.find({ type: 'Input', key: 'menu-monthly-1' }))?.props.value).toBe('100')
 })
 
+const NEGATIVE = 'ctui limits_cost_monthly doesn\'t accept "-5". It takes a number between 0 and ∞.'
+
 test('a Monthly cost the engine denies toasts its reason', { options: { agents_toasts: false } }, async ($, on) => {
   const clock = mock.clock(on)
   const toasts: string[] = []
-  host(on, { toasts, deny: 'ctui limits_cost_monthly doesn\'t accept "-5". It takes a number between 0 and ∞.' })
+  host(on, { toasts, deny: NEGATIVE })
   await (await openPlugin($, 'limits')).input({ key: 'menu-monthly-0', text: '-5' })
   await clock.settle()
-  expect(toasts).toEqual(['Can\'t set the monthly cost: ctui limits_cost_monthly doesn\'t accept "-5". It takes a number between 0 and ∞.'])
+  expect(toasts).toEqual([`Can't set the monthly cost: ${NEGATIVE}`])
 })
+
+// The ring leaves the new field's index and comes back, so the cursor lands after the value.
+for (const [text, deny] of [
+  ['-5', NEGATIVE],
+  ['100abc', undefined],
+] as const) {
+  test(`after a refused Monthly cost of ${text}, the ring goes to Cost, then to the new field`, async () => {
+    const state: { menu?: MenuState } = { menu: { level: 'plugin', filter: '', picks: { top: 'plugins' }, focus: 'limits', ring: 'menu-monthly-0' } }
+    const focuses: Focus[] = []
+    const e = { component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: 'menu-monthly-0', kind: 'submit', value: text }
+    await callHook('ui.input', e, () => ({}), state, [], [], focuses, deny)
+    expect(focuses.map(({ key }) => key)).toEqual(['setting-limits_cost', 'menu-monthly-1'])
+  })
+}
 
 test('a deny’s toast names the change', () => {
   expect(deniedText({ key: 'ctui.mcp_enable', value: false }, 'locked')).toBe("Can't disable mcp: locked")

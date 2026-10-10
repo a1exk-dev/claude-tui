@@ -4,10 +4,12 @@ import { type Engine, expect, mock, test } from 'claude-code/testing'
 import { colors } from '../plugins/colors'
 import todo from '../plugins/todo'
 import type { Todo } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `todo` Sidebar plugin: its view with sample lists, and scenarios through
 // register.tsx's hooks: Task tool calls draw rows, no task tools draws a hint,
-// and `session.start` sets CLAUDE_CODE_ENABLE_TODO_TOOLS.
+// `session.start` sets CLAUDE_CODE_ENABLE_TODO_TOOLS, and Task tools keeps the
+// task tools and a task-list section in Claude's prompt.
 
 const LIST: Todo = {
   tools: 'task',
@@ -31,38 +33,41 @@ const PANE = {
   },
 } as const
 
-// Draws the view's rows in a test Pane.
+// Draws the view's rows in a test Pane, the spinner's Client as its first frame.
 async function draw($: Engine, on: On, list: Todo, tools = true) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column">{todo.view({ todo: list }, ui, { enable: true, tools }, 36, colors())}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
 }
 
-// The text of each todo row.
+// The text of each todo row: a done or waiting row's glyph and text, and the
+// text after the spinner, which draws in its own Client.
 async function rowsOf(pane: Awaited<ReturnType<typeof draw>>) {
-  const texts = await pane.findAll({ type: 'Text', text: /^[✓◐○] / })
+  const texts = await pane.findAll({ type: 'Text', text: /^([\u{f0133}\u{f0130}] | \S)/u })
   return texts.map((text) => text.text)
 }
 
-test('rows in list order: ✓ muted, ◐ with its activeForm, ○ faint with muted text', async ($, on) => {
+test('rows in list order: 󰄳 muted, the spinner with its activeForm, 󰄰 faint with muted text', async ($, on) => {
   const pane = await draw($, on, LIST)
-  expect(await rowsOf(pane)).toEqual(['✓ Write the parser', '◐ Running the tests', '○ Open the PR'])
+  expect(await rowsOf(pane)).toEqual(['󰄳 Write the parser', ' Running the tests', '󰄰 Open the PR'])
   const glyph = async (text: string) => (await pane.find({ type: 'Text', text: new RegExp(`^${text}$`) }))?.props
-  expect((await Promise.all(['✓', '◐', '○'].map(glyph))).map((props) => props?.color)).toEqual([
+  expect((await Promise.all(['󰄳', '󰪞', '󰄰'].map(glyph))).map((props) => props?.color)).toEqual([
     'inactive',
     'warning',
     'subtle',
   ])
   expect((await glyph('Write the parser'))?.color).toBe('inactive')
-  expect((await glyph('Running the tests'))?.color).toBe('text')
+  expect((await glyph(' Running the tests'))?.color).toBe('text')
   expect((await glyph('Open the PR'))?.color).toBe('inactive')
+  // The spinner and its text share one row.
+  expect((await pane.findAll({ type: 'Box', text: /^󰪞 Running the tests$/ })).length).toBeGreaterThan(0)
 })
 
 test('an in-progress item without an activeForm shows its subject', async ($, on) => {
   const pane = await draw($, on, { tools: 'todowrite', items: [{ subject: 'Fix it', status: 'in_progress' }] })
-  expect(await rowsOf(pane)).toEqual(['◐ Fix it'])
+  expect(await rowsOf(pane)).toEqual([' Fix it'])
 })
 
 test('the header counts completed over total; folded it adds the item in progress', () => {
@@ -72,9 +77,22 @@ test('the header counts completed over total; folded it adds the item in progres
   expect(todo.summary?.({ todo: LIST }, ui, cfg, 36, colors())).toBe('1/3 · Running the tests')
   const idle = { tools: 'task' as const, items: LIST.items.filter((item) => item.status !== 'in_progress') }
   expect(todo.summary?.({ todo: idle }, ui, cfg, 36, colors())).toBe('1/2')
-  expect(todo.count?.({ todo: { tools: 'task', items: [] } }, ui, cfg, 36, colors())).toBe('0/0')
   expect(todo.count?.({ todo: { tools: 'none', items: [] } }, ui, cfg, 36, colors())).toBeUndefined()
   expect(todo.summary?.({ todo: { tools: 'none', items: [] } }, ui, cfg, 36, colors())).toBeUndefined()
+})
+
+test('an empty list draws a bare title and no tasks yet in muted', async ($, on) => {
+  const empty: Todo = { tools: 'task', items: [] }
+  const ui = {} as never
+  const cfg = { enable: true, tools: true }
+  expect(todo.count?.({ todo: empty }, ui, cfg, 36, colors())).toBeUndefined()
+  expect(todo.summary?.({ todo: empty }, ui, cfg, 36, colors())).toBeUndefined()
+  const pane = await draw($, on, empty)
+  expect((await pane.find({ type: 'Text', text: 'no tasks yet' }))?.props.color).toBe('inactive')
+})
+
+test('before the first read of the list the view is empty', () => {
+  expect(todo.view({}, {} as never, { enable: true, tools: true }, 36, colors())).toEqual([])
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.
@@ -83,7 +101,11 @@ type Task = { id: string; subject: string; status: 'pending' | 'in_progress' | '
 
 // The world beneath the plugin: a session outside any repo, the tool list,
 // a Task store answering the Task tools, and an environment `$.env.set` writes.
-function host(on: On, world: { tools: string[]; tasks: Task[]; env: Record<string, string | undefined> }) {
+// `world.callers` records whose call reached each Task tool: `ctui` for its own.
+function host(
+  on: On,
+  world: { tools: string[]; tasks: Task[]; env: Record<string, string | undefined>; callers?: string[] },
+) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/srv/x' }))
   on('session.version', () => ({ value: { version: '2.1.288' } }))
@@ -108,15 +130,24 @@ function host(on: On, world: { tools: string[]; tasks: Task[]; env: Record<strin
   on('tool.list', () => ({
     value: world.tools.map((name): ToolInfo => ({ name, description: '', mcp: false })),
   }))
-  on('tool.call', { tool: 'TaskCreate' }, (_, e) => {
+  // Answers as core does, with the text the model reads.
+  on('tool.call', { tool: 'TaskCreate' }, (_, e, next) => {
+    world.callers?.push(next.origin.plugin)
     const task = { id: String(world.tasks.length + 1), subject: e.subject, status: 'pending' as const }
     world.tasks.push(task)
-    return { result: { task: { id: task.id, subject: task.subject } } }
+    return {
+      result: { task: { id: task.id, subject: task.subject } },
+      text: `Task #${task.id} created successfully: ${task.subject}`,
+    }
   })
-  on('tool.call', { tool: 'TaskUpdate' }, (_, e) => {
+  on('tool.call', { tool: 'TaskUpdate' }, (_, e, next) => {
+    world.callers?.push(next.origin.plugin)
     const task = world.tasks.find((t) => t.id === e.taskId)
     if (task && e.status && e.status !== 'deleted') task.status = e.status
-    return { result: { success: true, taskId: e.taskId, updatedFields: ['status'] } }
+    return {
+      result: { success: true, taskId: e.taskId, updatedFields: ['status'] },
+      text: `Updated task #${e.taskId} status`,
+    }
   })
   on('tool.call', { tool: 'TaskList' }, () => {
     if (!world.tools.includes('TaskList')) throw new Error('no tool named "TaskList" in this session')
@@ -144,22 +175,28 @@ test('TaskCreate and TaskUpdate draw rows, with activeForm from the inputs', asy
   host(on, world)
   await start($)
   await clock.settle()
-  const { pane, rows, count } = await sidebarOf($)
+  const { pane, rows, count, text } = await sidebarOf($)
   expect(await rows()).toEqual([])
-  expect(await count()).toBe('0/0')
+  expect(await text('no tasks yet')).toBe('no tasks yet')
+  expect(await count()).toBeUndefined()
 
   await $.tool.call({ tool: 'TaskCreate', subject: 'alpha', description: 'a', activeForm: 'Doing alpha' })
   await $.tool.call({ tool: 'TaskCreate', subject: 'beta', description: 'b' })
   await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'in_progress' })
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual(['◐ Doing alpha', '○ beta'])
+  expect(await rows()).toEqual([' Doing alpha', '󰄰 beta'])
+  // The spinner turns on its own frame clock, keyed by the task's id.
+  const spinner = await pane.find({ type: 'Client', key: 'spinner-1' })
+  expect(spinner?.props.module).toBe('plugins/todo/spinner.tsx')
+  expect(spinner?.props.props).toEqual({ frames: ['󰪞', '󰪟', '󰪠', '󰪡', '󰪢', '󰪣', '󰪤', '󰪥'], ms: 100, color: 'warning' })
+  expect((await pane.find({ type: 'Text', in: 'spinner-1' }))?.text).toBe('󰪞')
 
   await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'completed' })
   await $.tool.call({ tool: 'TaskUpdate', taskId: '2', status: 'in_progress', activeForm: 'Doing beta' })
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual(['✓ alpha', '◐ Doing beta'])
+  expect(await rows()).toEqual(['󰄳 alpha', ' Doing beta'])
   expect(await count()).toBe('1/2')
 
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-todo' })
@@ -176,7 +213,7 @@ test('a list held before session.start draws at once, as after --resume or a rel
   await start($)
   await clock.settle()
   const { rows } = await sidebarOf($)
-  expect(await rows()).toEqual(['✓ alpha', '○ beta'])
+  expect(await rows()).toEqual(['󰄳 alpha', '󰄰 beta'])
 })
 
 test('/model to a model with the tools loads the list within a second', async ($, on) => {
@@ -190,7 +227,7 @@ test('/model to a model with the tools loads the list within a second', async ($
   world.tools = ['TaskList']
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rows()).toEqual(['○ alpha'])
+  expect(await rows()).toEqual(['󰄰 alpha'])
   expect(await text('no task tools in this session')).toBeUndefined()
 })
 
@@ -230,7 +267,97 @@ test('TodoWrite feeds the list when the Task tools are off', async ($, on) => {
   })
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual(['✓ alpha', '◐ Doing beta'])
+  expect(await rows()).toEqual(['󰄳 alpha', ' Doing beta'])
+})
+
+// Hiding Claude Code's own list (MEMORY.md "While docked with Todo on, ctui runs
+// Claude's task calls itself to hide Claude Code's list"): ctui's own call
+// answers with `{ result }` alone, and core's `next(e)` with its text.
+
+const CREATE = { tool: 'TaskCreate', subject: 'alpha', description: 'a', activeForm: 'Doing alpha' } as const
+const UPDATE = { tool: 'TaskUpdate', taskId: '1', status: 'in_progress' } as const
+
+// `beneath` registers more hooks beneath the plugin before the session starts.
+async function taskWorld($: Engine, on: On, beneath?: () => void) {
+  const clock = mock.clock(on, { now: 0 })
+  const world = { tools: ['TaskCreate', 'TaskList', 'TaskUpdate'], tasks: [] as Task[], env: {}, callers: [] as string[] }
+  beneath?.()
+  host(on, world)
+  await start($)
+  await clock.settle()
+  return { clock, world }
+}
+
+test('docked with Todo on, ctui runs TaskCreate and TaskUpdate itself and answers { result } alone', async ($, on) => {
+  const { clock, world } = await taskWorld($, on)
+  const { pane, rows } = await sidebarOf($)
+  expect(await $.tool.call(CREATE)).toEqual({ result: { task: { id: '1', subject: 'alpha' } } })
+  expect(await $.tool.call(UPDATE)).toEqual({ result: { success: true, taskId: '1', updatedFields: ['status'] } })
+  expect(world.callers).toEqual(['ctui', 'ctui'])
+  await clock.settle()
+  await pane.redraw()
+  expect(await rows()).toEqual([' Doing alpha'])
+})
+
+test('docked, then seated inline, a task call goes on to core', async ($, on) => {
+  const { clock, world } = await taskWorld($, on, () => on('ui.close', () => ({ value: undefined })))
+  const { pane } = await sidebarOf($)
+  await pane.unmount()
+  await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar', props: { ...PANE.props, placement: 'inline' } })
+  expect((await $.tool.call(CREATE)).text).toBe('Task #1 created successfully: alpha')
+  expect(world.callers).not.toContain('ctui')
+  await clock.settle()
+})
+
+test('with Todo off, a task call goes on to core', { options: { todo_enable: false } }, async ($, on) => {
+  const { world } = await taskWorld($, on)
+  await sidebarOf($)
+  await $.tool.call(CREATE)
+  await $.tool.call(UPDATE)
+  expect(world.callers).not.toContain('ctui')
+})
+
+test('a subagent’s task call goes on to core', async ($, on) => {
+  const { clock, world } = await taskWorld($, on)
+  await sidebarOf($)
+  const subagent = { agentId: 'a1' }
+  await $.tool.call({ ...CREATE, ...subagent })
+  expect(world.callers).not.toContain('ctui')
+  await clock.settle()
+})
+
+test('docked, a deny from ctui’s own call passes through unchanged', async ($, on) => {
+  const { world } = await taskWorld($, on, () => on('tool.call', { tool: 'TaskCreate' }, () => ({ deny: 'no tasks here' })))
+  await sidebarOf($)
+  expect(await $.tool.call(CREATE)).toEqual({ deny: 'no tasks here' })
+  expect(world.tasks).toEqual([])
+})
+
+test('after the Sidebar was docked and now waits unplaced, a task call goes on to core', async ($, on) => {
+  const { clock, world } = await taskWorld($, on, () => {
+    on('ui.render', { component: 'SessionMode' }, ($, e) => {
+      const { Box } = $.ui.resolve(e)
+      return <Box />
+    })
+    on('ui.panes', () => ({
+      value: [{ id: 'sidebar', title: 'Sidebar', isShown: true, isFocused: false, isPlaced: false }],
+    }))
+  })
+  // Drawn docked once, then undrawn as it waits.
+  const { pane } = await sidebarOf($)
+  await pane.unmount()
+  const site = await $.ui.mount({
+    plugin: 'ctui',
+    surface: 'terminal',
+    component: 'SessionMode',
+    props: { modes: [] },
+    viewport: { columns: 130, rows: 40, isFullscreen: true },
+  })
+  await site.unmount()
+  await clock.settle()
+  expect((await $.tool.call(CREATE)).text).toBe('Task #1 created successfully: alpha')
+  expect(world.callers).not.toContain('ctui')
+  await clock.settle()
 })
 
 // `todoEnvSet` beneath the plugin, as `$.state` holds it across a reload:
@@ -291,4 +418,95 @@ test('Task tools off after ctui set the variable unsets it', { options: { todo_t
   await clock.settle()
   expect(world.env.CLAUDE_CODE_ENABLE_TODO_TOOLS).toBeUndefined()
   expect(state.ours).toBe(false)
+})
+
+// The pin (MEMORY.md "The `todo` Sidebar plugin turns the task tools on by
+// default"): with Task tools on, TaskCreate, TaskUpdate and TodoWrite are kept
+// in Claude's prompt, so their own text nudges Claude to keep a list.
+
+// Each tool as core describes it on 2.1.292: every task tool deferred.
+const DESCRIBED = ['TaskCreate', 'TaskUpdate', 'TodoWrite', 'TaskList', 'TaskGet', 'TaskStop'].map((tool) => ({
+  tool,
+  description: `${tool} text`,
+  isDeferred: true as const,
+  provider: { plugin: 'engine', tier: 'core' as const },
+}))
+
+// Starts a session with core answering `tool.describe` and `ui.invalidate`
+// recorded, and returns what each tool comes back as, by name.
+async function describeWorld($: Engine, on: On) {
+  const invalidated: string[] = []
+  on('ui.invalidate', (_, e) => {
+    invalidated.push(e.event)
+    return { value: undefined }
+  })
+  on('tool.describe', (_, e) => ({ description: e.description, ...(e.isDeferred && { isDeferred: true }) }))
+  const clock = mock.clock(on, { now: 0 })
+  host(on, { tools: ['TaskCreate', 'TaskList', 'TaskUpdate'], tasks: [], env: {} })
+  await start($)
+  await clock.settle()
+  const answers = Object.fromEntries(await Promise.all(DESCRIBED.map(async (e) => [e.tool, await $.tool.describe(e)])))
+  return { answers, invalidated }
+}
+
+test('Task tools on keeps TaskCreate, TaskUpdate and TodoWrite in the prompt', async ($, on) => {
+  const { answers } = await describeWorld($, on)
+  for (const tool of ['TaskCreate', 'TaskUpdate', 'TodoWrite']) {
+    expect(answers[tool]).toEqual({ description: `${tool} text`, isDeferred: false })
+  }
+  for (const tool of ['TaskList', 'TaskGet', 'TaskStop']) {
+    expect(answers[tool]).toEqual({ description: `${tool} text`, isDeferred: true })
+  }
+})
+
+test('Task tools off pins nothing', { options: { todo_tools: false } }, async ($, on) => {
+  const { answers } = await describeWorld($, on)
+  for (const { tool } of DESCRIBED) expect(answers[tool]).toEqual({ description: `${tool} text`, isDeferred: true })
+})
+
+// The test kit doesn't reload: `session.start` with the new options is the reload.
+test('a reload invalidates tool.describe, so a Task tools change applies', { options: { todo_tools: false } }, async ($, on) => {
+  const { invalidated } = await describeWorld($, on)
+  expect(invalidated).toContain('tool.describe')
+})
+
+// The section: with Task tools on and a tool that starts a list in the
+// request, ctui appends `ctui:todo` to the system prompt.
+
+const TASK_SECTION = `# Task list
+The user follows your progress in a task list shown beside the conversation. For any request that needs 2 or more distinct steps (edits, fixes, checks, delegated agents), your first action is to create one task per step with TaskCreate, before reading files or delegating. Set each task in_progress with TaskUpdate when you start it and completed as soon as it is done. Skip the list only for a single-step request or a pure question.`
+
+// Starts a session with core composing a one-section prompt, and returns the
+// sections composed for a request offering `tools`.
+async function composeWorld($: Engine, on: On, tools: string[]) {
+  on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude.', scope: 'shared' }] }))
+  const clock = mock.clock(on, { now: 0 })
+  host(on, { tools, tasks: [], env: {} })
+  await start($)
+  await clock.settle()
+  const facts = { model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: ['terminal'] as const }
+  return (await $.prompt.compose({ ...facts, tools, outputStyle: null, traits: [] })).sections
+}
+
+test('Task tools on with TaskCreate ends the prompt with the task list section', async ($, on) => {
+  const sections = await composeWorld($, on, ['Read', 'TaskCreate', 'TaskList', 'TaskUpdate'])
+  expect(sections.map((section) => section.id)).toEqual(['intro', 'ctui:todo'])
+  expect(sections.at(-1)).toEqual({ id: 'ctui:todo', text: TASK_SECTION, scope: 'session' })
+})
+
+test('with TodoWrite the section names TodoWrite', async ($, on) => {
+  const sections = await composeWorld($, on, ['Read', 'TodoWrite'])
+  expect(sections.at(-1)?.text).toBe(
+    TASK_SECTION.replace('with TaskCreate', 'with TodoWrite').replace('with TaskUpdate', 'with TodoWrite'),
+  )
+})
+
+test('no section without TaskCreate or TodoWrite', async ($, on) => {
+  const sections = await composeWorld($, on, ['Read', 'TaskList'])
+  expect(sections.map((section) => section.id)).toEqual(['intro'])
+})
+
+test('Task tools off adds no section', { options: { todo_tools: false } }, async ($, on) => {
+  const sections = await composeWorld($, on, ['Read', 'TaskCreate', 'TaskList', 'TaskUpdate'])
+  expect(sections.map((section) => section.id)).toEqual(['intro'])
 })

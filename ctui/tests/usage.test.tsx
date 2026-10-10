@@ -7,6 +7,7 @@ import context from '../plugins/context'
 import limits from '../plugins/limits'
 import type { SidebarData, SidebarPlugin } from '../plugins/plugin'
 import type { Usage } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `context` and `limits` Sidebar plugins: unit views with sample usage,
 // and a scenario where `session.measure` moves the Sidebar's rows.
@@ -37,7 +38,7 @@ const OFF: SectionConfig = { ...AUTO, cost: 'off' }
 // Draws one plugin's view rows in a test Pane, as the Sidebar does.
 async function draw($: Engine, on: On, plugin: SidebarPlugin, data: SidebarData, cfg: SectionConfig = AUTO, width = WIDTH) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column">{plugin.view(data, ui, cfg, width, colors())}</ui.Box>
   })
   return $.ui.mount({
@@ -428,7 +429,7 @@ test(
 
 // `/clear` empties `$.state` with no `session.start`; the test empties the
 // `usage` and `versions` keys beneath the plugin until the plugin writes them again.
-test('after /clear empties $.state, the tick reloads the usage and the versions', async ($, on) => {
+test('after /clear empties $.state, the next redraw reloads the usage and the versions', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
   host(on, { startedAt: NOW, ...MEASURED })
   const cleared = new Set<string>()
@@ -447,7 +448,7 @@ test('after /clear empties $.state, the tick reloads the usage and the versions'
   await pane.redraw()
   expect(await pane.find({ text: /tokens/ })).toBeUndefined()
   expect(await pane.find({ text: /claude cli/ })).toBeUndefined()
-  await clock.advance(1000)
+  await clock.settle()
   await pane.redraw()
   expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()

@@ -125,8 +125,8 @@
   }
 
   // Each section: its title, the right side folded (summary) and expanded
-  // (count), and its body rows. A list shows its first 4 rows plus a
-  // `▸ N more` row unless the render expands it.
+  // (count), and its body rows. A list shows its first `cap` rows (4 unless
+  // it sets its own) plus a `▸ N more` row unless the render expands it.
   const SECTIONS = [
     {
       id: 'context', title: 'Context',
@@ -152,15 +152,16 @@
       id: 'todo', title: 'Todo',
       summary: `${span('m', '2/8 · ')}write the test`,
       count: span('m', '2/8'),
+      cap: 8,
       list: [
-        row(span('m', '✓ read sync command')),
-        row(span('m', '✓ add the flag')),
-        row(`${span('o', '◖')} write the test`),
-        row(span('m', '○ update README')),
-        row(span('m', '○ add --dry-run to help text')),
-        row(span('m', '○ check Windows paths')),
-        row(span('m', '○ run full test suite')),
-        row(span('m', '○ write changelog entry')),
+        row(`${span('m', '\u{f0133}')} ${span('m', 'read sync command')}`),
+        row(`${span('m', '\u{f0133}')} ${span('m', 'add the flag')}`),
+        row(`${span('o', '\u{f0aa1}')} write the test`),
+        row(`${span('f', '\u{f0130}')} ${span('m', 'update README')}`),
+        row(`${span('f', '\u{f0130}')} ${span('m', 'add --dry-run to help text')}`),
+        row(`${span('f', '\u{f0130}')} ${span('m', 'check Windows paths')}`),
+        row(`${span('f', '\u{f0130}')} ${span('m', 'run full test suite')}`),
+        row(`${span('f', '\u{f0130}')} ${span('m', 'write changelog entry')}`),
       ],
     },
     {
@@ -231,8 +232,9 @@
       if (!expanded) continue
       let body = section.body ? section.body() : section.list
       if (section.list) {
+        const cap = section.cap ?? CAP
         if (render.lists?.includes(section.id)) body = [...body, row(span('m', '▾ show less'))]
-        else if (body.length > CAP) body = [...body.slice(0, CAP), row(span('m', `▸ ${body.length - CAP} more`))]
+        else if (body.length > cap) body = [...body.slice(0, cap), row(span('m', `▸ ${body.length - cap} more`))]
       }
       stops.push(...body.map((html) => ({ html: `<div class="indent">${html}</div>`, height: 1 })))
     }

@@ -101,10 +101,14 @@ export function endTask(
   return toast && !quiet ? [{ id: task.id, end: true, text: toastText.ended(ended) }] : []
 }
 
-// Held agents take the list's status when it changes: a failed notice can
-// end an agent the list still calls running (#67). `completed` isn't final: an
-// agent can run again, but a failure doesn't turn into a success. A kill seen
-// here is the person's own from /tasks: no toast.
+// The list's words that end an agent; any other (`pending`, `waiting` on its
+// own background work, `idle`, ...) is live (#246).
+const ENDED_STATUSES = new Set(['completed', 'failed', 'killed'])
+
+// Held agents take the list's status when it changes, a live word as running:
+// a failed notice can end an agent the list still calls running (#67).
+// `completed` isn't final: an agent can run again, but a failure doesn't turn
+// into a success. A kill seen here is the person's own from /tasks: no toast.
 export function applyAgentList(
   tasks: Record<string, Task>,
   list: readonly { id: string; status: string }[],
@@ -117,7 +121,8 @@ export function applyAgentList(
     const task: Task = { ...held, listed: agent.status }
     tasks[agent.id] = task
     if (task.status === agent.status) continue
-    if (agent.status === 'running') {
+    if (!ENDED_STATUSES.has(agent.status)) {
+      if (task.status === 'running') continue
       const { endedAt, reason, ...rest } = task
       tasks[agent.id] = { ...rest, status: 'running' }
     } else if (task.status === 'running') {
