@@ -348,6 +348,31 @@ test("a subagent's shell ends through the row delivered into that subagent's loo
   expect(world.toasts.at(-1)).toBe('✓ shell done · sleep 5 · 5s')
 })
 
+// #246, 2.1.292: an agent that ends its turn to wait on its own background
+// shell reads `waiting`, then `running` when the shell wakes it.
+test('an agent waiting on its own shell keeps its row and the shell under it', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  const world = { agents: [] as AgentInfo[], toasts: [] as string[] }
+  host(on, world)
+  await start($)
+  await spawn($, 'bg waiter', 'general-purpose')
+  await background($, 'sleep 25', 'a1')
+  await clock.advance(6000)
+  const toasts = [...world.toasts]
+  world.agents[0]!.status = 'waiting'
+  await clock.advance(10_000)
+  const { rows } = await sidebarOf($)
+  expect(await rows()).toEqual(['◐ general-purpose · bg waiter', '└ ◐ $ sleep 25'])
+  expect(world.toasts).toEqual(toasts)
+
+  world.agents[0]!.status = 'running'
+  await clock.advance(1000)
+  world.agents[0]!.status = 'completed'
+  await clock.advance(2100)
+  expect((await rows())[0]).toBe('✓ general-purpose · bg waiter')
+  expect(world.toasts.at(-1)).toBe('✓ general-purpose done · bg waiter · 18s')
+})
+
 // `tasks` beneath the plugin, so a test can empty it as /clear does.
 function tasksState(on: On) {
   const box: { value?: Record<string, Task> } = {}
