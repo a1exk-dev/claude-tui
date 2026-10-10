@@ -1431,11 +1431,14 @@ export const register: Register = (on, options) => {
       return result
     }
     // The ring goes back to the row just left.
-    await setMenu($, { ...menu, level: up, filter: '', ring: up === 'top' ? topKey(menu.level as TopPick) : menu.focus && rowKey(menu.focus) })
+    const ring = up === 'top' ? topKey(menu.level as TopPick) : menu.focus && rowKey(menu.focus)
+    await setMenu($, { ...menu, level: up, filter: '', ring })
     // Take the keys back first: the order's write reloads the mod, and an
-    // open from the old module after that is lost (live, 2.1.292).
+    // open from the old module after that is lost (live, 2.1.292). The ring
+    // keeps its index through the redraw and the open, so move it too.
     $.clock.after(0, async () => {
       await openMenu($)
+      if (ring) focusLater($, ring)
       await flushOrder($)
     })
     return { deny: 'Back one level in the ctui menu' }
