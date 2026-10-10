@@ -1351,6 +1351,8 @@ export const register: Register = (on, options) => {
     if (top) {
       const { ring: _, ...rest } = menu
       await setMenu($, { ...rest, level: top, filter: '', picks: { ...menu.picks, top } })
+      // The ring keeps its index from the top level: start it on the filter.
+      if (top === 'themes') focusLater($, KEYS.filter)
     } else if (slug) {
       if (slug !== config.theme) await writeSetting($, { key: 'ctui.theme', value: slug })
     } else if (row) {
