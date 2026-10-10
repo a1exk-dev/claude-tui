@@ -328,3 +328,11 @@ Applies when: drawing a Nerd Font icon (a private-use glyph such as `U+F06E`) be
 Guidance: Follow the icon with two spaces. The engine counts it as one cell, but the terminal draws it two cells wide: the first space takes the overflow and the second shows as the gap.
 
 Reason: Checked live on 2.1.292 (2026-10-09, #201) on the `/ctui` Plugins rows. With one space the eye touched the title; with none the terminal shrank the eye and it still touched; with two it drew full size, one space from the title.
+
+## Repository skills are pinned copies, edited to name `CONTEXT.md`
+
+Applies when: adding, updating or removing a skill in `.claude/skills/`, or editing `skills-lock.json`.
+
+Guidance: Install with `npx skills add mattpocock/skills -s <names> -a claude-code --copy -y`, which copies each skill into `.claude/skills/` and pins it in `skills-lock.json`. Install a skill together with every skill it calls, checked across all of its files. Leave `setup-matt-pocock-skills` global. After every add or `npx skills update`, rename `GLOSSARY.md` to `CONTEXT.md` and `GLOSSARY-MAP.md` to `CONTEXT-MAP.md` in the copies, keeping the `GLOSSARY-FORMAT.md` file name.
+
+Reason: The human asked on 2026-10-10 to ship the skills this repo uses with the repo, as `streaming` does. This repo's glossary is `CONTEXT.md`, while upstream names `GLOSSARY.md`, and the CLI overwrites local edits when it updates a skill.
