@@ -429,7 +429,7 @@ test(
 
 // `/clear` empties `$.state` with no `session.start`; the test empties the
 // `usage` and `versions` keys beneath the plugin until the plugin writes them again.
-test('after /clear empties $.state, the tick reloads the usage and the versions', async ($, on) => {
+test('after /clear empties $.state, the next redraw reloads the usage and the versions', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
   host(on, { startedAt: NOW, ...MEASURED })
   const cleared = new Set<string>()
@@ -448,7 +448,7 @@ test('after /clear empties $.state, the tick reloads the usage and the versions'
   await pane.redraw()
   expect(await pane.find({ text: /tokens/ })).toBeUndefined()
   expect(await pane.find({ text: /claude cli/ })).toBeUndefined()
-  await clock.advance(1000)
+  await clock.settle()
   await pane.redraw()
   expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()
