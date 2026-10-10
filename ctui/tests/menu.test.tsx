@@ -114,17 +114,16 @@ const themesOf = async (pane: Pane) =>
 // The footer: the `key: label` pairs under the `─` rule.
 const footerOf = async (pane: Pane) => (await pane.findAll({ type: 'Box', text: /^↑↓: move|^type: filter/ })).at(-1)?.text
 
-// The person's Esc on the focused menu: `closeOnEscape` raises `ui.close`,
-// origin `person`. The test kit has no driver for it, so this calls ctui's
-// hook as the engine would, with a `$` holding the menu's state, the opens,
-// the writes, the ring moves (each with the opens made before it) and a clock
-// that runs at once.
+// ctui's own hook for `event` on the menu pane, called as the engine would,
+// with a `$` holding the menu's state, the opens, the writes, the ring moves
+// (each with the opens made before it) and a clock that runs at once. The test
+// kit raises no `ui.close` for Esc and doesn't report the mod's own ring moves.
 type MenuState = Menu
 type Focus = { requestId: string; key: string; opensBefore: number }
-async function esc(state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[] = [], focuses: Focus[] = []) {
-  let close: ((...args: unknown[]) => unknown) | undefined
-  const record = (event: string, matcher: { id?: string }, hook: (...args: unknown[]) => unknown) => {
-    if (event === 'ui.close' && matcher.id === 'ctui') close = hook
+async function callHook(event: 'ui.close' | 'ui.press', e: unknown, next: () => unknown, state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[], focuses: Focus[]) {
+  let hook: ((...args: unknown[]) => unknown) | undefined
+  const record = (name: string, matcher: { id?: string; requestId?: string }, run: (...args: unknown[]) => unknown) => {
+    if (name === event && (matcher.id ?? matcher.requestId) === 'ctui') hook = run
   }
   register(record as unknown as On, {})
   const work: Promise<unknown>[] = []
@@ -145,10 +144,18 @@ async function esc(state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unk
       },
     },
   }
-  const answer = await close?.($, { id: 'ctui', origin: { kind: 'person' } }, () => 'closed')
+  const answer = await hook?.($, e, next)
   await Promise.all(work)
   return answer
 }
+
+// The person's Esc on the focused menu: `closeOnEscape` raises `ui.close`, origin `person`.
+const esc = (state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[] = [], focuses: Focus[] = []) =>
+  callHook('ui.close', { id: 'ctui', origin: { kind: 'person' } }, () => 'closed', state, opens, sets, focuses)
+
+// The person's Enter on the ringed `element` of the menu.
+const enter = (state: { menu?: MenuState }, element: string, focuses: Focus[]) =>
+  callHook('ui.press', { component: 'Pane', requestId: 'ctui', plugin: 'ctui', element }, () => ({}), state, [], [], focuses)
 
 test('session start registers /ctui as an immediate command', async ($, on) => {
   const seen = host(on)
@@ -237,6 +244,16 @@ test('Themes: inherit, then the Themes by name A–Z, the current one marked', {
   expect(await rowsOf(pane, 'theme-')).toEqual([['inherit'], ['Catppuccin'], ['Everforest'], ['Tokyo Night', '●']])
   expect((await pane.find({ type: 'Text', text: '●' }))?.props.color).toBe('suggestion')
   expect(await footerOf(pane)).toBe('type: filter · ↑↓: move · enter: pick · esc: back')
+})
+
+// The ring keeps its index from the top level, where Themes is the second row,
+// and the filter's autoFocus doesn't move it: the pick moves it (#239).
+test('Enter on Themes puts the ring on the filter', async () => {
+  const state: { menu?: MenuState } = { menu: { level: 'top', filter: '', picks: {}, ring: 'row-themes' } }
+  const focuses: Focus[] = []
+  await enter(state, 'row-themes', focuses)
+  expect(state.menu).toMatchObject({ level: 'themes' })
+  expect(focuses).toEqual([{ requestId: 'ctui', key: 'menu-filter', opensBefore: 0 }])
 })
 
 test('the Theme rows scroll with the ring, ↑ more and ↓ more marking what is cut off', async ($, on) => {
