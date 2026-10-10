@@ -165,7 +165,8 @@ async function refreshGit($: EngineInterface) {
   }
 }
 
-// `/clear` and `/resume` empty `$.state` with no `session.start`: the tick refills it.
+// `/clear` and `/resume` empty `$.state` with no `session.start`: the Sidebar's
+// next draw and the tick refill it.
 async function refillVersions($: EngineInterface, slug: string) {
   const { value } = await $.state.get(VERSIONS)
   if (!value) await loadVersions($, slug)
@@ -192,10 +193,17 @@ async function loadUsage($: EngineInterface) {
   await setUsage($, await $.session.usage())
 }
 
-// `/clear` and `/resume` empty `$.state` with no `session.start`: the tick refills it.
+// `/clear` and `/resume` empty `$.state` with no `session.start`: the Sidebar's
+// next draw and the tick refill it.
 async function refillUsage($: EngineInterface) {
   const { value } = await $.state.get(USAGE)
   if (!value) await loadUsage($)
+}
+
+// The usage says whether the cost row shows: the month follows it.
+async function refillUsageAndMonth($: EngineInterface, monthCost: boolean, choice: Config['limits']['cost']) {
+  await refillUsage($)
+  if (monthCost) await refreshMonth($, choice)
 }
 
 // `now` moves when a reset time shown would read differently.
@@ -822,10 +830,7 @@ export const register: Register = (on, options) => {
       ticks++
       void refreshModel($).catch(() => undefined)
       if (ticks % 5 === 0 && needs.has('git')) void refreshGit($)
-      // The usage says whether the cost row shows: refilled first after `/clear`.
-      if (needs.has('usage')) {
-        void refillUsage($).then(() => (needs.has('monthCost') ? refreshMonth($, config.limits.cost) : undefined)).catch(() => undefined)
-      }
+      if (needs.has('usage')) void refillUsageAndMonth($, needs.has('monthCost'), config.limits.cost).catch(() => undefined)
       if (needs.has('versions')) void refillVersions($, config.theme)
       if (needs.has('mcp')) void refreshMcp($)
       if (needs.has('todo')) void refreshTodo($)
@@ -1146,6 +1151,11 @@ export const register: Register = (on, options) => {
       $.state.get(TASKS),
       $.state.get(GLASS),
     ])
+    // After `/clear` the engine redraws at once; the tick would refill up to 1 s later.
+    if (needs.has('usage') && !usage.value) {
+      $.clock.after(0, () => void refillUsageAndMonth($, needs.has('monthCost'), config.limits.cost).catch(() => undefined))
+    }
+    if (needs.has('versions') && !versions.value) $.clock.after(0, () => void refillVersions($, config.theme).catch(() => undefined))
     const drawn = sidebar({
       ui,
       bodyRows: e.props.scroll.bodyRows,
