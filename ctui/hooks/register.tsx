@@ -19,7 +19,7 @@ import {
   staleTranscripts,
   type Transcript,
 } from './month'
-import { inheritGlass, themeFile } from './glass'
+import { grey, inheritGlass, themeFile } from './glass'
 import { addSkill, skillsFromMessages, sourceOf } from './skills'
 import { deniedText, HOTKEYS, isMonthlyKey, KEYS, MENU_START, monthlyKey, type Setting, settingKey, settingRows, menuView, moveId, NO_CONFIG, PARENT, rowId, rowKey, takenBy, themeSlug, type ThemeName, topKey, type TopPick, topPick } from './menu'
 import { type Control, controlKey, foldRowKey, sidebar, type SidebarInput } from './sidebar'
@@ -365,6 +365,14 @@ async function readMcpFiles($: EngineInterface, cwd?: string) {
   }
 }
 
+// A glass as Claude Code can draw it: under tmux without
+// `CLAUDE_CODE_TMUX_TRUECOLOR`, its 256-color test (MEMORY.md "Inside tmux,
+// Claude Code draws 256 colors…"), snapped to a grey.
+async function paintable($: EngineInterface, glass: string) {
+  const palette = (await $.env.get('TMUX')) && !(await $.env.get('CLAUDE_CODE_TMUX_TRUECOLOR'))
+  return palette ? grey(glass) : glass
+}
+
 // Under `inherit`, the glass of the active `/theme` when it's a user custom
 // theme with no dock color (Omarchy's), re-read when the theme or its file's
 // mtime changes: an Omarchy switch rewrites the file.
@@ -382,6 +390,7 @@ async function refreshGlass($: EngineInterface) {
   } catch {
     return // Caught mid-write: the next tick reads it again.
   }
+  if (glass) glass = await paintable($, glass)
   themeSeen = { path, mtimeMs: stat?.mtimeMs }
   // A state value is never undefined: null clears the paint.
   if (value !== glass) await $.state.set(GLASS, glass)
@@ -596,7 +605,7 @@ async function toggle($: EngineInterface, config: Config, { kind, id }: Control)
 async function themeLook($: EngineInterface, theme: string): Promise<Pick<SidebarInput, 'colors' | 'background'>> {
   if (theme === 'inherit') return { colors: colors() }
   const { overrides } = JSON.parse(await $.fs.read(`${$.plugin.root}/themes/${theme}.json`))
-  return { colors: colors(overrides), background: overrides.composerSidebarBackground }
+  return { colors: colors(overrides), background: await paintable($, overrides.composerSidebarBackground) }
 }
 
 // The manifest's `theme` options: under `claude -p` no `/config` row lists them.

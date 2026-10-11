@@ -12,6 +12,16 @@ export function mix(a: string, b: string, w: number) {
   return `#${mixed.map((x) => x.toString(16).padStart(2, '0')).join('')}`
 }
 
+// Under tmux, Claude Code draws 256 colors and rounds a hex with unequal
+// channels onto the 6x6x6 cube, each channel on its own: a dark glass like
+// #1b1e20 lands on #5f5f5f. A hex with equal channels takes the grey ramp, so
+// there the glass draws as the grey of its Rec. 709 luminance (#227).
+export function grey(hex: string) {
+  const [r, g, b] = channels(hex) as [number, number, number]
+  const y = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b).toString(16).padStart(2, '0')
+  return `#${y}${y}${y}`
+}
+
 // The glass ctui paints under `inherit` for a custom `/theme`'s overrides.
 // Omarchy's template writes the theme's background to `inverseText` and its
 // foreground to `text`. A theme that sets `composerSidebarBackground` already
