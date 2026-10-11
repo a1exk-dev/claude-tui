@@ -285,6 +285,7 @@
   const THEMES = ['inherit', 'Catppuccin', 'Catppuccin Latte', 'Ethereal', 'Everforest', 'Flexoki Light', 'Gruvbox',
     'Hackerman', 'Kanagawa', 'Last Horizon', 'Lumon', 'Lupine', 'Matte Black', 'Miasma', 'Nord', 'Osaka Jade',
     'Retro 82', 'Ristretto', 'Rose Pine', 'Solitude', 'Tokyo Night', 'Vantablack', 'White']
+  const PLACEHOLDER = 'type to filter'
   const SCREENS = {
     top: {
       crumbs: [],
@@ -316,7 +317,8 @@
     themes: {
       crumbs: ['Themes'],
       rows: () => [
-        split(`${span('a', '<b>filter </b>')}${span('ring', 't')}${span('m', 'ype to filter')}`, span('m', '⏎ submit')),
+        // The focused filter: the cursor inverse on the placeholder's first cell.
+        split(`${span('a', '<b>filter </b>')}${span('ring', PLACEHOLDER[0])}${span('m', PLACEHOLDER.slice(1))}`, span('m', '⏎ submit')),
         // The field's blank row, then the window's `↑ more` and `↓ more` rows:
         // blank, as all 23 rows fit.
         row(''),
