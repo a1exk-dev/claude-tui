@@ -85,6 +85,9 @@ if (rows[0]) {
   same('COMPATIBILITY.md top row and the pin', claudeVersion ?? '', pin)
 }
 
+// The cost live check's fixture generator.
+run('node', ['--test', 'scripts/cost-fixture.test.ts'])
+
 // Themes and the docs/configuration.md table: regenerating must change nothing.
 run('node', ['--test', 'scripts/themes.test.ts'])
 const generated = outputs()
