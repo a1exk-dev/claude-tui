@@ -942,10 +942,10 @@ export const register: Register = (on, options) => {
 
   // MEMORY.md "Agent and shell events go to toasts, the live list goes to the
   // sidebar", "Task ends come from notifications" and "A Workflow run is one
-  // task row". Every task hook observes only.
+  // task row; teammates stay hidden". Every task hook observes only.
   on('agent.spawn', async ($, e, next) => {
     const done = await next(e)
-    if (tracking && done.agentId) {
+    if (tracking && done.agentId && !e.isTeammate) {
       const id = done.agentId
       await updateTasks($, (tasks, now) => {
         const task: Task = {

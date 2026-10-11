@@ -151,7 +151,12 @@ function host(on: On, world: { agents: AgentInfo[]; toasts: string[]; files?: st
 
 const start = ($: Engine) => $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
 
-const spawn = ($: Engine, description: string, subagentType = 'Explore', parentAgentId?: string) =>
+const spawn = (
+  $: Engine,
+  description: string,
+  subagentType = 'Explore',
+  extra: { parentAgentId?: string; name?: string; isTeammate?: true } = {},
+) =>
   $.agent.spawn({
     tool_use_id: `toolu_${description}`,
     prompt: description,
@@ -161,7 +166,7 @@ const spawn = ($: Engine, description: string, subagentType = 'Explore', parentA
     parentModel: 'claude-opus-5-5',
     background: true,
     fork: false,
-    ...(parentAgentId && { parentAgentId }),
+    ...extra,
   })
 
 const notify = ($: Engine, id: string, status: string, summary: string) =>
@@ -218,7 +223,7 @@ test('a nested agent draws under its parent', async ($, on) => {
   host(on, { agents: [], toasts: [] })
   await start($)
   await spawn($, 'audit', 'general-purpose')
-  await spawn($, 'scan', 'Explore', 'a1')
+  await spawn($, 'scan', 'Explore', { parentAgentId: 'a1' })
   await clock.settle()
   const { rows } = await sidebarOf($)
   expect(await rows()).toEqual(['◐ general-purpose · audit', '└ ◐ Explore · scan'])
@@ -423,12 +428,17 @@ test('a Workflow run is one row; a shell of its agent nests under it quietly', a
   expect(world.toasts).toEqual(['◆ workflow started: review', '✓ workflow done · review · 3s'])
 })
 
-test('a teammate in the agent list gets no row and no toast', async ($, on) => {
+// #244, 2.1.292: a teammate fires `agent.spawn`, and the list names it too. Its
+// TaskStop names its task id (the probe's below), not the spawn's `agentId`.
+test('a teammate, its shell and its TaskStop get no row and no toast', async ($, on) => {
   const clock = mock.clock(on, { now: 0 })
   const world = { agents: [] as AgentInfo[], toasts: [] as string[] }
   host(on, world)
-  world.agents.push({ id: 't1', description: 'reviewer', type: 'teammate', status: 'running', name: 'reviewer' })
   await start($)
+  const { agentId } = await spawn($, 'reviewer', 'teammate', { name: 'reviewer', isTeammate: true })
+  await background($, 'sleep 7', agentId)
+  await clock.advance(1000)
+  await $.tool.call({ tool: 'TaskStop', task_id: 'tin1b73zq' })
   await clock.advance(3000)
   const { rows } = await sidebarOf($)
   expect(await rows()).toEqual([])
