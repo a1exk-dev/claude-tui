@@ -317,9 +317,9 @@ Reason: The human chose this in #42. `claude plugin test` loads tests from insid
 
 Applies when: a change alters how ctui draws something the renders in `docs/design/` show.
 
-Guidance: Edit `docs/design/sidebar.html` in the same work and re-export the three PNGs with the command in its header comment. Draw in the installed JetBrainsMono Nerd Font: the web JetBrains Mono has a narrower advance, and its box-drawing glyphs fall back to another font that stretches the bars. The "Known differences from the renders" table in `docs/spec/v0.1.md` lists engine limits only, never ctui's own design changes.
+Guidance: Edit `docs/design/sidebar.html` in the same work and re-export the seven PNGs with the command in its header comment: renders 1–3 are the Sidebar (`sidebar-*.png`), 4–7 the `/ctui` menu's four screens docked in its `Settings` tab (`menu-1-top`, `menu-2-plugins`, `menu-3-plugin`, `menu-4-themes`), drawn as `menuView()` in `ctui/hooks/menu.tsx` ships them. Draw in the installed JetBrainsMono Nerd Font: the web JetBrains Mono has a narrower advance, and its box-drawing glyphs fall back to another font that stretches the bars. The "Known differences from the renders" table in `docs/spec/v0.1.md` lists engine limits only, never ctui's own design changes.
 
-Reason: The human chose this in #109: the renders show ctui's own design as it ships, so a design change redraws them rather than adding a known difference. In #113 the Nerd Font reproduced the 0.1 PNGs to within a pixel; the web font didn't.
+Reason: The human chose this in #109: the renders show ctui's own design as it ships, so a design change redraws them rather than adding a known difference. In #113 the Nerd Font reproduced the 0.1 PNGs to within a pixel; the web font didn't. #202 added the menu renders so the `Settings` tab's look is drawn as it ships.
 
 ## A Nerd Font icon takes two spaces after it
 
