@@ -173,6 +173,7 @@ const OPEN = { id: 'ctui', title: 'Settings', focus: true, closeOnEscape: true, 
 
 test('/ctui opens the focused menu at its top level, whatever follows it', { options: { theme: 'tokyo-night', todo_enable: false } }, async ($, on) => {
   const seen = host(on)
+  mock.env(on, {}) // a Theme's glass checks for tmux
   expect(await run($, 'themes everforest')).toEqual({})
   expect(seen.opens).toEqual([OPEN])
   const pane = await menu($)
@@ -245,6 +246,7 @@ const openThemes = async ($: Engine) => {
 // The engine draws an Input's label in the terminal's color, so the menu draws a field's label as its own Text (#248).
 test('Themes: a filter labelled like a row, then inherit and the Themes by name A–Z, the current one marked', { options: { theme: 'tokyo-night' } }, async ($, on) => {
   host(on)
+  mock.env(on, {}) // a Theme's glass checks for tmux
   const pane = await openThemes($)
   expect(await pane.find({ type: 'Text', text: /^Settings/ })).toMatchObject({ text: 'Settings › Themes' })
   const field = await pane.find({ type: 'Input', key: 'menu-filter' })
@@ -296,6 +298,7 @@ test('the Theme rows scroll with the ring, ↑ more and ↓ more marking what is
 
 test('the Theme window follows the ring above the current Theme', { options: { theme: 'tokyo-night' } }, async ($, on) => {
   host(on)
+  mock.env(on, {}) // a Theme's glass checks for tmux
   await (await openThemes($)).unmount()
   const short = await $.ui.mount({
     plugin: 'ctui',
