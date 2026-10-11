@@ -124,7 +124,9 @@ function host(on: On, world: { agents: AgentInfo[]; toasts: string[]; files?: st
   on('env.get', () => ({ value: '1' }))
   on('tool.list', () => ({ value: [] }))
   on('agent.list', () => ({ value: world.agents }))
+  // A workflow agent runs as `x9`, and no list names it.
   on('agent.spawn', (_, e) => {
+    if (e.workflow) return { model: 'claude-haiku-4-5-20251001', agentId: 'x9' }
     const id = `a${world.agents.length + 1}`
     world.agents.push({ id, description: e.description, type: e.subagentType, status: 'running' })
     return { model: 'claude-haiku-4-5-20251001', agentId: id }
@@ -155,7 +157,12 @@ const spawn = (
   $: Engine,
   description: string,
   subagentType = 'Explore',
-  extra: { parentAgentId?: string; name?: string; isTeammate?: true } = {},
+  extra: {
+    parentAgentId?: string
+    name?: string
+    isTeammate?: true
+    workflow?: { runId: string; agentIndex: number }
+  } = {},
 ) =>
   $.agent.spawn({
     tool_use_id: `toolu_${description}`,
@@ -410,12 +417,15 @@ test('/clear carries running work into the new session, and its end still report
   expect(world.toasts.at(-1)).toBe('✓ shell done · sleep 30 · 2s')
 })
 
+// #245, 2.1.292: a workflow agent fires `agent.spawn` with `workflow` set, and
+// no list names its id.
 test('a Workflow run is one row; a shell of its agent nests under it quietly', async ($, on) => {
   const clock = mock.clock(on, { now: 0 })
   const world = { agents: [] as AgentInfo[], toasts: [] as string[], files: ['/tmp/wf/w1/agent-x9.jsonl'] }
   host(on, world)
   await start($)
   await $.tool.call({ tool: 'Workflow', script: 'export const meta = {}' })
+  await spawn($, 'lint', 'workflow-subagent', { workflow: { runId: 'wf_1', agentIndex: 1 } })
   await background($, 'sleep 9', 'x9')
   await background($, 'sleep 7', 'teammate')
   await clock.advance(3000)
