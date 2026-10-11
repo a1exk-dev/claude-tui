@@ -242,14 +242,23 @@ const openThemes = async ($: Engine) => {
   return pane
 }
 
-test('Themes: inherit, then the Themes by name A–Z, the current one marked', { options: { theme: 'tokyo-night' } }, async ($, on) => {
+// The engine draws an Input's label in the terminal's color, so the menu draws a field's label as its own Text (#248).
+test('Themes: a filter labelled like a row, then inherit and the Themes by name A–Z, the current one marked', { options: { theme: 'tokyo-night' } }, async ($, on) => {
   host(on)
   const pane = await openThemes($)
   expect(await pane.find({ type: 'Text', text: /^Settings/ })).toMatchObject({ text: 'Settings › Themes' })
-  expect((await pane.find({ type: 'Input', key: 'menu-filter' }))?.props.autoFocus).toBe(true)
+  const field = await pane.find({ type: 'Input', key: 'menu-filter' })
+  expect(field?.props).toMatchObject({ autoFocus: true, placeholder: 'type to filter' })
+  expect(field?.props.label).toBeUndefined()
   expect(await rowsOf(pane, 'theme-')).toEqual([['inherit'], ['Catppuccin'], ['Everforest'], ['Tokyo Night', '●']])
   expect((await pane.find({ type: 'Text', text: '●' }))?.props.color).toBe('suggestion')
   expect(await footerOf(pane)).toBe('type: filter · ↑↓: move · enter: pick · esc: back')
+  await $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: 'menu-filter', origin: { kind: 'person' } })
+  await pane.redraw()
+  expect(await pane.find({ type: 'Text', text: /^filter $/ })).toMatchObject({ props: { color: 'suggestion', bold: true } })
+  await $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: 'theme-inherit', origin: { kind: 'person' } })
+  await pane.redraw()
+  expect(await pane.find({ type: 'Text', text: /^filter $/ })).toMatchObject({ props: { color: 'text', bold: false } })
 })
 
 // The ring keeps its index from the top level, where Themes is the second row,
@@ -474,14 +483,22 @@ const openPlugin = async ($: Engine, id: string) => {
 
 const settingsOf = async (pane: Pane) => (await rowsOf(pane, 'setting-')).map((cells) => cells.join('  '))
 
-test('Limits: Start folded, Cost and a Monthly cost field holding the saved value; then the keys', async ($, on) => {
+test('Limits: Start folded, Cost and a Monthly cost field labelled like a row, holding the saved value; then the keys', async ($, on) => {
   host(on)
   const pane = await openPlugin($, 'limits')
   expect(await pane.find({ type: 'Text', text: /^Settings/ })).toMatchObject({ text: 'Settings › Plugins › Limits' })
   expect(await settingsOf(pane)).toEqual(['Start folded  off', 'Cost  auto'])
   expect((await pane.find({ type: 'Button', key: 'setting-limits_folded' }))?.props.autoFocus).toBe(true)
-  expect((await pane.find({ type: 'Input', key: 'menu-monthly-0' }))?.props.value).toBe('100')
+  const field = await pane.find({ type: 'Input', key: 'menu-monthly-0' })
+  expect(field?.props.value).toBe('100')
+  expect(field?.props.label).toBeUndefined()
+  // The engine drew `Monthly cost: ` 2 cells in, so the value keeps its column at 16.
+  expect((await pane.findAll({ type: 'Box', text: /^Monthly cost/ })).at(-1)?.props.paddingLeft).toBe(2)
+  expect(await pane.find({ type: 'Text', text: /^Monthly cost/ })).toMatchObject({ text: 'Monthly cost'.padEnd(14), props: { color: 'text', bold: false } })
   expect(await footerOf(pane)).toBe('↑↓: move · enter: change · esc: back')
+  await $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: 'menu-monthly-0', origin: { kind: 'person' } })
+  await pane.redraw()
+  expect(await pane.find({ type: 'Text', text: /^Monthly cost/ })).toMatchObject({ props: { color: 'suggestion', bold: true } })
 })
 
 test('every plugin gets Start folded; Todo adds Task tools, Agents & shells Toasts', { options: { todo_tools: false } }, async ($, on) => {
