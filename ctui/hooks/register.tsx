@@ -945,7 +945,7 @@ export const register: Register = (on, options) => {
   // task row; teammates stay hidden". Every task hook observes only.
   on('agent.spawn', async ($, e, next) => {
     const done = await next(e)
-    if (tracking && done.agentId && !e.isTeammate) {
+    if (tracking && done.agentId && !e.isTeammate && !e.workflow) {
       const id = done.agentId
       await updateTasks($, (tasks, now) => {
         const task: Task = {
