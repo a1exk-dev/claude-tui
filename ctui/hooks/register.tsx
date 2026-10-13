@@ -436,9 +436,11 @@ async function setTodoEnv($: EngineInterface, tools: boolean) {
 // The task tools `todo_tools` keeps out of ToolSearch; TaskList, TaskGet and TaskStop stay deferred.
 const PINNED_TASK_TOOLS = new Set(['TaskCreate', 'TaskUpdate', 'TodoWrite'])
 
-// The `ctui:todo` section, as tested live in #220, naming the tools the request offers.
+// The `ctui:todo` section, as tested live in #220 and narrowed in #294, naming the
+// tools the request offers. It denies the list before it asks for one, because a
+// weak model counted a one-line fix's read, edit and check as three steps.
 const taskSection = (create: string, update: string) => `# Task list
-The user follows your progress in a task list shown beside the conversation. For any request that needs 2 or more distinct steps (edits, fixes, checks, delegated agents), your first action is to create one task per step with ${create}, before reading files or delegating. Set each task in_progress with ${update} when you start it and completed as soon as it is done. Skip the list only for a single-step request or a pure question.`
+The user follows your progress in a task list shown beside the conversation. Make no list when the whole request is one piece of work — one file's edit, one command, one question answered — however many moves it takes you: reading, searching, editing and checking the same piece are not separate steps. For a request that needs 2 or more distinct pieces of work (several files or fixes, a delegated agent, a build and then its tests), your first action is to create one task per piece with ${create}, before reading files or delegating. Set each task in_progress with ${update} when you start it and completed as soon as it is done.`
 
 const TODO_STATUSES = new Set<string>(['pending', 'in_progress', 'completed'])
 
