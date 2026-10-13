@@ -124,8 +124,9 @@ A step that throws prints `!! …` and leaves the session up, so a mistyped step
 ## Scenario 1: `default-150` — 8 checks, 1 model turn
 
 Seed a scratch repo in `$S/repo` first — `git init`, a bare repo as `origin` with an upstream branch, one staged,
-one modified and one untracked file, one stash — then seed with `--trust $S/repo` and boot with `--cwd $S/repo` at
-150×45.
+one modified and one untracked file, one stash — then seed with `--trust $S/repo --mcp` and boot with
+`--cwd $S/repo` at 150×45. `--mcp` gives the session the stub server, so the process-tree check reads what the
+session does start as well as what it does not.
 
 | Check | Drive | `measured` carries |
 |---|---|---|
@@ -134,7 +135,7 @@ one modified and one untracked file, one stash — then seed with `--trust $S/re
 | `docking/close-attempts-ignored` | `resize 150 45`; `grep ✕` for the glyph's cell, `click` it; `key \x18x`; `key \x18\t` then `key \e`; `grep claude cli:` after each | the footer row still present after all three presses |
 | `layout/git-glyph-columns` | `grep` the branch row, then `cells <row> 110 114` on the three git rows | each glyph's codepoint at content column 0, its text at column 2, and the `fg` of each |
 | `layout/frame-and-footer` | `grep claude cli:`, `runs` the footer rows and the `│` column, at 53 and again at 42 | one footer row at 53 and two at 42, the `│` in `subtle` `#505050`, no update icon |
-| `layout/no-child-processes` | `sh for i in $(seq 10); do pstree -a -p $(pgrep -n -f 'claude --plugin-dir'); sleep 1; done \| sort -u` | the distinct child commands seen over the 10 s |
+| `layout/no-child-processes` | `sh for i in $(seq 10); do pstree -a -p $(pgrep -n -f 'claude --plugin-dir'); sleep 1; done \| sort -u` | the distinct child commands seen over the 10 s: the seeded `ctuistub` server and short `git` runs, and no `claude -p` or `claude mcp list` |
 | `rewrites/rule-gutter` | one prompt: a wrapped several-line ask for a one-paragraph reply and a long `Bash` run; then `dump` | the last text column of the prompt panel, the reply and the `$ Bash` row (105, two before the rule at 107), and of a `⎿` row (106) |
 | `rewrites/ctrl-o-transcript` | `key \x0f`, `dump`, `key \x0f`, `dump` | the rows both views show, and each call carrying its full result under it |
 

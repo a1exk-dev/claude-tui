@@ -4,7 +4,7 @@ Drives the pinned Claude Code (`node_modules/.bin/claude --plugin-dir ./ctui`) i
 screen back cell by cell: text, background runs, per-cell `fg`/`bg`, bold and underline. No tmux — tmux
 under-reports painted blank cells and never delivers ctrl+x x.
 
-Four modules, all under `.claude/skills/live-checks/harness/`:
+Five modules, all under `.claude/skills/live-checks/harness/`:
 
 | File | What it holds |
 |---|---|
@@ -20,11 +20,13 @@ script. `node scripts/check.ts` never starts the harness, so CI needs neither st
 ## Seed a config dir
 
     node .claude/skills/live-checks/harness/harness.ts seed <scenario> \
-      [--settings '<json>'] [--claude-json '<json>'] [--trust <dir>]
+      [--settings '<json>'] [--claude-json '<json>'] [--trust <dir>] [--mcp]
 
 Prints the new dir. It holds the operator's own sign-in copied at mode 0600, a `settings.json`
 (`tui: fullscreen`, `theme: dark`, `CLAUDE_CODE_TMUX_TRUECOLOR=1`, with `--settings` merged over it) and a
-`.claude.json` with onboarding complete and this checkout trusted. **Nothing signed-in is ever written into the
+`.claude.json` with onboarding complete and this checkout trusted. `--mcp` adds `fixtures/mcp-server.ts` as a
+local-scope stdio server named `ctuistub` with two tools, so a session has one MCP server and one child process
+to read: a stub, with no network and no real server behind it. **Nothing signed-in is ever written into the
 repo**; the dir lives under `$TMPDIR` and grows to about 24 MB. Delete it on pass (`rm -rf`), keep it on failure
 and name its path in the report.
 

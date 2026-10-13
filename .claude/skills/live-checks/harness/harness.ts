@@ -1,6 +1,6 @@
 // Drives Claude Code in a bare pty and reads the screen back. HARNESS.md is the operator's page.
 //
-//   node harness.ts seed  <scenario> [--settings JSON] [--claude-json JSON] [--trust DIR]
+//   node harness.ts seed  <scenario> [--settings JSON] [--claude-json JSON] [--trust DIR] [--mcp]
 //   node harness.ts once  <configDir> <cols> <rows> <steps-file> [options] [-- <claude args>]
 //   node harness.ts serve <configDir> <cols> <rows> <fifo> <out>  [options] [-- <claude args>]
 //   node harness.ts send  <fifo> <out> <settle-seconds>            (steps on stdin)
@@ -153,7 +153,7 @@ const send = async (fifo: string, out: string, settle: number) => {
 const usage = (): never => {
   process.stderr.write(
     [
-      'node harness.ts seed  <scenario> [--settings JSON] [--claude-json JSON] [--trust DIR]',
+      'node harness.ts seed  <scenario> [--settings JSON] [--claude-json JSON] [--trust DIR] [--mcp]',
       'node harness.ts once  <configDir> <cols> <rows> <steps-file> [options] [-- <claude args>]',
       'node harness.ts serve <configDir> <cols> <rows> <fifo> <out>  [options] [-- <claude args>]',
       'node harness.ts send  <fifo> <out> <settle-seconds>            (steps on stdin)',
@@ -178,6 +178,8 @@ const main = async () => {
   const settingsFlag = flag('--settings').at(-1)
   const claudeJsonFlag = flag('--claude-json').at(-1)
   const trust = flag('--trust')
+  const mcp = argv.includes('--mcp')
+  if (mcp) argv.splice(argv.indexOf('--mcp'), 1)
   const env: Record<string, string> = {}
   for (const pair of flag('--env')) env[pair.slice(0, pair.indexOf('='))] = pair.slice(pair.indexOf('=') + 1)
 
@@ -190,6 +192,7 @@ const main = async () => {
         settings: settingsFlag ? (JSON.parse(settingsFlag) as Record<string, unknown>) : undefined,
         claudeJson: claudeJsonFlag ? (JSON.parse(claudeJsonFlag) as Record<string, unknown>) : undefined,
         trust,
+        mcp,
       })}\n`,
     )
     return
