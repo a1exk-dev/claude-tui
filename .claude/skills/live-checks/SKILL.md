@@ -162,20 +162,21 @@ and read back what the engine wrote into `$CFG/.claude.json`.
 ## Scenario 4: `themes` — 11 checks
 
 Seed default (`theme: dark`) and boot at 150×45. `setopt theme=<slug>` picks a ctui Theme, `/theme` picks the
-engine's. Copy the operator's `~/.claude/themes/omarchy.json` into `$CFG/themes/` for the `custom:omarchy` picks;
-**read that file, never `omarchy theme set`** — the harness leaves the operator's desktop alone.
+engine's. The seed writes `$CFG/themes/fixture.json` from `harness/fixtures/theme.json`, which `/theme` lists as
+`Live Check Fixture` and ctui reads as `custom:fixture`. **Never read a theme out of the operator's home and
+never run `omarchy theme set`** — nothing here assumes the operator's desktop, and the harness leaves it alone.
 
 | Check | Drive | `measured` carries |
 |---|---|---|
-| `themes/glass-flat` | `setopt theme="everforest"`; `dumpbg`; `wheel` a body row, fold a section, `resize 170 45`, `resize 150 45`, rewrite the `/theme` file with `sh`; `dumpbg` after each | one flat `#363d41` over every body cell including the padding, at each step, with no second run |
+| `themes/glass-flat` | `setopt theme="everforest"`; `dumpbg`; `wheel` a body row, fold a section, `resize 170 45`, `resize 150 45`, rewrite `$CFG/themes/fixture.json` with `sh`; `dumpbg` after each | one flat `#363d41` over every body cell including the padding, at each step, with no second run |
 | `themes/glass-frame` | the same session on `dark`: `cells` the rule column, the `✕` row and the row below; then pick `Everforest` in `/theme` and read them again | the dock color on all three while a frame shows, then `#363d41` on all three |
 | `themes/latte-body` | `setopt theme="catppuccin-latte"` on `dark`, then `/theme` → `Catppuccin Latte`; `dumpbg` and the frame cells each time | `#e5e7ed` on the body both times, the frame differing then matching |
 | `themes/inherit-no-paint` | `setopt theme="inherit"` with `/theme` on `dark`; `dumpbg` the body and the frame | the same color on body and frame |
-| `themes/omarchy-mix` | `/theme` → `custom:omarchy` under `inherit`; `dumpbg`; compute the expected mix from the copied file | the body's flat color and the file's background mixed 6% toward its foreground (`#373e42` for Everforest) |
+| `themes/omarchy-mix` | `/theme` → `Live Check Fixture` under `inherit`; `dumpbg` | the body's flat color against the fixture's `inverseText` `#2d353b` mixed 6% toward its `text` `#d3c6aa`, which is `#373e42`. The id keeps its name because the rule exists for Omarchy's template, which writes a theme's background to `inverseText` |
 | `themes/hover-colors` | `setopt theme="flexoki-light"`; `move` onto a title row's blank middle, `runs` that row; `move` off the Sidebar, `runs` again | the arrow, title and `:` in `suggestion` on the row; `inactive` and bold `text` off it |
 | `themes/hover-underline` | the hovered `runs`/`cells` from the row above | `u=1` on every hovered cell. Engine-pinned, not a ctui defect: see MEMORY.md, "Engine-pinned expectations hold only on the pinned Claude Code version" |
 | `themes/focus-arrows` | `key \x18\t`, `runs` an arrow row; `key \t`; `key \r`; `key \e`, `runs` again | the arrows in the `/theme`'s grey while focused, the first inverted after Tab, its section folded after Enter, `#706e69` after Esc |
-| `themes/theme-list-from-ctui` | `type /theme`, `wait 2`, `dump` (scroll the list) | the 22 ctui Themes A–Z from `Catppuccin` to `White`, each tagged `from ctui` |
+| `themes/theme-list-from-ctui` | `type /theme`, `wait 2`, `dump` (scroll the list) | the 22 ctui Themes A–Z from `Catppuccin` to `White`, each tagged `from ctui`. The seeded `Live Check Fixture` is a custom theme, not one of the 22 |
 | `themes/dock-tint` | pick `Everforest`, then `Catppuccin Latte` in `/theme`; `dumpbg` the whole screen each time | the transcript and dock recolored in one step, the dock one flat `#363d41` then `#e5e7ed` |
 | `menu/dock-pane-colors` | `type /ctui`, `enter`; `runs` the breadcrumb, a label, a value, the footer and a field row, at 53 and again at 42 | ctui's own text in the Sidebar's colors, and the engine's `›`, placeholder, typed text and `⏎ submit` in the `/theme`'s |
 

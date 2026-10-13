@@ -37,7 +37,7 @@ The map and its nine closed tickets hold the decisions, and this spec does not r
   harness/steps.ts              type, enter, key, click, move, wheel, resize, setopt, setting, sh, watch, anim, grep
   harness/config.ts             seeds a signed-in CLAUDE_CONFIG_DIR, the MCP stub among its servers
   harness/tsconfig.json         the harness project: the Node types, checked beside the root one
-  harness/fixtures/             the MCP stub
+  harness/fixtures/             the MCP stub and the custom-theme fixture
 ctui/evals/                     the task-list nudge suite and its calc.ts fixture
 docs/testing/live-checks.md     the operator page, emptied of rows
 ```
@@ -77,7 +77,7 @@ Executes [#274](https://github.com/a1exk-dev/claude-tui/issues/274) and [#273](h
 | 1 | `default-150` | Fullscreen 150 cols, default settings, a scratch repo with an upstream, one staged, one modified and one untracked file and one stash | 8 |
 | 2 | `fresh-110` | A fresh config at 110–143 cols, two launches | 2 |
 | 3 | `dock-columns` | `dockColumns` set in `.claude.json` | 1 |
-| 4 | `themes` | Everforest → Catppuccin Latte → `inherit` on built-in `dark` → `inherit` on `custom:omarchy` | 11 |
+| 4 | `themes` | Everforest → Catppuccin Latte → `inherit` on built-in `dark` → `inherit` on the seeded `custom:fixture` | 11 |
 | 5 | `main-screen` | `--settings '{"tui":"default"}'` at 200 then 120 cols | 2 |
 | 6 | `todo` | Task tools on, the default model — **the two explicit model turns** | 4 |
 | 7 | `cost-cold-cache` | `limits_cost: "on"`, `scripts/cost-fixture.ts` into `$CLAUDE_CONFIG_DIR/projects/fixture`, each file's page cache dropped with `dd if=<f> iflag=nocache count=0` (**no root**), boot with no prompt sent | 2 |
@@ -103,7 +103,7 @@ Ids replace the old document's line numbers, which stop meaning anything once it
 | 4 | `themes/glass-frame` | On built-in `dark` the rule column, the `✕` row and the row below keep the dock color so a frame shows; with Everforest picked in `/theme` too, the frame turns `#363d41` and goes away |
 | 4 | `themes/latte-body` | The body is `#e5e7ed` on `dark` and on `Catppuccin Latte`; the frame shows on the first and vanishes on the second |
 | 4 | `themes/inherit-no-paint` | Under `inherit`, the body shows the `/theme`'s dock color, the same as the frame |
-| 4 | `themes/omarchy-mix` | The Omarchy theme's background mixed 6% toward its foreground (`#373e42` for Everforest), one flat color, under `custom:omarchy`. The operator's own `~/.claude/themes/omarchy.json` is copied into the scenario's config dir and the expected mix computed from it: the harness reads the operator's home and never runs `omarchy theme set` (HARNESS.md) |
+| 4 | `themes/omarchy-mix` | A custom `/theme`'s background mixed 6% toward its foreground, one flat color, under `inherit`. The theme is `harness/fixtures/theme.json`, committed with Everforest's `#2d353b` and `#d3c6aa` so the expected mix stays `#373e42`, and seeded into every config dir as `custom:fixture`: nothing in the skill may assume the operator runs Omarchy, and the harness neither reads a theme out of their home nor runs `omarchy theme set` (HARNESS.md). The id keeps its name because the rule it measures exists for Omarchy's template, which writes the theme's background to `inverseText` |
 | 4 | `themes/hover-colors` | Anywhere on a title row, the arrow and the title with its `:` draw in `suggestion`; off the row, `inactive` and bold `text` |
 | 4 | `themes/hover-underline` | **Engine-pinned**: Claude Code adds SGR underline to every hovered cell, which ctui neither asks for nor can suppress (`u=1`). Not a ctui defect; see the `MEMORY.md` entry |
 | 4 | `themes/focus-arrows` | ctrl+x tab turns the arrows the `/theme`'s grey; Tab inverts the first, Enter folds its section, Esc returns them to `#706e69` |

@@ -58,6 +58,11 @@ const object = (value: unknown): Record<string, unknown> =>
 export const seedConfigDir = (options: SeedOptions): string => {
   const dir = mkdtempSync(join(tmpdir(), `ctui-live-check-${options.scenario}-`))
   mkdirSync(join(dir, 'projects'), { recursive: true })
+  mkdirSync(join(dir, 'themes'), { recursive: true })
+
+  // The custom `/theme` the inherit-glass check picks, committed beside the harness: a desktop that generates
+  // one is not assumed, and a fixture's background and foreground are known, so the expected mix is too.
+  copyFileSync(join(fixtures, 'theme.json'), join(dir, 'themes', 'fixture.json'))
 
   // The operator's own sign-in, copied at mode 0600. The harness never writes a credential anywhere else.
   const credentials = join(dir, '.credentials.json')

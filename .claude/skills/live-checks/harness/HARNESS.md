@@ -24,7 +24,10 @@ script. `node scripts/check.ts` never starts the harness, so CI needs neither st
 
 Prints the new dir. It holds the operator's own sign-in copied at mode 0600, a `settings.json`
 (`tui: fullscreen`, `theme: dark`, `CLAUDE_CODE_TMUX_TRUECOLOR=1`, with `--settings` merged over it) and a
-`.claude.json` with onboarding complete and this checkout trusted. `--mcp` adds `fixtures/mcp-server.ts` as a
+`.claude.json` with onboarding complete and this checkout trusted. It also copies `fixtures/theme.json` to
+`themes/fixture.json`, the custom `/theme` the inherit-glass check picks as `custom:fixture`: its background and
+foreground are committed here, so the check runs on any machine and its expected mix is known. `--mcp` adds
+`fixtures/mcp-server.ts` as a
 local-scope stdio server named `ctuistub` with two tools, so a session has one MCP server and one child process
 to read: a stub, with no network and no real server behind it. **Nothing signed-in is ever written into the
 repo**; the dir lives under `$TMPDIR` and grows to about 24 MB. Delete it on pass (`rm -rf`), keep it on failure
@@ -99,8 +102,8 @@ overrides both. Read the body off the cell grid with `dumpbg` or `cells`, never 
 - Built-in `dark`: `text` `#ffffff`, `inactive` `#999999`, `subtle` `#505050`, `success` `#4eba65`,
   `warning` `#ffc107`, `error` `#ff6b80`, `suggestion` `#b1b9f9`, dock background `#262626`.
 - ctui Everforest paints the body one flat `#363d41`, Catppuccin Latte `#e5e7ed`. Under `inherit` the body takes
-  the `/theme`'s dock color, so no frame shows. Under `inherit` on `custom:omarchy` it is the Omarchy theme's
-  background mixed 6% toward its foreground (`#373e42` for Everforest).
+  the `/theme`'s dock color, so no frame shows. Under `inherit` on the seeded `custom:fixture` it is that
+  theme's background `#2d353b` mixed 6% toward its foreground `#d3c6aa`, which is `#373e42`.
 - Flexoki Light draws fold arrows in `#706e69` and a hovered arrow in `#205ea6`.
 - The engine adds SGR underline (`u=1`) to every hovered cell. ctui neither asks for it nor can suppress it.
 
@@ -109,4 +112,5 @@ overrides both. Read the body off the cell grid with `dumpbg` or `cells`, never 
 - A prompt costs 20–35 s and real tokens. Prefer checks that need no model turn, and batch the ones that do.
 - One seeded dir and one engine boot per scenario: resizes, `/theme`, `setopt` and folds all happen inside the
   session.
-- Never touch the operator's tmux sessions, never run `omarchy theme set`, never edit the repo from a step.
+- Never touch the operator's tmux sessions, never change the operator's desktop theme (no `omarchy theme set`),
+  never read a theme out of the operator's home, never edit the repo from a step.
