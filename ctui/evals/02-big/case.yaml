@@ -1,0 +1,21 @@
+# The #220 spike's big job (j6). Its delta is near zero; it is kept as the floor.
+schema_version: "1.1"
+name: big
+description: Both calc.ts bugs fixed, two functions and a doc comment each added, tests written and run.
+tags: [todo-nudge]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  model: claude-haiku-5-5
+  max_turns: 40
+  timeout_seconds: 900
+  # Write for the test file, Bash(node:*) for `node --test`.
+  allowed_tools: [Read, Glob, Grep, Edit, Write, "Bash(node:*)", TaskCreate, TaskList, TaskUpdate]
+  prompt: |
+    In calc.ts: fix the bugs in add and mul, add sub(a, b) and div(a, b) where div throws on a zero divisor, add a doc comment to every function, write node:test tests in calc.test.ts covering all four, then run them with `node --test` and fix any failures.
+graders:
+  - name: list-before-first-edit
+    type: tool_order
+    before: TaskCreate
+    after: Edit
+    arm: both
