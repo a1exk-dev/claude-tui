@@ -35,7 +35,7 @@ and name its path in the report.
 One-shot, when every step is known up front:
 
     node .claude/skills/live-checks/harness/harness.ts once <configDir> <cols> <rows> <steps-file> \
-      [--cwd <dir>] [--env K=V] [--plugin-key <key>] [-- <claude args>]
+      [--cwd <dir>] [-- <claude args>]
 
 Interactive, when a step depends on what the last one showed — the usual shape, and one boot per scenario:
 
@@ -48,9 +48,9 @@ Interactive, when a step depends on what the last one showed — the usual shape
 to `<out>`. End every session with a `quit` step; `pkill -f 'harness.ts serve'` is the fallback.
 
 `--cwd` is the directory the session runs in (the checkout by default; pass a scratch repo and `--trust` it when
-seeding). `--env K=V` adds one variable to the child. `--plugin-key` is the `pluginConfigs` key `setopt` writes,
-`ctui@inline` under `--plugin-dir`. Everything after `--` goes to `claude`, such as
-`-- --settings '{"tui":"default"}'`. The child's env is scrubbed of the parent's `CLAUDE*` and `TMUX*`.
+seeding). Everything after `--` goes to `claude`, such as `-- --settings '{"tui":"default"}'`. The child's env is
+scrubbed of the parent's `CLAUDE*` and `TMUX*`, and `setopt` writes under the `pluginConfigs` key the harness's
+own `--plugin-dir` load uses, `ctui@inline`.
 
 ## Steps
 
