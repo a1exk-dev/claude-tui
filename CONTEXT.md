@@ -15,3 +15,7 @@ A `ctui/themes/<slug>.json` file in Claude Code's theme format, selected in the 
 ## ctui
 
 The Claude Code plugin this repo ships (`name` and `displayName` both `ctui`), installed from the `claude-tui` marketplace. It skins Claude Code's TUI: the **Sidebar**, the lines under the prompt input, and other render sites. It is not limited to the Sidebar.
+
+## Engine-pinned expectation
+
+A behaviour of the pinned Claude Code version that a live check asserts but that belongs to the engine rather than to **ctui**: ctui neither asks for it nor can suppress it, so no ctui change can regress it and no test can reach it. It is true of one engine version, so each one is recorded in `MEMORY.md` under "Engine-pinned expectations hold only on the pinned Claude Code version" with the pin it was measured on, and `node scripts/check.ts` fails when the pin moves and that entry does not. Everything else a live check finds is ctui's own expectation, which a test asserts wherever one can reach it.
