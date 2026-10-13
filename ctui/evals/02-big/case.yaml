@@ -13,15 +13,16 @@ execution:
   allowed_tools: [Read, Glob, Grep, Edit, Write, "Bash(node:*)", TaskCreate, TaskList, TaskUpdate]
   prompt: |
     In calc.ts: fix the bugs in add and mul, add sub(a, b) and div(a, b) where div throws on a zero divisor, add a doc comment to every function, write node:test tests in calc.test.ts covering all four, then run them with `node --test` and fix any failures.
-# The grader's gap, on the record: this job writes calc.test.ts, so Write has to
-# stay granted, while tool_order names one tool per side. 'TaskCreate before the
-# first Edit or Write' is therefore unencodable here, and a run that reached for
-# Write first would score as if no list were missed. The medium case drops Write
-# to avoid it; this one cannot, and restructuring the case would change what the
-# #220 job measures. It stands, and a reader of this case's delta should know it.
+# tool_order names one tool per side, so this grader names the write this job
+# cannot avoid: it must create calc.test.ts, while fixing calc.ts can go through
+# either Edit or a whole-file Write. On 2026-10-13 every run of both arms chose
+# Write for calc.ts and Edit was never called, which failed the grader on its
+# own naming rather than on what the arms did. The gap that remains is narrower
+# and in the other direction: a run that edited calc.ts before starting its list
+# and only then wrote the test file would still pass.
 graders:
-  - name: list-before-first-edit
+  - name: list-before-first-write
     type: tool_order
     before: TaskCreate
-    after: Edit
+    after: Write
     arm: both
