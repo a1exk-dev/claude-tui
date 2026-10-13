@@ -35,7 +35,8 @@ The map and its nine closed tickets hold the decisions, and this spec does not r
   harness/harness.ts            serve (fifo, interactive) and once (one-shot)
   harness/screen.ts             dump, dumpbg, cells, runs
   harness/steps.ts              type, enter, key, click, move, wheel, resize, setopt, setting, sh, watch, anim, grep
-  harness/config.ts             seeds a signed-in CLAUDE_CONFIG_DIR
+  harness/config.ts             seeds a signed-in CLAUDE_CONFIG_DIR, the MCP stub among its servers
+  harness/tsconfig.json         the harness project: the Node types, checked beside the root one
   harness/fixtures/             the MCP stub
 ctui/evals/                     the task-list nudge suite and its calc.ts fixture
 docs/testing/live-checks.md     the operator page, emptied of rows
@@ -53,7 +54,7 @@ Executes [#274](https://github.com/a1exk-dev/claude-tui/issues/274). Applies "No
 - Write the four modules above, replacing both Python drivers, `colors.py`, `glass.py` and all eight shell helpers. The capabilities the paint rows need are verified on the pin: per-cell `fg`/`bg` truecolor, `b` (bold), `u` (SGR underline), and `p.resize(cols, rows)` reaching the child.
 - `config.ts` seeds a scenario's `CLAUDE_CONFIG_DIR` under `$TMPDIR` at run time, as `newcfg.sh` does: copy `~/.claude/.credentials.json` at mode 0600, synthesize `.claude.json` (onboarding complete, this repo trusted) from the operator's own, write the scenario's `settings.json`. **Nothing signed-in is ever written into the repo.** A dir grows to ~24 MB (15 MB `plugins/`, 4.4 MB `skills/`); it is deleted on pass and kept on failure.
 - Write `HARNESS.md` with the step vocabulary, the geometry (body columns at each dock width) and the theme facts the checks read.
-- Add `.claude/skills/live-checks/harness` to the root `tsconfig.json` `include`. (`scripts/*.ts` is not type-checked today; the port must not inherit that gap.)
+- Give the harness its own `tsconfig.json`, holding the Node types and `allowImportingTsExtensions`, and have `scripts/check.ts` run `tsc` over it beside the root project. (`scripts/*.ts` is not type-checked today; the port must not inherit that gap.) The root config keeps its own types: ctui runs in the engine rather than on Node, so `ctui/hooks`, `ctui/plugins` and `ctui/tests` must never type-check with Node globals in scope.
 - `MEMORY.md`: a rule that `live-checks` is repo-own, has no `skills-lock.json` entry, and `npx skills update` must not touch it.
 - Tests: none. The harness is skill-only tooling that boots a real engine; `check.ts` never runs it.
 
