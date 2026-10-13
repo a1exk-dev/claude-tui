@@ -92,9 +92,9 @@ Ids replace the old document's line numbers, which stop meaning anything once it
 | 1 | `docking/width-53-at-170` | Resized to 170 inside the session, the body is 53 columns |
 | 1 | `docking/close-attempts-ignored` | The Sidebar stays open through an SGR click on `✕`, ctrl+x x and Esc while focused (**ctrl+x x needs the bare pty**: tmux does not deliver it) |
 | 1 | `layout/git-glyph-columns` | `U+E725`, `U+E702`, `U+E728` at body column 0 with text at column 2, in their theme roles |
-| 1 | `layout/frame-and-footer` | Claude Code's `│`, `✕` and the row below; the footer one row at 53 and two at 42; the `│` in `subtle`; no update icon |
+| 1 | `layout/frame-and-footer` | Claude Code's `│`, `✕` and the row below; the footer one row at 53 and two at 42; the `│` on every body row at the dock's edge; no update icon |
 | 1 | `layout/no-child-processes` | Over 10 s of `pstree -a <pid>`, only MCP servers and short `git` runs: no `claude -p`, no `claude mcp list` |
-| 1 | `rewrites/rule-gutter` | The prompt panel, the reply and the `$ Bash` row end 2 columns before the rule; rows Claude Code draws alone still reach it |
+| 1 | `rewrites/rule-gutter` | Nothing ctui rewrites — the prompt panel, the reply, the `$ Bash` row — puts a cell within one column of the rule, and a reply forced to carry an unbroken 200-character token wraps two columns before it; rows Claude Code draws alone still reach it |
 | 1 | `rewrites/ctrl-o-transcript` | ctrl+o, then ctrl+o again: the same rows, each call with its full result under it |
 | 2 | `docking/fresh-110-prompt-docks` | Nothing docks at start; the prompt docks the Sidebar |
 | 2 | `docking/fresh-110-next-session-docks` | `pluginPanes.asked` persisted, so the second launch docks at start |
