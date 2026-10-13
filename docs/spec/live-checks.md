@@ -62,9 +62,9 @@ Executes [#274](https://github.com/a1exk-dev/claude-tui/issues/274). Applies "No
 Executes [#274](https://github.com/a1exk-dev/claude-tui/issues/274) and [#273](https://github.com/a1exk-dev/claude-tui/issues/273). Blocked by slice 1. Write it with the `writing-for-agents` skill.
 
 - 7 scenarios, 30 checks, one subagent per scenario. The scenario is the unit that costs — one seeded config dir, one engine boot — and resizes, `/theme`, `setopt` and folds all happen inside a session.
-- Each subagent seeds its own dir, drives its checks through one fifo session, and returns **only finished table rows**, each carrying its section prefix. Its screen dumps die with it (60–120 KB per scenario in the 2026-10-12 run); the lead never sees one.
+- Each subagent seeds its own dir, drives its checks through one session, and returns **only finished table rows**, each carrying its section prefix. The session is a fifo one, except scenario 7's: its arrival check is timed from the session's own start, where a first `send` would add its own latency, so it drives the harness's `once` over a steps file. Its screen dumps die with it (60–120 KB per scenario in the 2026-10-12 run); the lead never sees one.
 - The lead runs `node scripts/check.ts` first, spawns the seven, merges rows into report sections and writes the version block.
-- **Scenario 6 is the only one that spends model turns** (two, asked explicitly: "plan three steps with your task tools"). They always run: no skip flag, so every report is the same shape and complete.
+- **Scenario 6's two model turns are asked explicitly** ("plan three steps with your task tools") and always run: no skip flag, so every report is the same shape and complete. Three other scenarios spend one turn each — the rule-gutter and ctrl+o checks need a reply and a `$ Bash` row on screen, the fresh-110 docking check needs a submitted prompt, and the main-screen toast check needs a background agent to announce — so a run spends about five turns across scenarios 1, 2, 5 and 6. The count is a field in the report's version block, not a number this spec fixes.
 - Peak temp churn is ~550 MB per run (seven dirs plus scenario 7's 381 MiB fixture), against the ~600 MB the old 25-dir sweep produced.
 - The report is one Markdown file written to the run dir with its path printed, pasted into the pull request. It carries a `measured` column so a PASS states its evidence, stable named check ids, and one version block naming the plugin version and commit, the engine pin, the `check.ts` result, and the model and effort the run used. A failed scenario's config dir path is in the report.
 - Tests: none.
@@ -78,7 +78,7 @@ Executes [#274](https://github.com/a1exk-dev/claude-tui/issues/274) and [#273](h
 | 3 | `dock-columns` | `dockColumns` set in `.claude.json` | 1 |
 | 4 | `themes` | Everforest → Catppuccin Latte → `inherit` on built-in `dark` → `inherit` on `custom:omarchy` | 11 |
 | 5 | `main-screen` | `--settings '{"tui":"default"}'` at 200 then 120 cols | 2 |
-| 6 | `todo` | Task tools on, the default model — **the only model turns** | 4 |
+| 6 | `todo` | Task tools on, the default model — **the two explicit model turns** | 4 |
 | 7 | `cost-cold-cache` | `limits_cost: "on"`, `scripts/cost-fixture.ts` into `$CLAUDE_CONFIG_DIR/projects/fixture`, each file's page cache dropped with `dd if=<f> iflag=nocache count=0` (**no root**), boot with no prompt sent | 2 |
 
 #### The check ids
@@ -102,7 +102,7 @@ Ids replace the `L<n>` line numbers, which stop meaning anything once the docume
 | 4 | `themes/glass-frame` | L39, L40 | On built-in `dark` the rule column, the `✕` row and the row below keep the dock color so a frame shows; with Everforest picked in `/theme` too, the frame turns `#363d41` and goes away |
 | 4 | `themes/latte-body` | L41 | The body is `#e5e7ed` on `dark` and on `Catppuccin Latte`; the frame shows on the first and vanishes on the second |
 | 4 | `themes/inherit-no-paint` | L42 | Under `inherit`, the body shows the `/theme`'s dock color, the same as the frame |
-| 4 | `themes/omarchy-mix` | L43 | The Omarchy theme's background mixed 6% toward its foreground (`#373e42` for Everforest), one flat color, following a `omarchy theme set` |
+| 4 | `themes/omarchy-mix` | L43 | The Omarchy theme's background mixed 6% toward its foreground (`#373e42` for Everforest), one flat color, under `custom:omarchy`. The operator's own `~/.claude/themes/omarchy.json` is copied into the scenario's config dir and the expected mix computed from it: the harness reads the operator's home and never runs `omarchy theme set` (HARNESS.md) |
 | 4 | `themes/hover-colors` | L46 | Anywhere on a title row, the arrow and the title with its `:` draw in `suggestion`; off the row, `inactive` and bold `text` |
 | 4 | `themes/hover-underline` | L46 | **Engine-pinned**: Claude Code adds SGR underline to every hovered cell, which ctui neither asks for nor can suppress (`u=1`). Not a ctui defect; see the `MEMORY.md` entry |
 | 4 | `themes/focus-arrows` | L49 | ctrl+x tab turns the arrows the `/theme`'s grey; Tab inverts the first, Enter folds its section, Esc returns them to `#706e69` |
@@ -155,19 +155,18 @@ Executes [#275](https://github.com/a1exk-dev/claude-tui/issues/275). Independent
 
 Executes [#268](https://github.com/a1exk-dev/claude-tui/issues/268), [#271](https://github.com/a1exk-dev/claude-tui/issues/271) and [#273](https://github.com/a1exk-dev/claude-tui/issues/273). Independent of slices 1–4. Applies "Tests cover real usage".
 
-Seven rows, every one asserting a **measured value**: ~20 lines of assertions each where the host already exists, ~0.3 s each against a 324-test suite that runs in 5.6 s. Three are one-line additions.
+Six rows, every one asserting a **measured value**: ~20 lines of assertions each where the host already exists, ~0.3 s each against a 324-test suite that runs in 5.6 s. What shipped: 337 tests in 6.43 s, up from 332 in 6.44 s.
 
 | Row | Test file | What to assert |
 |---|---|---|
 | L21 | `sidebar-dock.test.tsx` | The dock asks 53 on widening past 160 and 42 again on narrowing back. `:53` and `:61` each assert one width from a fresh session; nothing walks the transition |
 | L23 | `sidebar-dock.test.tsx` | Re-docking after a narrow below 110 and a widen back. `:69` asserts nothing opens; nothing asserts the re-open |
-| L53 | `usage.test.tsx` | `resets in` counting down by a minute, on a `mock.clock` advance. The text is covered (`:108`, `format.test.ts:32,41`); the clock advancing it is not |
 | L63 (half) | `usage.test.tsx` | After `/clear`, switching `session.id()` and `usage().cost` together, the total reads as before — never counted twice. The measured total before and after, not a shape. The "about a second" is the rescan's schedule and drops |
 | L72 | `skills-sidebar.test.tsx` | Skills rows surviving `/compact`. `:177` covers a reload and `/clear`; `/compact` is not driven |
 | L80 (half) | `todo-sidebar.test.tsx` | After a `/theme` switch the spinner turns in the new theme's `warning` — the after-state, with the transition and the "within 0.5 s" dropped |
 | L174 | `menu.test.tsx` | `/ctui` opening while a reply streams. `:174` opens it at rest |
 
-Rows this slice does **not** convert, with their reason on the record: L87 and L185 are deleted, already asserted better than the live check asks ([#268](https://github.com/a1exk-dev/claude-tui/issues/268)); L31's "full size in the Nerd Font" and L35's one-cell `▶` in Alacritty and Ghostty are deleted as facts about a font and two terminals ([#269](https://github.com/a1exk-dev/claude-tui/issues/269)); L79's "about ten frames a second" **is** `ms: 100` and is already asserted (`spinner.test.tsx`, `todo-sidebar.test.tsx:192`); L32, L38, L43, L66–L68 are the 1 s tick, its 5th beat, `SCAN_MS = 60_000` and `ms: 100`, where asserting the requested value *is* the assertion ([#273](https://github.com/a1exk-dev/claude-tui/issues/273)).
+Rows this slice does **not** convert, with their reason on the record: L87 and L185 are deleted, already asserted better than the live check asks ([#268](https://github.com/a1exk-dev/claude-tui/issues/268)); L53's `resets in` countdown is asserted in full in `ctui/tests/usage.test.tsx`, which advances `mock.clock` 30 s and then 60 s and reads `resets in 2h 17m`, `2h 16m` and `2h 15m` off each redraw, so the clock advancing the text was covered before this spec was written; L31's "full size in the Nerd Font" and L35's one-cell `▶` in Alacritty and Ghostty are deleted as facts about a font and two terminals ([#269](https://github.com/a1exk-dev/claude-tui/issues/269)); L79's "about ten frames a second" **is** `ms: 100` and is already asserted (`spinner.test.tsx`, `todo-sidebar.test.tsx:192`); L32, L38, L43, L66–L68 are the 1 s tick, its 5th beat, `SCAN_MS = 60_000` and `ms: 100`, where asserting the requested value *is* the assertion ([#273](https://github.com/a1exk-dev/claude-tui/issues/273)).
 
 ### 6. `ctui/evals/`: the task-list nudge suite
 
