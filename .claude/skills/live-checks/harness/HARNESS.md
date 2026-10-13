@@ -4,7 +4,7 @@ Drives the pinned Claude Code (`node_modules/.bin/claude --plugin-dir ./ctui`) i
 screen back cell by cell: text, background runs, per-cell `fg`/`bg`, bold and underline. No tmux — tmux
 under-reports painted blank cells and never delivers ctrl+x x.
 
-Five modules, all under `.claude/skills/live-checks/harness/`:
+The files, all under `.claude/skills/live-checks/harness/`:
 
 | File | What it holds |
 |---|---|
@@ -13,9 +13,11 @@ Five modules, all under `.claude/skills/live-checks/harness/`:
 | `steps.ts` | the step vocabulary below |
 | `config.ts` | seeds a signed-in `CLAUDE_CONFIG_DIR` under `$TMPDIR` |
 | `fixtures/mcp-server.ts` | a stdio MCP server with a named tool count and a startup delay |
+| `fixtures/theme.json` | the custom `/theme` every seeded dir gets, for the inherit-glass check |
+| `tsconfig.json` | this folder's own `tsc` project, the one with the Node types |
 
-One-time, per checkout: `npm install-scripts approve node-pty`, then `npm install`. npm gates node-pty's build
-script. `node scripts/check.ts` never starts the harness, so CI needs neither step.
+One-time, per checkout: the node-pty build approval under `CONTRIBUTING.md`'s Setup, which npm gates. `node
+scripts/check.ts` never starts the harness, so CI never needs it.
 
 ## Seed a config dir
 

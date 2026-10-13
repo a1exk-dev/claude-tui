@@ -10,9 +10,9 @@ disable-model-invocation: true
 costs — so every resize, `/theme`, `setopt` and fold happens inside its session. You are the **lead**: run the
 gate, spawn one subagent per scenario, merge the rows they return into one report, print its path.
 
-One run spends 7 boots, 5 model turns and about 550 MB of temp churn, and takes 20–40 minutes. Run it on a cheap
-model (Sonnet, medium effort): the checks read colors and column ranges off a cell grid, which needs no
-judgement. Run it once, in the pull request a human merges.
+One run spends 7 boots, 5 model turns and about 550 MB of temp churn. The model and effort it runs on, and
+which pull request runs it, are the operator's call: `CONTRIBUTING.md` holds both, and the report's version
+block records what this run used.
 
 [`harness/HARNESS.md`](harness/HARNESS.md) holds the step vocabulary, the geometry at each dock width, and the
 theme facts the checks compare against. Every scenario drives the harness through it, and no check restates it.
@@ -36,7 +36,8 @@ RUN=$(mktemp -d -t ctui-live-checks-XXXXXX)
 ```
 
 Each scenario gets `$RUN/<scenario>/` for its fifo, its output file and its scratch repo; the report lands at
-`$RUN/report.md`. The first run in a fresh checkout needs HARNESS.md's one-time `npm` steps.
+`$RUN/report.md`. The first run in a fresh checkout needs the one-time node-pty approval in `CONTRIBUTING.md`'s
+Setup.
 
 ## 2. Spawn the seven
 

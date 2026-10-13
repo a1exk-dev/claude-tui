@@ -16,7 +16,7 @@ Run `node scripts/check.ts` before each commit. It runs `tsc`, `claude plugin va
 
 ## Live checks
 
-Docking, engine chrome, toast drawing, the Themes' paint and the fullscreen and main-screen looks need a signed-in terminal, so an agent drives them against the pinned Claude Code instead of a mock. To run them: switch the session to an inexpensive model (Sonnet at medium effort), invoke the `live-checks` skill from the repo root, and read the report it prints the path of. [`docs/testing/live-checks.md`](docs/testing/live-checks.md) covers both steps, and the first run in a checkout needs the node-pty approval under Setup.
+Docking, engine chrome, toast drawing, the Themes' paint and the fullscreen and main-screen looks need a signed-in terminal, so an agent drives them against the pinned Claude Code instead of a mock. To run them: switch the session to an inexpensive model — **Sonnet at medium effort**, which is enough because the checks read colors and column ranges off a cell grid and take no judgement — invoke the `live-checks` skill from the repo root, and read the report it prints the path of. [`docs/testing/live-checks.md`](docs/testing/live-checks.md) is the operator's page for starting a run and reading what comes back, including how long one takes. The first run in a checkout needs the node-pty approval under Setup.
 
 ## Evals
 
