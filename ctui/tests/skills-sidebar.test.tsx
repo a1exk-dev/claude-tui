@@ -174,9 +174,14 @@ test('each skill.prompt adds its skill once, with its source', async ($, on) => 
   expect(await pane.find({ type: 'Text', text: '2', in: 'foldrow-skills' })).toBeDefined()
 })
 
-test('a reload keeps the list; /clear empties it', async ($, on) => {
+// L72 of the live checks: a `/config` reload, then `/compact`, which replaces
+// the transcript with its summary — the list is `$.state`'s, not the
+// transcript's, so the rows stay.
+test('a reload and /compact keep the list; /clear empties it', async ($, on) => {
   const clock = mock.clock(on)
-  host(on)
+  const world: World = {}
+  host(on, world)
+  on('session.compact', () => ({ messages: [{ role: 'user' as const, text: 'Summary of the conversation', toolUses: [] }] }))
   let cleared = false
   on('state.get', async ($, e, next) => (cleared && e.key === 'skills' ? { value: { value: undefined, version: 0 } } : next(e)))
   on('state.set', async ($, e, next) => {
@@ -189,6 +194,12 @@ test('a reload keeps the list; /clear empties it', async ($, on) => {
   await start($) // a settings reload runs session.start again
   await clock.settle()
   const pane = await sidebar($)
+  expect(await sectionRows(pane)).toEqual(['tdduser'])
+  // `/compact`: the typed skill's row is gone from the transcript.
+  world.messages = [{ role: 'user', text: 'Summary of the conversation', toolUses: [] }]
+  await $.session.compact({ trigger: 'manual', messages: [] })
+  await clock.advance(1000)
+  await pane.redraw()
   expect(await sectionRows(pane)).toEqual(['tdduser'])
   // `/clear`: a new chat with an empty transcript, $.state emptied.
   cleared = true
