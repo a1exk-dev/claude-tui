@@ -35,8 +35,9 @@ The map and its nine closed tickets hold the decisions, and this spec does not r
   harness/harness.ts            serve (fifo, interactive) and once (one-shot)
   harness/screen.ts             dump, dumpbg, cells, runs
   harness/steps.ts              type, enter, key, click, move, wheel, resize, setopt, setting, sh, watch, anim, grep
-  harness/config.ts             seeds a signed-in CLAUDE_CONFIG_DIR
-  harness/fixtures/             the MCP stub
+  harness/config.ts             seeds a signed-in CLAUDE_CONFIG_DIR, the MCP stub among its servers
+  harness/tsconfig.json         the harness project: the Node types, checked beside the root one
+  harness/fixtures/             the MCP stub and the custom-theme fixture
 ctui/evals/                     the task-list nudge suite and its calc.ts fixture
 docs/testing/live-checks.md     the operator page, emptied of rows
 ```
@@ -51,9 +52,9 @@ Executes [#274](https://github.com/a1exk-dev/claude-tui/issues/274). Applies "No
 
 - Add `node-pty@1.1.0` and `@xterm/headless@6.0.0` to the **root** `devDependencies` only, never to `ctui/package.json`. npm gates `node-pty`'s build script, so `CONTRIBUTING.md` gains the one-time `npm install-scripts approve node-pty`. CI never builds the binding: `check.ts` never starts the harness.
 - Write the four modules above, replacing both Python drivers, `colors.py`, `glass.py` and all eight shell helpers. The capabilities the paint rows need are verified on the pin: per-cell `fg`/`bg` truecolor, `b` (bold), `u` (SGR underline), and `p.resize(cols, rows)` reaching the child.
-- `config.ts` seeds a scenario's `CLAUDE_CONFIG_DIR` under `$TMPDIR` at run time, as `newcfg.sh` does: copy `~/.claude/.credentials.json` at mode 0600, synthesize `.claude.json` (onboarding complete, this repo trusted) from the operator's own, write the scenario's `settings.json`. **Nothing signed-in is ever written into the repo.** A dir grows to ~24 MB (15 MB `plugins/`, 4.4 MB `skills/`); it is deleted on pass and kept on failure.
+- `config.ts` seeds a scenario's `CLAUDE_CONFIG_DIR` under `$TMPDIR` at run time, as `newcfg.sh` does: copy `~/.claude/.credentials.json` at mode 0600, synthesize `.claude.json` (onboarding complete, this repo trusted) from the operator's own, write the scenario's `settings.json`. Under `--mcp` it also seeds `fixtures/mcp-server.ts` as a local-scope stdio server, so a scenario that reads the process tree has one server to see; it stays a stub, with no network. **Nothing signed-in is ever written into the repo.** A dir grows to ~24 MB (15 MB `plugins/`, 4.4 MB `skills/`); it is deleted on pass and kept on failure.
 - Write `HARNESS.md` with the step vocabulary, the geometry (body columns at each dock width) and the theme facts the checks read.
-- Add `.claude/skills/live-checks/harness` to the root `tsconfig.json` `include`. (`scripts/*.ts` is not type-checked today; the port must not inherit that gap.)
+- Give the harness its own `tsconfig.json`, holding the Node types and `allowImportingTsExtensions`, and have `scripts/check.ts` run `tsc` over it beside the root project. (`scripts/*.ts` is not type-checked today; the port must not inherit that gap.) The root config keeps its own types: ctui runs in the engine rather than on Node, so `ctui/hooks`, `ctui/plugins` and `ctui/tests` must never type-check with Node globals in scope.
 - `MEMORY.md`: a rule that `live-checks` is repo-own, has no `skills-lock.json` entry, and `npx skills update` must not touch it.
 - Tests: none. The harness is skill-only tooling that boots a real engine; `check.ts` never runs it.
 
@@ -76,49 +77,49 @@ Executes [#274](https://github.com/a1exk-dev/claude-tui/issues/274) and [#273](h
 | 1 | `default-150` | Fullscreen 150 cols, default settings, a scratch repo with an upstream, one staged, one modified and one untracked file and one stash | 8 |
 | 2 | `fresh-110` | A fresh config at 110–143 cols, two launches | 2 |
 | 3 | `dock-columns` | `dockColumns` set in `.claude.json` | 1 |
-| 4 | `themes` | Everforest → Catppuccin Latte → `inherit` on built-in `dark` → `inherit` on `custom:omarchy` | 11 |
+| 4 | `themes` | Everforest → Catppuccin Latte → `inherit` on built-in `dark` → `inherit` on the seeded `custom:fixture` | 11 |
 | 5 | `main-screen` | `--settings '{"tui":"default"}'` at 200 then 120 cols | 2 |
 | 6 | `todo` | Task tools on, the default model — **the two explicit model turns** | 4 |
 | 7 | `cost-cold-cache` | `limits_cost: "on"`, `scripts/cost-fixture.ts` into `$CLAUDE_CONFIG_DIR/projects/fixture`, each file's page cache dropped with `dd if=<f> iflag=nocache count=0` (**no root**), boot with no prompt sent | 2 |
 
 #### The check ids
 
-Ids replace the `L<n>` line numbers, which stop meaning anything once the document is emptied. The prefix is the report section; `hover-underline` and `clear-swaps-id-and-cost` are fixed by [#275](https://github.com/a1exk-dev/claude-tui/issues/275) (the second is a `MEMORY.md` entry, not a check).
+Ids replace the old document's line numbers, which stop meaning anything once its rows are deleted. The prefix is the report section; `hover-underline` and `clear-swaps-id-and-cost` are fixed by [#275](https://github.com/a1exk-dev/claude-tui/issues/275) (the second is a `MEMORY.md` entry, not a check).
 
-| Scenario | Check id | Row | Expected, and what `measured` carries |
-|---|---|---|---|
-| 1 | `docking/width-42-at-150` | L19 | The engine grants a 42-column body at 150 cols — the body's column range off the cell grid, not ctui's request |
-| 1 | `docking/width-53-at-170` | L19 | Resized to 170 inside the session, the body is 53 columns |
-| 1 | `docking/close-attempts-ignored` | L24 | The Sidebar stays open through an SGR click on `✕`, ctrl+x x and Esc while focused (**ctrl+x x needs the bare pty**: tmux does not deliver it) |
-| 1 | `layout/git-glyph-columns` | L31 | `U+E725`, `U+E702`, `U+E728` at body column 0 with text at column 2, in their theme roles |
-| 1 | `layout/frame-and-footer` | L35 | Claude Code's `│`, `✕` and the row below; the footer one row at 53 and two at 42; the `│` in `subtle`; no update icon |
-| 1 | `layout/no-child-processes` | L78 | Over 10 s of `pstree -a <pid>`, only MCP servers and short `git` runs: no `claude -p`, no `claude mcp list` |
-| 1 | `rewrites/rule-gutter` | L127 | The prompt panel, the reply and the `$ Bash` row end 2 columns before the rule; rows Claude Code draws alone still reach it |
-| 1 | `rewrites/ctrl-o-transcript` | L133 | ctrl+o, then ctrl+o again: the same rows, each call with its full result under it |
-| 2 | `docking/fresh-110-prompt-docks` | L20 | Nothing docks at start; the prompt docks the Sidebar |
-| 2 | `docking/fresh-110-next-session-docks` | L20 | `pluginPanes.asked` persisted, so the second launch docks at start |
-| 3 | `docking/dock-columns-override` | L19 | A dragged or keyed `dockColumns` overrides the 42/53 the Sidebar asks for |
-| 4 | `themes/glass-flat` | L39 | One flat `#363d41` on every body cell, padding included, through scroll, fold, a resize past 160 and back, and a `/theme` file rewrite — with no stripes |
-| 4 | `themes/glass-frame` | L39, L40 | On built-in `dark` the rule column, the `✕` row and the row below keep the dock color so a frame shows; with Everforest picked in `/theme` too, the frame turns `#363d41` and goes away |
-| 4 | `themes/latte-body` | L41 | The body is `#e5e7ed` on `dark` and on `Catppuccin Latte`; the frame shows on the first and vanishes on the second |
-| 4 | `themes/inherit-no-paint` | L42 | Under `inherit`, the body shows the `/theme`'s dock color, the same as the frame |
-| 4 | `themes/omarchy-mix` | L43 | The Omarchy theme's background mixed 6% toward its foreground (`#373e42` for Everforest), one flat color, under `custom:omarchy`. The operator's own `~/.claude/themes/omarchy.json` is copied into the scenario's config dir and the expected mix computed from it: the harness reads the operator's home and never runs `omarchy theme set` (HARNESS.md) |
-| 4 | `themes/hover-colors` | L46 | Anywhere on a title row, the arrow and the title with its `:` draw in `suggestion`; off the row, `inactive` and bold `text` |
-| 4 | `themes/hover-underline` | L46 | **Engine-pinned**: Claude Code adds SGR underline to every hovered cell, which ctui neither asks for nor can suppress (`u=1`). Not a ctui defect; see the `MEMORY.md` entry |
-| 4 | `themes/focus-arrows` | L49 | ctrl+x tab turns the arrows the `/theme`'s grey; Tab inverts the first, Enter folds its section, Esc returns them to `#706e69` |
-| 4 | `themes/theme-list-from-ctui` | L146 | `/theme` lists the 22 ctui Themes A–Z, `Catppuccin` to `White`, each tagged `from ctui` |
-| 4 | `themes/dock-tint` | L147 | Each pick recolors all of Claude Code at once; the dock is a flat tint (`#363d41`, `#e5e7ed`) |
-| 4 | `menu/dock-pane-colors` | L178 | In the dock at 42 and 53, ctui's own text is in the Sidebar's colors; the engine's `›`, placeholders, typed text and `⏎ submit` keep the `/theme`'s |
-| 5 | `toasts/main-screen-prefix` | L119 | On the main screen the toast reads `ctui: <text>` at the right of the line under the prompt |
-| 5 | `menu/frame-fits-content` | L177 | At 120 cols the body spans the frame and each screen's `─` and footer sit right under its rows |
-| 6 | `todo/own-list-hidden` | L89 | While Claude works the spinner has no list under it and the footer reads `ctrl+t to show tasks`; ctrl+t opens Claude Code's own list |
-| 6 | `todo/no-dock-100-cols` | L90 | At 100 cols, where the Sidebar cannot dock, Claude Code's list draws under the spinner and the footer reads `ctrl+t to hide tasks` |
-| 6 | `todo/spinner-animates` | L79 | The in-progress cell's glyph differs between two dumps ~300 ms apart — that the animation reaches the screen, not its frame rate |
-| 6 | `todo/spinner-focused` | L80 | After ctrl+x tab, the spinner keeps turning under engine-granted focus |
-| 7 | `cost/cold-cache-total` | L62 | The `cost` row's total is the generator's printed total exactly (no prompt sent, so the live session adds 0) |
-| 7 | `cost/cold-cache-arrival` | L62 | The row arrives inside **3 s** of the session start; the measured ms is in the report whether it passes or fails. The 2026-10-12 baseline was 1.5 s, of which the grep was 0.4 s and the store writes the rest |
+| Scenario | Check id | Expected, and what `measured` carries |
+|---|---|---|
+| 1 | `docking/width-42-at-150` | The engine grants a 42-column body at 150 cols — the body's column range off the cell grid, not ctui's request |
+| 1 | `docking/width-53-at-170` | Resized to 170 inside the session, the body is 53 columns |
+| 1 | `docking/close-attempts-ignored` | The Sidebar stays open through an SGR click on `✕`, ctrl+x x and Esc while focused (**ctrl+x x needs the bare pty**: tmux does not deliver it) |
+| 1 | `layout/git-glyph-columns` | `U+E725`, `U+E702`, `U+E728` at body column 0 with text at column 2, in their theme roles |
+| 1 | `layout/frame-and-footer` | Claude Code's `│`, `✕` and the row below; the footer one row at 53 and two at 42; the `│` in `subtle`; no update icon |
+| 1 | `layout/no-child-processes` | Over 10 s of `pstree -a <pid>`, only MCP servers and short `git` runs: no `claude -p`, no `claude mcp list` |
+| 1 | `rewrites/rule-gutter` | The prompt panel, the reply and the `$ Bash` row end 2 columns before the rule; rows Claude Code draws alone still reach it |
+| 1 | `rewrites/ctrl-o-transcript` | ctrl+o, then ctrl+o again: the same rows, each call with its full result under it |
+| 2 | `docking/fresh-110-prompt-docks` | Nothing docks at start; the prompt docks the Sidebar |
+| 2 | `docking/fresh-110-next-session-docks` | `pluginPanes.asked` persisted, so the second launch docks at start |
+| 3 | `docking/dock-columns-override` | A dragged or keyed `dockColumns` overrides the 42/53 the Sidebar asks for |
+| 4 | `themes/glass-flat` | One flat `#363d41` on every body cell, padding included, through scroll, fold, a resize past 160 and back, and a `/theme` file rewrite — with no stripes |
+| 4 | `themes/glass-frame` | On built-in `dark` the rule column, the `✕` row and the row below keep the dock color so a frame shows; with Everforest picked in `/theme` too, the frame turns `#363d41` and goes away |
+| 4 | `themes/latte-body` | The body is `#e5e7ed` on `dark` and on `Catppuccin Latte`; the frame shows on the first and vanishes on the second |
+| 4 | `themes/inherit-no-paint` | Under `inherit`, the body shows the `/theme`'s dock color, the same as the frame |
+| 4 | `themes/omarchy-mix` | A custom `/theme`'s background mixed 6% toward its foreground, one flat color, under `inherit`. The theme is `harness/fixtures/theme.json`, committed with Everforest's `#2d353b` and `#d3c6aa` so the expected mix stays `#373e42`, and seeded into every config dir as `custom:fixture`: nothing in the skill may assume the operator runs Omarchy, and the harness neither reads a theme out of their home nor runs `omarchy theme set` (HARNESS.md). The id keeps its name because the rule it measures exists for Omarchy's template, which writes the theme's background to `inverseText` |
+| 4 | `themes/hover-colors` | Anywhere on a title row, the arrow and the title with its `:` draw in `suggestion`; off the row, `inactive` and bold `text` |
+| 4 | `themes/hover-underline` | **Engine-pinned**: Claude Code adds SGR underline to every hovered cell, which ctui neither asks for nor can suppress (`u=1`). Not a ctui defect; see the `MEMORY.md` entry |
+| 4 | `themes/focus-arrows` | ctrl+x tab turns the arrows the `/theme`'s grey; Tab inverts the first, Enter folds its section, Esc returns them to `#706e69` |
+| 4 | `themes/theme-list-from-ctui` | `/theme` lists the 22 ctui Themes A–Z, `Catppuccin` to `White`, each tagged `from ctui` |
+| 4 | `themes/dock-tint` | Each pick recolors all of Claude Code at once; the dock is a flat tint (`#363d41`, `#e5e7ed`) |
+| 4 | `menu/dock-pane-colors` | In the dock at 42 and 53, ctui's own text is in the Sidebar's colors; the engine's `›`, placeholders, typed text and `⏎ submit` keep the `/theme`'s |
+| 5 | `toasts/main-screen-prefix` | On the main screen the toast reads `ctui: <text>` at the right of the line under the prompt |
+| 5 | `menu/frame-fits-content` | At 120 cols the body spans the frame and each screen's `─` and footer sit right under its rows |
+| 6 | `todo/own-list-hidden` | While Claude works the spinner has no list under it and the footer reads `ctrl+t to show tasks`; ctrl+t opens Claude Code's own list |
+| 6 | `todo/no-dock-100-cols` | At 100 cols, where the Sidebar cannot dock, Claude Code's list draws under the spinner and the footer reads `ctrl+t to hide tasks` |
+| 6 | `todo/spinner-animates` | The in-progress cell's glyph differs between two dumps ~300 ms apart — that the animation reaches the screen, not its frame rate |
+| 6 | `todo/spinner-focused` | After ctrl+x tab, the spinner keeps turning under engine-granted focus |
+| 7 | `cost/cold-cache-total` | The `cost` row's total is the generator's printed total exactly (no prompt sent, so the live session adds 0) |
+| 7 | `cost/cold-cache-arrival` | The row arrives inside **3 s** of the session start; the measured ms is in the report whether it passes or fails. The 2026-10-12 baseline was 1.5 s, of which the grep was 0.4 s and the store writes the rest |
 
-30 checks over 7 boots, refining #274's ~22 and #273's ~24: naming the ids split some rows (L19, L20, L62) and merged others (L24's three presses, L39's two halves).
+30 checks over 7 boots, refining #274's ~22 and #273's ~24: naming the ids split some rows (the dock widths, the fresh-110 pair, the cold-cache `cost` row) and merged others (the three close attempts, the glass body and its frame).
 
 ### 3. The operator page and the five knowledge edits
 
@@ -159,14 +160,14 @@ Six rows, every one asserting a **measured value**: ~20 lines of assertions each
 
 | Row | Test file | What to assert |
 |---|---|---|
-| L21 | `sidebar-dock.test.tsx` | The dock asks 53 on widening past 160 and 42 again on narrowing back. `:53` and `:61` each assert one width from a fresh session; nothing walks the transition |
-| L23 | `sidebar-dock.test.tsx` | Re-docking after a narrow below 110 and a widen back. `:69` asserts nothing opens; nothing asserts the re-open |
-| L63 (half) | `usage.test.tsx` | After `/clear`, switching `session.id()` and `usage().cost` together, the total reads as before — never counted twice. The measured total before and after, not a shape. The "about a second" is the rescan's schedule and drops |
-| L72 | `skills-sidebar.test.tsx` | Skills rows surviving `/compact`. `:177` covers a reload and `/clear`; `/compact` is not driven |
-| L80 (half) | `todo-sidebar.test.tsx` | After a `/theme` switch the spinner turns in the new theme's `warning` — the after-state, with the transition and the "within 0.5 s" dropped |
-| L174 | `menu.test.tsx` | `/ctui` opening while a reply streams. `:174` opens it at rest |
+| The dock at 53, then 42 again | `sidebar-dock.test.tsx` | The dock asks 53 on widening past 160 and 42 again on narrowing back. The two width tests already there each assert one width from a fresh session; nothing walks the transition |
+| Re-docking after a narrow below 110 | `sidebar-dock.test.tsx` | Re-docking after a narrow below 110 and a widen back. The test there asserts that nothing opens; nothing asserts the re-open |
+| The month total across `/clear` (half) | `usage.test.tsx` | After `/clear`, switching `session.id()` and `usage().cost` together, the total reads as before — never counted twice. The measured total before and after, not a shape. The "about a second" is the rescan's schedule and drops |
+| Skills rows across `/compact` | `skills-sidebar.test.tsx` | Skills rows surviving `/compact`. A reload and `/clear` are covered; `/compact` is not driven |
+| The spinner after a `/theme` switch (half) | `todo-sidebar.test.tsx` | After a `/theme` switch the spinner turns in the new theme's `warning` — the after-state, with the transition and the "within 0.5 s" dropped |
+| `/ctui` while a reply streams | `menu.test.tsx` | `/ctui` opening while a reply streams. The test there opens it at rest |
 
-Rows this slice does **not** convert, with their reason on the record: L87 and L185 are deleted, already asserted better than the live check asks ([#268](https://github.com/a1exk-dev/claude-tui/issues/268)); L53's `resets in` countdown is asserted in full in `ctui/tests/usage.test.tsx`, which advances `mock.clock` 30 s and then 60 s and reads `resets in 2h 17m`, `2h 16m` and `2h 15m` off each redraw, so the clock advancing the text was covered before this spec was written; L31's "full size in the Nerd Font" and L35's one-cell `▶` in Alacritty and Ghostty are deleted as facts about a font and two terminals ([#269](https://github.com/a1exk-dev/claude-tui/issues/269)); L79's "about ten frames a second" **is** `ms: 100` and is already asserted (`spinner.test.tsx`, `todo-sidebar.test.tsx:192`); L32, L38, L43, L66–L68 are the 1 s tick, its 5th beat, `SCAN_MS = 60_000` and `ms: 100`, where asserting the requested value *is* the assertion ([#273](https://github.com/a1exk-dev/claude-tui/issues/273)).
+Rows this slice does **not** convert, with their reason on the record: the `CLAUDE_CODE_ENABLE_TODO_TOOLS` question pair and the `/ctui` refusal under `claude -p` are deleted, already asserted better than the live check asks ([#268](https://github.com/a1exk-dev/claude-tui/issues/268)); the `resets in` countdown is asserted in full in `ctui/tests/usage.test.tsx`, which advances `mock.clock` 30 s and then 60 s and reads `resets in 2h 17m`, `2h 16m` and `2h 15m` off each redraw, so the clock advancing the text was covered before this spec was written; the git glyphs' "full size in the Nerd Font" and the frame row's one-cell `▶` in Alacritty and Ghostty are deleted as facts about a font and two terminals ([#269](https://github.com/a1exk-dev/claude-tui/issues/269)); the Todo spinner's "about ten frames a second" **is** `ms: 100` and is already asserted (`spinner.test.tsx`, `todo-sidebar.test.tsx`); the git counts after an Edit, a rewritten `/theme` file, an Omarchy theme switch and the three `/mcp` state changes are the 1 s tick, its 5th beat, `SCAN_MS = 60_000` and `ms: 100`, where asserting the requested value *is* the assertion ([#273](https://github.com/a1exk-dev/claude-tui/issues/273)).
 
 ### 6. `ctui/evals/`: the task-list nudge suite
 
@@ -184,7 +185,7 @@ The nudge's mechanism is already asserted (`register.tsx:871`, `todo-sidebar.tes
 
   The medium job hides its steps and asks for brevity, so a list there is ctui's doing. The big job's delta is near zero and it is kept as the floor. The one-line job is the over-trigger guard, and its ablation delta must stay zero.
 - **`claude-haiku-5-5`**, a correctness choice: measured on the pin, the cheapest model's tool list holds `TaskCreate`, `TaskList` and `TaskUpdate` with or without `CLAUDE_CODE_ENABLE_TODO_TOOLS`, so the plugin-off arm still *can* make a list and declines to. With ctui off on Opus 5.x there are no Task tools and "no list" is forced, which makes the delta a tautology about an environment variable.
-- `--runs` at its default of **3** (L184's "3 of 3"), `--ablation with-without`: **18 cheap sessions per run**. Only the `llm` and `baseline` graders spend a judge turn, so this suite scores **free**. No `--threshold` gate: the report is read, not enforced.
+- `--runs` at its default of **3** (the spike's three sessions per job), `--ablation with-without`: **18 cheap sessions per run**. Only the `llm` and `baseline` graders spend a judge turn, so this suite scores **free**. No `--threshold` gate: the report is read, not enforced.
 - The fixture is **`calc.ts`**, committed with the same two bugs and shape as the spike's `calc.py`. The big job's "write tests and run them" step then has `node --test` to hand. The run's numbers are not comparable row-for-row with the 2026-10-12 measurement, which the model change had already broken.
 - Read `claude plugin eval --help` against the pin for the suite file's format before writing it; this spec fixes the cases, graders, model, fixture and flags, not the schema.
 - Tests: none. The suite spends model turns, so `check.ts` never runs it; `claude plugin validate ctui --strict` must still pass with `evals/` present, and npm's `files` whitelist must leave it out of the published package.
@@ -195,5 +196,5 @@ Carried from the map, so no build ticket picks one up:
 
 - A CI job that drives a signed-in Claude Code session, and any pty or terminal runner inside the release gate. `node scripts/check.ts` never starts a real engine.
 - A per-release human smoke list. The manual mechanism stays in the rule with no members today.
-- Measuring a clock that is not ctui's: the spinner's on-screen frame rate, L68's "`✕` and `down` about 10 s after the kill" (`MCP_TIMEOUT` and the engine's client), and every other real-time "within a second" clause.
+- Measuring a clock that is not ctui's: the spinner's on-screen frame rate, the "`✕` and `down` about 10 s after the kill" of a killed MCP server (`MCP_TIMEOUT` and the engine's client), and every other real-time "within a second" clause.
 - An `engine: 2.1.292` field per check (the skill runs against one pin and the version block names it once) and a `COMPATIBILITY.md` entry for an engine-pinned expectation (it ships to users).

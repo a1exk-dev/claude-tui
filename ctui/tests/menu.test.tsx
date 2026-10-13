@@ -188,9 +188,9 @@ test('/ctui opens the focused menu at its top level, whatever follows it', { opt
   expect(seen.sets).toEqual([])
 })
 
-// L174 of the live checks: `:174` runs `/ctui` at rest. Registered
-// `immediate`, it runs mid-turn: the menu opens while the step is still
-// streaming and the chunks beneath keep coming.
+// `/ctui opens the focused menu at its top level` above runs it at rest.
+// Registered `immediate`, it runs mid-turn too: the menu opens while the step is
+// still streaming and the chunks beneath keep coming.
 test('/ctui opens while a reply streams, and the reply keeps streaming', async ($, on) => {
   const seen = host(on)
   // A generator pauses at each `yield`: the step is mid-stream between them.

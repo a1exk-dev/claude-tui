@@ -9,10 +9,39 @@ const color = (cell: IBufferCell, which: 'fg' | 'bg'): string => {
   return `idx${value}`
 }
 
-const flag = (value: boolean | number): string => (value ? '1' : '0')
+const bit = (value: boolean | number): string => (value ? '1' : '0')
 
 const cellAt = (term: Terminal, y: number, x: number): IBufferCell | undefined =>
   term.buffer.active.getLine(term.buffer.active.viewportY + y)?.getCell(x)
+
+/** One cell's drawing attributes, the form every check reads a theme role off. */
+const attrs = (cell: IBufferCell | undefined): string =>
+  cell
+    ? `fg=${color(cell, 'fg')} bg=${color(cell, 'bg')} b=${bit(cell.isBold())} u=${bit(cell.isUnderline())}`
+    : 'fg=default bg=default b=0 u=0'
+
+interface Run {
+  key: string
+  from: number
+  to: number
+  text: string
+}
+
+/** One row coalesced into runs of equal `key`, each carrying its columns and its text. */
+const rowRuns = (term: Terminal, y: number, key: (cell: IBufferCell | undefined) => string): Run[] => {
+  const runs: Run[] = []
+  for (let x = 0; x < term.cols; x++) {
+    const cell = cellAt(term, y, x)
+    const next = key(cell)
+    const chars = cell?.getChars() || ' '
+    const last = runs.at(-1)
+    if (last && last.key === next) {
+      last.to = x
+      last.text += chars
+    } else runs.push({ key: next, from: x, to: x, text: chars })
+  }
+  return runs
+}
 
 /** One screen row as text, right-trimmed. A cell the engine left empty reads as a space, as the column grid does. */
 export const rowText = (term: Terminal, y: number): string => {
@@ -29,17 +58,14 @@ export const dump = (term: Terminal): string[] =>
 
 /** Every row as its runs of background color, `<color>:<first>-<last>` per run — the paint checks read this. */
 export const dumpbg = (term: Terminal): string[] =>
-  Array.from({ length: term.rows }, (_, y) => {
-    const runs: { bg: string; from: number; to: number }[] = []
-    for (let x = 0; x < term.cols; x++) {
-      const cell = cellAt(term, y, x)
-      const bg = cell ? color(cell, 'bg') : 'default'
-      const last = runs.at(-1)
-      if (last && last.bg === bg) last.to = x
-      else runs.push({ bg, from: x, to: x })
-    }
-    return numbered(y, runs.map((run) => `${run.bg}:${run.from}-${run.to}`).join(' '))
-  })
+  Array.from({ length: term.rows }, (_, y) =>
+    numbered(
+      y,
+      rowRuns(term, y, (cell) => (cell ? color(cell, 'bg') : 'default'))
+        .map((run) => `${run.key}:${run.from}-${run.to}`)
+        .join(' '),
+    ),
+  )
 
 /** The rows holding `needle`, numbered. */
 export const grep = (term: Terminal, needle: string): string[] =>
@@ -51,36 +77,13 @@ export const cells = (term: Terminal, y: number, from: number, to: number): stri
   for (let x = from; x <= to; x++) {
     const cell = cellAt(term, y, x)
     if (!cell) continue
-    const chars = cell.getChars() || ' '
-    out.push(
-      `  (${y},${x}) ${JSON.stringify(chars)} fg=${color(cell, 'fg')} bg=${color(cell, 'bg')}` +
-        ` b=${flag(cell.isBold())} u=${flag(cell.isUnderline())}`,
-    )
+    out.push(`  (${y},${x}) ${JSON.stringify(cell.getChars() || ' ')} ${attrs(cell)}`)
   }
   return out
 }
 
 /** One row as its runs of fg/bg/bold, with the run's text — how a theme role is read off a row. */
-export const runs = (term: Terminal, y: number): string[] => {
-  const out: string[] = []
-  let key = ''
-  let text = ''
-  const flush = () => {
-    if (text.trim()) out.push(`  ${key} ${JSON.stringify(text)}`)
-  }
-  for (let x = 0; x < term.cols; x++) {
-    const cell = cellAt(term, y, x)
-    const chars = cell?.getChars() || ' '
-    const next = cell
-      ? `fg=${color(cell, 'fg')} bg=${color(cell, 'bg')} b=${flag(cell.isBold())} u=${flag(cell.isUnderline())}`
-      : 'fg=default bg=default b=0 u=0'
-    if (next === key) text += chars
-    else {
-      flush()
-      key = next
-      text = chars
-    }
-  }
-  flush()
-  return out
-}
+export const runs = (term: Terminal, y: number): string[] =>
+  rowRuns(term, y, attrs)
+    .filter((run) => run.text.trim())
+    .map((run) => `  ${run.key} ${JSON.stringify(run.text)}`)

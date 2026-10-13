@@ -1,11 +1,11 @@
 // Drives Claude Code in a bare pty and reads the screen back. HARNESS.md is the operator's page.
 //
-//   node harness.ts seed  <scenario> [--settings JSON] [--claude-json JSON] [--trust DIR]
+//   node harness.ts seed  <scenario> [--settings JSON] [--claude-json JSON] [--trust DIR] [--mcp]
 //   node harness.ts once  <configDir> <cols> <rows> <steps-file> [options] [-- <claude args>]
 //   node harness.ts serve <configDir> <cols> <rows> <fifo> <out>  [options] [-- <claude args>]
 //   node harness.ts send  <fifo> <out> <settle-seconds>            (steps on stdin)
 //
-// Options: --cwd DIR, --env K=V (repeatable), --plugin-key KEY.
+// Options: --cwd DIR.
 import { Buffer } from 'node:buffer'
 import { spawnSync } from 'node:child_process'
 import { appendFileSync, closeSync, constants, existsSync, openSync, readFileSync, readSync, statSync } from 'node:fs'
@@ -22,8 +22,6 @@ interface LaunchOptions {
   cols: number
   rows: number
   cwd: string
-  env: Record<string, string>
-  pluginKey: string
   claudeArgs: string[]
 }
 
@@ -41,7 +39,6 @@ const childEnv = (options: LaunchOptions): Record<string, string> => {
     COLORTERM: 'truecolor',
     LINES: String(options.rows),
     COLUMNS: String(options.cols),
-    ...options.env,
   }
 }
 
@@ -63,7 +60,6 @@ const launch = (options: LaunchOptions): Session => {
   return {
     term,
     configDir: options.configDir,
-    pluginKey: options.pluginKey,
     write: (data) => pty.write(data),
     resize: (cols, rows) => {
       term.resize(cols, rows)
@@ -153,11 +149,11 @@ const send = async (fifo: string, out: string, settle: number) => {
 const usage = (): never => {
   process.stderr.write(
     [
-      'node harness.ts seed  <scenario> [--settings JSON] [--claude-json JSON] [--trust DIR]',
+      'node harness.ts seed  <scenario> [--settings JSON] [--claude-json JSON] [--trust DIR] [--mcp]',
       'node harness.ts once  <configDir> <cols> <rows> <steps-file> [options] [-- <claude args>]',
       'node harness.ts serve <configDir> <cols> <rows> <fifo> <out>  [options] [-- <claude args>]',
       'node harness.ts send  <fifo> <out> <settle-seconds>            (steps on stdin)',
-      'options: --cwd DIR, --env K=V (repeatable), --plugin-key KEY',
+      'options: --cwd DIR',
       '',
     ].join('\n'),
   )
@@ -168,18 +164,24 @@ const main = async () => {
   const argv = process.argv.slice(2)
   const command = argv.shift()
   const claudeArgs = argv.includes('--') ? argv.splice(argv.indexOf('--')).slice(1) : []
-  const flag = (name: string): string[] => {
+  /** Takes every `<name> <value>` pair out of `argv`, so what is left is the positional arguments. */
+  const takeFlag = (name: string): string[] => {
     const values: string[] = []
     for (let at = argv.indexOf(name); at >= 0; at = argv.indexOf(name)) values.push(...argv.splice(at, 2).slice(1))
     return values
   }
-  const cwd = flag('--cwd').at(-1) ?? repoRoot
-  const pluginKey = flag('--plugin-key').at(-1) ?? 'ctui@inline'
-  const settingsFlag = flag('--settings').at(-1)
-  const claudeJsonFlag = flag('--claude-json').at(-1)
-  const trust = flag('--trust')
-  const env: Record<string, string> = {}
-  for (const pair of flag('--env')) env[pair.slice(0, pair.indexOf('='))] = pair.slice(pair.indexOf('=') + 1)
+  /** Takes a valueless flag out of `argv` and says whether it was there. */
+  const takeSwitch = (name: string): boolean => {
+    const at = argv.indexOf(name)
+    if (at < 0) return false
+    argv.splice(at, 1)
+    return true
+  }
+  const cwd = takeFlag('--cwd').at(-1) ?? repoRoot
+  const settingsFlag = takeFlag('--settings').at(-1)
+  const claudeJsonFlag = takeFlag('--claude-json').at(-1)
+  const trust = takeFlag('--trust')
+  const mcp = takeSwitch('--mcp')
 
   if (command === 'seed') {
     const [scenario] = argv
@@ -190,6 +192,7 @@ const main = async () => {
         settings: settingsFlag ? (JSON.parse(settingsFlag) as Record<string, unknown>) : undefined,
         claudeJson: claudeJsonFlag ? (JSON.parse(claudeJsonFlag) as Record<string, unknown>) : undefined,
         trust,
+        mcp,
       })}\n`,
     )
     return
@@ -200,12 +203,23 @@ const main = async () => {
     await send(fifo, out, Number(settle ?? 4))
     return
   }
-  const [configDir, cols, rows, fourth, fifth] = argv
-  if (!configDir || !cols || !rows || !fourth) return usage()
-  const options: LaunchOptions = { configDir, cols: Number(cols), rows: Number(rows), cwd, env, pluginKey, claudeArgs }
-  if (command === 'once') await once(options, fourth)
-  else if (command === 'serve' && fifth) await serve(options, fourth, fifth)
-  else return usage()
+  // What `once` and `serve` share: the dir to boot in and the screen size. `rest` is each one's own tail.
+  const [configDir, cols, rows, ...rest] = argv
+  if (!configDir || !cols || !rows) return usage()
+  const options: LaunchOptions = { configDir, cols: Number(cols), rows: Number(rows), cwd, claudeArgs }
+  if (command === 'once') {
+    const [stepsFile] = rest
+    if (!stepsFile) return usage()
+    await once(options, stepsFile)
+    return
+  }
+  if (command === 'serve') {
+    const [fifo, out] = rest
+    if (!fifo || !out) return usage()
+    await serve(options, fifo, out)
+    return
+  }
+  return usage()
 }
 
 await main()

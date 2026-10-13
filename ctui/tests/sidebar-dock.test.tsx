@@ -75,9 +75,10 @@ test('below 110 columns or off fullscreen nothing opens', async ($, on) => {
   expect(opens).toEqual([])
 })
 
-// L21 of the live checks: `:53` and `:61` each open from a fresh session at one
-// width. Inside one session the docked Pane's own render re-asks, off the
-// transcript's columns plus the dock's.
+// The live checks' `docking/width-42-at-150` and `docking/width-53-at-170` each
+// open from a fresh session at one width, as the two tests above do. Inside one
+// session the docked Pane's own render re-asks, off the transcript's columns
+// plus the dock's.
 test('widening past 160 asks 53 columns, and narrowing back asks 42 again', async ($, on) => {
   const clock = mock.clock(on)
   const opens = recordOpens(on)
@@ -101,8 +102,9 @@ test('widening past 160 asks 53 columns, and narrowing back asks 42 again', asyn
   expect(opens.map((open) => open.columns)).toEqual([42, 53, 42])
 })
 
-// L23: `:69` asserts that nothing opens below 110; the Sidebar the engine
-// dropped there docks again once the terminal is wide enough.
+// The test above asserts that nothing opens below 110; the Sidebar the engine
+// dropped there docks again once the terminal is wide enough. No live check
+// walks that transition.
 test('narrowed below 110 and widened back, the Sidebar docks again', async ($, on) => {
   const clock = mock.clock(on)
   const panes = ['sidebar'] // docked at 150 columns

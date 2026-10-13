@@ -598,9 +598,11 @@ test('after /clear the old session counts by its line and the new one by its liv
   expect(await costLine(pane)).toBe('46.25$ of 100$')
 })
 
-// L63 of the live checks: the id and the live cost switch together, so the
-// total reads as it did before `/clear` once the old session's own line holds
-// the cost it had live — counted by its line, never twice.
+// The engine swaps the session id and the live cost in one step (MEMORY.md,
+// "Engine-pinned expectations hold only on the pinned Claude Code version",
+// `clear-swaps-id-and-cost`), so the total reads as it did before `/clear` once
+// the old session's own line holds the cost it had live — counted by its line,
+// never twice.
 test('the total after /clear reads as before it, the old session counted once', async ($, on) => {
   const usage = { ...LIVE }
   const world: World = { transcripts: transcripts(), greps: [] }

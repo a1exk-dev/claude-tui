@@ -1,0 +1,15 @@
+{
+  "name": "Live Check Fixture",
+  "base": "dark",
+  "overrides": {
+    "text": "#d3c6aa",
+    "inverseText": "#2d353b",
+    "inactive": "#859289",
+    "subtle": "#4f585e",
+    "success": "#a7c080",
+    "warning": "#dbbc7f",
+    "error": "#e67e80",
+    "suggestion": "#7fbbb3",
+    "claude": "#a7c080"
+  }
+}

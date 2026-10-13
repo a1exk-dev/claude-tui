@@ -10,8 +10,6 @@ export interface Session {
   readonly term: Terminal
   /** The seeded CLAUDE_CONFIG_DIR, which `setopt` and `setting` edit to trigger a live reload. */
   readonly configDir: string
-  /** The `pluginConfigs` key the session's ctui runs under: `ctui@inline` under `--plugin-dir`. */
-  readonly pluginKey: string
   /** Send bytes to the child. */
   write(data: string): void
   /** Resize the pty and the parsed screen together, so the child sees SIGWINCH. */
@@ -20,6 +18,15 @@ export interface Session {
   pump(seconds: number): Promise<void>
   /** Stop the child. */
   quit(): void
+}
+
+/** The `pluginConfigs` key the session's ctui runs under: the harness always loads it with `--plugin-dir`. */
+const PLUGIN_KEY = 'ctui@inline'
+
+/** The head before the first `separator`, then everything after it: `key=value` and `<command> <arg>` both. */
+const splitFirst = (text: string, separator: string): [string, string] => {
+  const at = text.indexOf(separator)
+  return at < 0 ? [text, ''] : [text.slice(0, at), text.slice(at + separator.length)]
 }
 
 const escapes: Record<string, string> = { n: '\n', r: '\r', t: '\t', e: '\x1b', '0': '\0', '\\': '\\' }
@@ -66,10 +73,7 @@ const found = (session: Session, needle: string): boolean => {
  * ending the session: a mistyped step in the middle of a scenario must not cost another engine boot.
  */
 export const runStep = async (session: Session, line: string): Promise<string[]> => {
-  const [command = '', arg = ''] = ((): [string, string] => {
-    const space = line.indexOf(' ')
-    return space < 0 ? [line, ''] : [line.slice(0, space), line.slice(space + 1)]
-  })()
+  const [command, arg] = splitFirst(line, ' ')
   switch (command) {
     case 'wait':
       await session.pump(Number(arg))
@@ -118,15 +122,15 @@ export const runStep = async (session: Session, line: string): Promise<string[]>
     }
     case 'setopt': {
       // A ctui option, written where /config writes it. The engine reloads the mod when the file changes.
-      const [key, value] = [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)]
+      const [key, value] = splitFirst(arg, '=')
       const settings = readSettings(session)
-      branch(branch(branch(settings, 'pluginConfigs'), session.pluginKey), 'options')[key] = JSON.parse(value)
+      branch(branch(branch(settings, 'pluginConfigs'), PLUGIN_KEY), 'options')[key] = JSON.parse(value)
       writeSettings(session, settings)
       await session.pump(4)
       return []
     }
     case 'setting': {
-      const [key, value] = [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)]
+      const [key, value] = splitFirst(arg, '=')
       const settings = readSettings(session)
       settings[key] = JSON.parse(value)
       writeSettings(session, settings)
@@ -152,9 +156,8 @@ export const runStep = async (session: Session, line: string): Promise<string[]>
       return runs(session.term, numbers(arg, 1)[0]!)
     case 'watch': {
       // How long something took to appear, in ms: the cold-cache cost row's arrival is this step's measurement.
-      const space = arg.indexOf(' ')
-      const timeout = Number(arg.slice(0, space)) * 1000
-      const needle = arg.slice(space + 1)
+      const [seconds, needle] = splitFirst(arg, ' ')
+      const timeout = Number(seconds) * 1000
       const start = Date.now()
       while (Date.now() - start < timeout) {
         await session.pump(0.05)
@@ -164,11 +167,11 @@ export const runStep = async (session: Session, line: string): Promise<string[]>
     }
     case 'anim': {
       // Samples the rows holding a needle over time, for a spinner: that the glyph changes, never its frame rate.
-      const [count, interval] = [Number(arg.split(' ')[0]), Number(arg.split(' ')[1])]
-      const needle = arg.split(' ').slice(2).join(' ')
+      const [count, rest] = splitFirst(arg, ' ')
+      const [interval, needle] = splitFirst(rest, ' ')
       const out: string[] = []
-      for (let sample = 0; sample < count; sample++) {
-        await session.pump(interval)
+      for (let sample = 0; sample < Number(count); sample++) {
+        await session.pump(Number(interval))
         out.push(`  ${Date.now() % 100000} ${JSON.stringify(grep(session.term, needle).map((row) => row.slice(4)))}`)
       }
       return out

@@ -35,7 +35,9 @@ if (!existsSync(tsc) || !existsSync(claude)) {
 }
 
 // validate misses unbound tags in imported Sidebar plugin views; tsc catches them.
+// Two projects: ctui runs in the engine with no Node globals, the live-check harness runs on Node.
 run(tsc, ['-p', '.'])
+run(tsc, ['-p', '.claude/skills/live-checks/harness'])
 run(claude, ['plugin', 'validate', 'ctui', '--strict'])
 run(claude, ['plugin', 'validate', '.', '--strict'])
 run(claude, ['plugin', 'test', 'ctui'])

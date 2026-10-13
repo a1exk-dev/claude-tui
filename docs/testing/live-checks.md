@@ -6,7 +6,7 @@ Checks that mocks can't reach: docking, engine chrome, toast drawing, the Themes
 
 A run boots the engine once per scenario, spends a few model turns and takes 20–40 minutes, so it runs once, on the pull request a human merges.
 
-1. Switch the session to an inexpensive model — Sonnet at medium effort. The checks read colors and column ranges off a cell grid, which takes no judgement.
+1. Switch the session to an inexpensive model. `CONTRIBUTING.md`'s `Live checks` names the model and effort, and why they are enough.
 2. From the repo root, invoke the `live-checks` skill.
 3. It runs `node scripts/check.ts` first and stops on a non-zero exit: the boots are too expensive to spend on a checkout that doesn't pass. Then it boots the scenarios concurrently, one subagent each, and merges their rows.
 4. It prints the path of the report it wrote. Paste that report whole into the pull request.
