@@ -4,6 +4,8 @@
 
 Use Node 22.18 or newer, which runs `.ts` files without a flag. Run `npm ci`. It installs the Claude Code version ctui is tested against (the exact `@anthropic-ai/claude-code` devDependency) and TypeScript. Install [`typos`](https://github.com/crate-ci/typos) for the spell check; the runner warns and skips it when it's missing.
 
+To run the live-check harness, approve node-pty's build script once per checkout with `npm install-scripts approve node-pty`, then `npm install`. The checks never start the harness, so CI and a checkout that only runs `node scripts/check.ts` skip this step.
+
 ## Checks
 
 Run `node scripts/check.ts` before each commit. It runs `tsc`, `claude plugin validate ctui --strict` and `validate . --strict`, `claude plugin test ctui`, the consistency checks (Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; versions; the README and `COMPATIBILITY.md` against the pin), the Theme generator's tests in `scripts/themes.test.ts`, the cost live check's fixture generator's tests in `scripts/cost-fixture.test.ts`, a check that `node scripts/themes.ts` would change no Theme and no `docs/configuration.md` table, and `typos`. It exits 1 when `node_modules/.bin/claude` is missing. CI runs the same command.
