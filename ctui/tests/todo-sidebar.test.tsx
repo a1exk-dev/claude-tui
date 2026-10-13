@@ -228,9 +228,11 @@ const THEME_ROW: ConfigRow = {
 const omarchy = (background: string, foreground: string) =>
   JSON.stringify({ name: 'Omarchy', base: 'dark', overrides: { text: foreground, inverseText: background } })
 
-// L80 of the live checks, its after-state. `:192` reads the spinner's frames,
-// `ms` and `warning` at rest; under `inherit` the role is the `/theme`'s own, so
-// after a switch the spinner turns in the new theme's `warning`.
+// The after-state of a `/theme` switch, which the live check
+// `todo/spinner-focused` drives live. `TaskCreate and TaskUpdate draw rows`
+// above reads the spinner's frames, `ms` and `warning` at rest; under `inherit`
+// the role is the `/theme`'s own, so after a switch the spinner turns in the new
+// theme's `warning`.
 test('after a /theme switch the spinner keeps turning in the new theme’s warning', async ($, on) => {
   const clock = mock.clock(on, { now: 0 })
   // The active `/theme`, a user custom theme Claude Code keeps in its config dir.

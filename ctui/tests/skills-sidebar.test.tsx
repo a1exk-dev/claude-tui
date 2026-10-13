@@ -174,9 +174,9 @@ test('each skill.prompt adds its skill once, with its source', async ($, on) => 
   expect(await pane.find({ type: 'Text', text: '2', in: 'foldrow-skills' })).toBeDefined()
 })
 
-// L72 of the live checks: a `/config` reload, then `/compact`, which replaces
-// the transcript with its summary — the list is `$.state`'s, not the
-// transcript's, so the rows stay.
+// A `/config` reload, then `/compact`, which replaces the transcript with its
+// summary — the list is `$.state`'s, not the transcript's, so the rows stay.
+// No live check drives `/compact`.
 test('a reload and /compact keep the list; /clear empties it', async ($, on) => {
   const clock = mock.clock(on)
   const world: World = {}
