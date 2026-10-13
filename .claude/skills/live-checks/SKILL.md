@@ -135,9 +135,9 @@ session does start as well as what it does not.
 | `docking/width-53-at-170` | `resize 170 45`, `dumpbg` | the run at cols 117–169, 53 columns |
 | `docking/close-attempts-ignored` | `resize 150 45`; `grep ✕` for the glyph's cell, `click` it; `key \x18x`; `key \x18\t` then `key \e`; `grep claude cli:` after each | the footer row still present after all three presses |
 | `layout/git-glyph-columns` | `grep` the branch row, then `cells <row> 110 114` on the three git rows | each glyph's codepoint at content column 0, its text at column 2, and the `fg` of each |
-| `layout/frame-and-footer` | `grep claude cli:`, `runs` the footer rows and the `│` column, at 53 and again at 42 | one footer row at 53 and two at 42, the `│` in `subtle` `#505050`, no update icon |
+| `layout/frame-and-footer` | `grep claude cli:`, `runs` the footer rows and the `│` column, at 53 and again at 42 | one footer row at 53 and two at 42, the `│` on every body row at the dock's left edge with the colours its cells carry, no update icon |
 | `layout/no-child-processes` | `sh for i in $(seq 10); do pstree -a -p $(pgrep -n -f 'claude --plugin-dir'); sleep 1; done \| sort -u` | the distinct child commands seen over the 10 s: the seeded `ctuistub` server and short `git` runs, and no `claude -p` or `claude mcp list` |
-| `rewrites/rule-gutter` | one prompt: a wrapped several-line ask for a one-paragraph reply and a long `Bash` run; then `dump` | the last text column of the prompt panel, the reply and the `$ Bash` row (105, two before the rule at 107), and of a `⎿` row (106) |
+| `rewrites/rule-gutter` | one prompt: a wrapped several-line ask for a reply that ends with a 200-character unbroken token, plus a long `Bash` run; then `dump` | the rightmost text column the prompt panel, the reply and the `$ Bash` row each reach, none of them at 106 or right of it, with the reply's forced token wrapping at 105, two before the rule at 107; and the column a `⎿` row reaches (106) |
 | `rewrites/ctrl-o-transcript` | `key \x0f`, `dump`, `key \x0f`, `dump` | the rows both views show, and each call carrying its full result under it |
 
 ## Scenario 2: `fresh-110` — 2 checks, 1 model turn, two launches

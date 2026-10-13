@@ -22,9 +22,11 @@ Docking, engine chrome, toast drawing, the Themes' paint and the fullscreen and 
 
 `ctui/evals/` measures whether the task-list nudge's text works, which no test can assert. One run, from the repo root:
 
-    node_modules/.bin/claude plugin eval ./ctui --ablation with-without --scaffold --allow-tools Edit Write 'Bash(node:*)'
+    node_modules/.bin/claude plugin eval ./ctui --ablation with-without --scaffold --trust-plugin --no-publish --allow-tools Edit Write 'Bash(node:*)'
 
-That is 18 cheap sessions on `claude-haiku-5-5` — 2 arms × 3 cases × 3 runs — with no judge turn, so the scoring itself costs nothing. There is no threshold: the delta is read, not enforced. `node scripts/check.ts` never runs it.
+That is 18 cheap sessions on `claude-haiku-5-5` — 2 arms × 3 cases × 3 runs — with no judge turn, so the scoring itself costs nothing; the 2026-10-13 run spent $4.47 in about 5 minutes. Without `--trust-plugin` the run stops at the first-run trust prompt; `--no-publish` keeps the report out of claude.ai, under the gitignored `ctui/evals/results/`.
+
+The command exits non-zero whenever a case scores under the threshold, which defaults to 1.0 because the suite passes no `--threshold`. That exit is not the result: the result is the per-case delta between the arms, which the report carries and the pull request pastes. `node scripts/check.ts` never runs it.
 
 ## Reports
 
