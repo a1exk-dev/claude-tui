@@ -542,7 +542,7 @@ test('a reload invalidates tool.describe, so a Task tools change applies', { opt
 // request, ctui appends `ctui:todo` to the system prompt.
 
 const TASK_SECTION = `# Task list
-The user follows your progress in a task list shown beside the conversation. For any request that needs 2 or more distinct steps (edits, fixes, checks, delegated agents), your first action is to create one task per step with TaskCreate, before reading files or delegating. Set each task in_progress with TaskUpdate when you start it and completed as soon as it is done. Skip the list only for a single-step request or a pure question.`
+The user follows your progress in a task list shown beside the conversation. Make no list when the whole request is one piece of work — one file's edit, one command, one question answered — however many moves it takes you: reading, searching, editing and checking the same piece are not separate steps. For a request that needs 2 or more distinct pieces of work (several files or fixes, a delegated agent, a build and then its tests), your first action is to create one task per piece with TaskCreate, before reading files or delegating. Set each task in_progress with TaskUpdate when you start it and completed as soon as it is done.`
 
 // Starts a session with core composing a one-section prompt, and returns the
 // sections composed for a request offering `tools`.
