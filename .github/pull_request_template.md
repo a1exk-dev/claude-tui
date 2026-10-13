@@ -2,14 +2,14 @@
 
 Refs: #
 
-## Live checks
+## Reports
 
-A release's pull request runs every section of `docs/testing/live-checks.md` on the pinned Claude Code (see `CONTRIBUTING.md`). Any other pull request writes `release pass`.
+Paste each report whole, or answer `N/A`. A release's pull request and an outside contributor's attach both; the owner's own pull request into `develop` answers `N/A` to both (see `CONTRIBUTING.md`).
 
-- [ ] Sidebar docking
-- [ ] Sidebar layout and scroll
-- [ ] Toasts
-- [ ] Render-site rewrites
-- [ ] Themes
-- [ ] The `/ctui` menu
-- [ ] `claude -p`
+### Live checks
+
+N/A
+
+### Evals
+
+N/A
