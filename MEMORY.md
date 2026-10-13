@@ -329,10 +329,12 @@ Guidance: Follow the icon with two spaces. The engine counts it as one cell, but
 
 Reason: Checked live on 2.1.292 (2026-10-09, #201) on the `/ctui` Plugins rows. With one space the eye touched the title; with none the terminal shrank the eye and it still touched; with two it drew full size, one space from the title.
 
-## Repository skills are pinned copies, edited to name `CONTEXT.md`
+## Repository skills: pinned upstream copies, plus ctui's own `live-checks`
 
 Applies when: adding, updating or removing a skill in `.claude/skills/`, or editing `skills-lock.json`.
 
-Guidance: Install with `npx skills add mattpocock/skills -s <names> -a claude-code --copy -y`, which copies each skill into `.claude/skills/` and pins it in `skills-lock.json`. Install a skill together with every skill it calls, checked across all of its files. Leave `setup-matt-pocock-skills` global. After every add or `npx skills update`, rename `GLOSSARY.md` to `CONTEXT.md` and `GLOSSARY-MAP.md` to `CONTEXT-MAP.md` in the copies, keeping the `GLOSSARY-FORMAT.md` file name.
+Guidance:
+- Install an upstream skill with `npx skills add mattpocock/skills -s <names> -a claude-code --copy -y`, which copies each skill into `.claude/skills/` and pins it in `skills-lock.json`. Install a skill together with every skill it calls, checked across all of its files. Leave `setup-matt-pocock-skills` global. After every add or `npx skills update`, rename `GLOSSARY.md` to `CONTEXT.md` and `GLOSSARY-MAP.md` to `CONTEXT-MAP.md` in the copies, keeping the `GLOSSARY-FORMAT.md` file name.
+- `.claude/skills/live-checks/` is repo-own: written and maintained here, with no `skills-lock.json` entry, so `npx skills update` works on the pinned copies alone. Change it in the pull request that changes what it drives.
 
-Reason: The human asked on 2026-10-10 to ship the skills this repo uses with the repo, as `streaming` does. This repo's glossary is `CONTEXT.md`, while upstream names `GLOSSARY.md`, and the CLI overwrites local edits when it updates a skill.
+Reason: The human asked on 2026-10-10 to ship the skills this repo uses with the repo, as `streaming` does. This repo's glossary is `CONTEXT.md`, while upstream names `GLOSSARY.md`, and the CLI overwrites local edits when it updates a skill. `live-checks` is ctui's own operator tooling (#280, the live-checks map #266), so a lock entry would hand it to the CLI, which overwrites or drops what it can no longer match upstream. `claude plugin validate .` never reads `.claude/skills/`: the repo root holds a marketplace manifest, not a plugin.
