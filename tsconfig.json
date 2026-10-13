@@ -8,11 +8,12 @@
     "noUncheckedIndexedAccess": true,
     "noEmit": true,
     "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
     "jsx": "react",
     "jsxFactory": "h",
     "jsxFragmentFactory": "Fragment",
-    "typeRoots": ["vendor/claude-code-types"],
-    "types": ["claude-code", "claude-code-tools"]
+    "typeRoots": ["vendor/claude-code-types", "node_modules/@types"],
+    "types": ["claude-code", "claude-code-tools", "node"]
   },
-  "include": ["ctui/hooks", "ctui/plugins", "ctui/types", "ctui/tests"]
+  "include": [".claude/skills/live-checks/harness", "ctui/hooks", "ctui/plugins", "ctui/types", "ctui/tests"]
 }

@@ -85,6 +85,14 @@ if (rows[0]) {
   same('COMPATIBILITY.md top row and the pin', claudeVersion ?? '', pin)
 }
 
+// The engine-pinned expectations hold on one engine, so their MEMORY.md entry names the pin.
+const PINNED = 'Engine-pinned expectations hold only on the pinned Claude Code version'
+const entry = readFileSync('MEMORY.md', 'utf8').split('\n## ').find((section) => section.startsWith(PINNED))
+if (!entry) error(`MEMORY.md has no entry "## ${PINNED}"`)
+else if (!entry.includes(pin)) {
+  error(`MEMORY.md entry "## ${PINNED}" does not name the pin ${pin}: re-run the engine-pinned expectations on ${pin} and record the measured values there`)
+}
+
 // The cost live check's fixture generator.
 run('node', ['--test', 'scripts/cost-fixture.test.ts'])
 
