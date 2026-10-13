@@ -1,0 +1,22 @@
+# The #220 spike's one-line job (j1): the over-trigger guard. Its ablation
+# delta must stay zero, so TaskCreate is granted and expected to go unused.
+schema_version: "1.1"
+name: one-line
+description: One-step work on calc.ts, which must start no task list in either arm.
+tags: [todo-nudge]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  model: claude-haiku-5-5
+  max_turns: 10
+  timeout_seconds: 180
+  allowed_tools: [Read, Glob, Grep, Edit, TaskCreate, TaskList, TaskUpdate]
+  prompt: |
+    Fix the bug in add in calc.ts.
+graders:
+  - name: no-task-list
+    type: tool_used
+    tool: TaskCreate
+    min: 0
+    max: 0
+    arm: both

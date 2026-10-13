@@ -313,6 +313,20 @@ Guidance:
 
 Reason: The human chose this in #42. `claude plugin test` loads tests from inside the mod folder, `validate --strict` passes with `tests/` there, and npm's `files` whitelist leaves it out (checked on 2.1.288). Docking, engine chrome, toast drawing and the fullscreen and main-screen looks need a signed-in terminal, so they stay manual. The human chose the full list for a release on 2026-10-07, then on 2026-10-10 limited live checks to that pass, because a live session per small ticket costs too many tokens.
 
+## The task-list nudge is measured by `ctui/evals/`, which only a human runs
+
+Applies when: changing the task-list nudge (`prompt.compose`, `tool.describe`, `todo_tools`), or writing or running a `claude plugin eval` suite.
+
+Guidance:
+- `ctui/evals/` holds the #220 spike's three jobs as the cases `01-medium`, `02-big` and `03-one-line`, on `claude-haiku-5-5`, whose tool list carries TaskCreate, TaskList and TaskUpdate with or without `CLAUDE_CODE_ENABLE_TODO_TOOLS`, so the plugin-off arm can make a list and declines to. One run is `node_modules/.bin/claude plugin eval ./ctui --ablation with-without --scaffold --allow-tools Edit Write 'Bash(node:*)'`: 2 arms × 3 cases × 3 runs, 18 cheap sessions, no judge turn and no `--threshold`, because the delta is read and not enforced. `check.ts` never runs it; a release's pull request carries one run.
+- Name the target as a path (`./ctui`). The bare name `ctui` resolves the installed plugin, which is another checkout.
+- `claude plugin validate ctui --strict` passes with `evals/` there and npm's `files` whitelist leaves it out, as `tests/` does. `evals/results/` is gitignored.
+- A case's sandbox working directory starts empty, so a fixture arrives through `context.scaffold_script`, a bash file in the case directory run from that directory, and the run needs `--scaffold`. `ctui/evals/calc.ts` is that fixture: two wrong one-liners, and no comment that gives them away.
+- `claude plugin eval --help` fixes the flags; the case-file schema lives only in the binary. `tool_order` names one tool per side and fails when either was never called, so "TaskCreate before the first Edit or Write" is `before: TaskCreate` with `after: Edit`, and Write stays out of `allowed_tools` wherever the job writes no new file. An absence check is `tool_used` with `min: 0`, `max: 0` and `arm: both`, keeping the tool in `allowed_tools` so the model could have called it.
+- Load-check an edit to the suite with `--max-cost-usd 0`: the ceiling is tested before the first run launches, so every case parses and nothing spends.
+
+Reason: The human chose this in #270. The nudge's mechanism is asserted in `register.tsx` and `tests/todo-sidebar.test.tsx`; whether its text works takes real sessions. #220 measured the pinned tools alone at 0 of 6 lists, the pin plus ctui's section at 12 of 12, and no list for one-step work, which is why the one-line case grants TaskCreate and expects it unused. The model is a correctness choice: with ctui off on Opus 5.x there are no Task tools, so "no list" is forced and the delta is a tautology about an environment variable. No Python ships in this repo, so the fixture is TypeScript and the big job's "run the tests" step has `node --test` to hand.
+
 ## Redraw the renders from `docs/design/sidebar.html` when ctui changes its own design
 
 Applies when: a change alters how ctui draws something the renders in `docs/design/` show.
