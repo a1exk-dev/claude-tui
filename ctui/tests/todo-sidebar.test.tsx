@@ -1,4 +1,4 @@
-import type { On, ToolInfo } from 'claude-code'
+import type { ConfigRow, On, ToolInfo } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 import { colors } from '../plugins/colors'
@@ -104,7 +104,14 @@ type Task = { id: string; subject: string; status: 'pending' | 'in_progress' | '
 // `world.callers` records whose call reached each Task tool: `ctui` for its own.
 function host(
   on: On,
-  world: { tools: string[]; tasks: Task[]; env: Record<string, string | undefined>; callers?: string[] },
+  world: {
+    tools: string[]
+    tasks: Task[]
+    env: Record<string, string | undefined>
+    callers?: string[]
+    // The active user custom `/theme`'s file, when a test sets one.
+    theme?: { path: string; file: string; mtimeMs: number }
+  },
 ) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/srv/x' }))
@@ -118,10 +125,12 @@ function host(
     value: { exitCode: 128, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
   }))
   on('fs.exists', () => ({ value: false }))
-  on('fs.stat', () => {
-    throw new Error('ENOENT')
+  on('fs.stat', (_, e) => {
+    const theme = world.theme
+    if (!theme || e.path !== theme.path) throw new Error('ENOENT')
+    return { value: { kind: 'file' as const, size: theme.file.length, mtimeMs: theme.mtimeMs, isLink: false } }
   })
-  on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
+  on('fs.read', (_, e) => ({ value: e.path === world.theme?.path ? world.theme.file : '{ "version": "0.0.0" }' }))
   on('env.get', (_, e) => ({ value: world.env[e.name] }))
   on('env.set', (_, e) => {
     world.env[e.name] = e.value
@@ -201,6 +210,63 @@ test('TaskCreate and TaskUpdate draw rows, with activeForm from the inputs', asy
 
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-todo' })
   expect(await count()).toBe('1/2 · Doing beta')
+})
+
+const FRAMES = ['󰪞', '󰪟', '󰪠', '󰪡', '󰪢', '󰪣', '󰪤', '󰪥']
+
+// The `/config` theme row, and Omarchy's generated `/theme` file, trimmed:
+// `inverseText` is the background and `text` the foreground (tests/themes.test.tsx).
+const THEME_ROW: ConfigRow = {
+  key: 'theme',
+  label: 'Theme',
+  kind: 'choice',
+  value: 'inherit',
+  options: ['inherit'],
+  provider: { plugin: 'ctui', tier: 'user' },
+  isLocked: false,
+}
+const omarchy = (background: string, foreground: string) =>
+  JSON.stringify({ name: 'Omarchy', base: 'dark', overrides: { text: foreground, inverseText: background } })
+
+// L80 of the live checks, its after-state. `:192` reads the spinner's frames,
+// `ms` and `warning` at rest; under `inherit` the role is the `/theme`'s own, so
+// after a switch the spinner turns in the new theme's `warning`.
+test('after a /theme switch the spinner keeps turning in the new theme’s warning', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  // The active `/theme`, a user custom theme Claude Code keeps in its config dir.
+  const theme = {
+    slug: 'everforest',
+    path: '/home/a/.claude/themes/everforest.json',
+    file: omarchy('#2d353b', '#d3c6aa'),
+    mtimeMs: 1,
+  }
+  host(on, { tools: ['TaskCreate', 'TaskList', 'TaskUpdate'], tasks: [], env: { HOME: '/home/a' }, theme })
+  on('config.list', () => ({ value: [{ ...THEME_ROW, value: `custom:${theme.slug}` }] }))
+  await start($)
+  await clock.settle()
+  const { pane } = await sidebarOf($)
+  await $.tool.call({ tool: 'TaskCreate', subject: 'alpha', description: 'a', activeForm: 'Doing alpha' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'in_progress' })
+  await clock.settle()
+  await pane.redraw()
+  const spinner = () => pane.find({ type: 'Client', key: 'spinner-1' })
+  const background = async () => ((await pane.drawn()) as { props: { backgroundColor?: string } }).props.backgroundColor
+  expect((await spinner())?.props.props).toEqual({ frames: FRAMES, ms: 100, color: 'warning' })
+  expect(await background()).toBe('#373e42')
+
+  // `/theme`: Catppuccin Latte, whose glass ctui mixes to #e5e7ed.
+  Object.assign(theme, {
+    slug: 'latte',
+    path: '/home/a/.claude/themes/latte.json',
+    file: omarchy('#eff1f5', '#4c4f69'),
+    mtimeMs: 2,
+  })
+  await clock.advance(1000)
+  await pane.redraw()
+  expect(await background()).toBe('#e5e7ed')
+  // The same spinner Client, still turning, its color the new theme's `warning`.
+  expect((await spinner())?.props.props).toEqual({ frames: FRAMES, ms: 100, color: 'warning' })
+  expect((await pane.find({ type: 'Text', in: 'spinner-1' }))?.text).toBe(FRAMES[0])
 })
 
 test('a list held before session.start draws at once, as after --resume or a reload', async ($, on) => {

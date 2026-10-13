@@ -1,4 +1,4 @@
-import type { ConfigRow, ConfigSetInput, On, PaneOpenArgs } from 'claude-code'
+import type { Chunk, ConfigRow, ConfigSetInput, On, PaneOpenArgs } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 import { deniedText, moveId, takenBy } from '../hooks/menu'
@@ -186,6 +186,41 @@ test('/ctui opens the focused menu at its top level, whatever follows it', { opt
   expect((await pane.find({ type: 'Button', key: 'row-plugins' }))?.props.autoFocus).toBe(true)
   expect(await footerOf(pane)).toBe('↑↓: move · enter: open · esc: close')
   expect(seen.sets).toEqual([])
+})
+
+// L174 of the live checks: `:174` runs `/ctui` at rest. Registered
+// `immediate`, it runs mid-turn: the menu opens while the step is still
+// streaming and the chunks beneath keep coming.
+test('/ctui opens while a reply streams, and the reply keeps streaming', async ($, on) => {
+  const seen = host(on)
+  // A generator pauses at each `yield`: the step is mid-stream between them.
+  on('turn.step', async function* (_, e) {
+    yield { kind: 'text' as const, index: 0, text: 'Hel' }
+    yield { kind: 'text' as const, index: 0, text: 'lo' }
+    return { turnId: e.turnId, index: e.index, answer: 'Hello', toolUses: [], stopReason: 'end_turn' as const, usage: null }
+  })
+  await start($)
+  const stream = $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', messageCount: 1 })
+  const texts: string[] = []
+  const push = (chunk: Chunk<'turn.step'>) => void (chunk.kind === 'text' && texts.push(chunk.text))
+  const first = await stream.next()
+  if (!first.done) push(first.value)
+  expect(texts).toEqual(['Hel'])
+
+  // The person types `/ctui` with the first piece of the reply on screen.
+  expect(await run($)).toEqual({})
+  expect(seen.opens).toEqual([OPEN])
+  const pane = await menu($)
+  expect(await rowsOf(pane, 'row-')).toEqual([
+    ['Plugins', '6/6 ›'],
+    ['Themes', 'inherit ›'],
+  ])
+
+  const second = await stream.next()
+  if (!second.done) push(second.value)
+  const end = await stream.next()
+  expect(texts).toEqual(['Hel', 'lo'])
+  expect(end.done === true && end.value.answer).toBe('Hello')
 })
 
 test('docked, the menu fills the body rows; inline it fits its content', async ($, on) => {

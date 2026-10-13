@@ -598,6 +598,33 @@ test('after /clear the old session counts by its line and the new one by its liv
   expect(await costLine(pane)).toBe('46.25$ of 100$')
 })
 
+// L63 of the live checks: the id and the live cost switch together, so the
+// total reads as it did before `/clear` once the old session's own line holds
+// the cost it had live — counted by its line, never twice.
+test('the total after /clear reads as before it, the old session counted once', async ($, on) => {
+  const usage = { ...LIVE }
+  const world: World = { transcripts: transcripts(), greps: [] }
+  const cleared = new Set<string>()
+  on('state.get', async ($, e, next) => (cleared.has(e.key) ? { value: { value: undefined, version: 0 } } : next(e)))
+  on('state.set', async ($, e, next) => {
+    cleared.delete(e.key)
+    return next(e)
+  })
+  const { clock, pane } = await start($, on, world, usage)
+  // 3 for `a` and 2.25 for `b` ended, plus the current session's 0.5 live.
+  expect(await costLine(pane)).toBe('5.75$ of 100$')
+
+  // `/clear` writes the old session's line at the cost it had live, gives a new
+  // id and empties `$.state`; both switch in one step.
+  world.transcripts['p1/current.jsonl'] = { mtimeMs: OCTOBER + 1, lines: [cost('current', 0.5)] }
+  world.session = 'next'
+  usage.cost = { usd: 0 }
+  cleared.add('usage').add('month')
+  await clock.advance(1000)
+  await pane.redraw()
+  expect(await costLine(pane)).toBe('5.75$ of 100$')
+})
+
 // `/resume` switches to an ended session and restores its cost as the live one.
 test('after /resume the resumed session counts by its live cost, not its line too', async ($, on) => {
   const usage = { ...LIVE }
