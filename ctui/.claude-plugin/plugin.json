@@ -79,14 +79,14 @@
     },
     "spike_enable": {
       "type": "boolean",
-      "title": "Spike 305 section",
-      "description": "Throwaway glyph spike for #305",
+      "title": "Spike 307 section",
+      "description": "Throwaway motion spike for #307",
       "default": true
     },
     "spike_folded": {
       "type": "boolean",
-      "title": "Spike 305 folded",
-      "description": "Throwaway glyph spike for #305",
+      "title": "Spike 307 folded",
+      "description": "Throwaway motion spike for #307",
       "default": false
     },
     "skills_enable": {
