@@ -36,8 +36,7 @@ RUN=$(mktemp -d -t ctui-live-checks-XXXXXX)
 ```
 
 Each scenario gets `$RUN/<scenario>/` for its fifo, its output file and its scratch repo; the report lands at
-`$RUN/report.md`. The first run in a fresh checkout needs the one-time node-pty approval in `CONTRIBUTING.md`'s
-Setup.
+`$RUN/report.md`.
 
 ## 2. Spawn the seven
 
