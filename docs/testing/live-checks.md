@@ -11,7 +11,7 @@ A run boots the engine once per scenario, spends a few model turns and takes 20â
 3. It runs `node scripts/check.ts` first and stops on a non-zero exit: the boots are too expensive to spend on a checkout that doesn't pass. Then it boots the scenarios concurrently, one subagent each, and merges their rows.
 4. It prints the path of the report it wrote. Paste that report whole into the pull request.
 
-The first run in a fresh checkout needs node-pty's one-time build approval (`CONTRIBUTING.md`, Setup). Nothing signed-in is ever written into the repo: each scenario seeds its own `CLAUDE_CONFIG_DIR` under `$TMPDIR` and deletes it on a pass.
+Nothing signed-in is ever written into the repo: each scenario seeds its own `CLAUDE_CONFIG_DIR` under `$TMPDIR` and deletes it on a pass.
 
 ## Reading the report
 

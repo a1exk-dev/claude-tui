@@ -4,7 +4,7 @@
 
 Use Node 22.18 or newer, which runs `.ts` files without a flag. Run `npm ci`. It installs the Claude Code version ctui is tested against (the exact `@anthropic-ai/claude-code` devDependency) and TypeScript. Install [`typos`](https://github.com/crate-ci/typos) for the spell check; the runner warns and skips it when it's missing.
 
-To run the live-check harness, approve node-pty's build script once per checkout with `npm install-scripts approve node-pty`, then `npm install`. The checks never start the harness, so CI and a checkout that only runs `node scripts/check.ts` skip this step.
+`npm ci` also builds node-pty's native binding, because `package.json`'s `allowScripts` allows its build script: the live-check harness loads that binding and nothing else in the repo does. A checkout that only runs `node scripts/check.ts` carries it unused, the gate never starting the harness.
 
 ## Checks
 
@@ -16,7 +16,7 @@ Run `node scripts/check.ts` before each commit. It runs `tsc`, `claude plugin va
 
 ## Live checks
 
-Docking, engine chrome, toast drawing, the Themes' paint and the fullscreen and main-screen looks need a signed-in terminal, so an agent drives them against the pinned Claude Code instead of a mock. To run them: switch the session to an inexpensive model — **Sonnet at medium effort**, which is enough because the checks read colors and column ranges off a cell grid and take no judgement — invoke the `live-checks` skill from the repo root, and read the report it prints the path of. [`docs/testing/live-checks.md`](docs/testing/live-checks.md) is the operator's page for starting a run and reading what comes back, including how long one takes. The first run in a checkout needs the node-pty approval under Setup.
+Docking, engine chrome, toast drawing, the Themes' paint and the fullscreen and main-screen looks need a signed-in terminal, so an agent drives them against the pinned Claude Code instead of a mock. To run them: switch the session to an inexpensive model — **Sonnet at medium effort**, which is enough because the checks read colors and column ranges off a cell grid and take no judgement — invoke the `live-checks` skill from the repo root, and read the report it prints the path of. [`docs/testing/live-checks.md`](docs/testing/live-checks.md) is the operator's page for starting a run and reading what comes back, including how long one takes.
 
 ## Evals
 
