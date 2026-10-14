@@ -11,7 +11,7 @@
 # Knowledge
 
 - Before exploring or changing the repo, read `CONTEXT.md` for canonical concepts and `MEMORY.md` for applicable durable guidance.
-- Build: before building ctui v0.1 in `ctui/`, follow [`docs/spec/v0.1.md`](docs/spec/v0.1.md) slice by slice. Before building the live-check skill, the harness, the converted tests or the eval suite, follow [`docs/spec/live-checks.md`](docs/spec/live-checks.md) the same way. Before changing a Sidebar glyph, its colour role or its spacing, follow [`docs/spec/sidebar-icons.md`](docs/spec/sidebar-icons.md).
+- Build: before building ctui v0.1 in `ctui/`, follow [`docs/spec/v0.1.md`](docs/spec/v0.1.md) slice by slice. Before building the live-check skill, the harness, the converted tests or the eval suite, follow [`docs/spec/live-checks.md`](docs/spec/live-checks.md) the same way. Before changing a Sidebar glyph, its colour role or its spacing, follow [`docs/spec/sidebar-icons.md`](docs/spec/sidebar-icons.md). Before changing which Sidebar rows move, the sweep itself or a folded section's in-progress term, follow [`docs/spec/working-now.md`](docs/spec/working-now.md).
 - Prototypes: `prototypes/` holds throwaway work. Take facts and decisions from the rest of the repo, and open `prototypes/` only when the human's current prompt asks for it.
 - Before defining or editing `AGENTS.md`, `CONTEXT.md`, or `MEMORY.md`, and at task completion, follow [`docs/agents/domain.md`](docs/agents/domain.md).
 
