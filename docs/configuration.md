@@ -69,11 +69,11 @@ ctui draws with Claude Code's theme colors, so it follows the theme you pick in 
 |---|---|
 | `text` | The Sidebar's main text: the path, the branch, `↑N ↓N`, section titles, bar percents, the Limits labels, MCP names, skill names, the task in progress, agent names, the versions. |
 | `success` | Git `+staged` and `+added` lines, a bar's fill below 50%, MCP `●`, a finished agent or shell `✓`. |
-| `warning` | Git `!modified`, a bar's fill from 50% to 85%, MCP `!` and `◐`, the in-progress task `◐`, a running agent or shell `◐`, an interrupted tool row. |
+| `warning` | Git `!modified`, a bar's fill from 50% to 85%, MCP `!` and `◐`, the in-progress task's `󰪞…󰪥` spinner, a running agent or shell `◐`, an interrupted tool row. |
 | `error` | Git `-removed` lines, a bar's fill from 85%, MCP `✕`, a failed agent or shell `✗`, a failed tool row. |
 | `suggestion` | Git `≡stashes`. |
 | `inactive` | The Git glyphs leading the branch, changeset and lines-changed rows, Git `?untracked` and "lines changed", the fold arrows, section counts and folded summaries, tokens, cost and reset times, MCP sources, `·`, `N tools` and `off`, skill sources, done tasks and pending task text, agent details and elapsed times, `▸ N more` and `↑ more`/`↓ more`, the versions labels. |
-| `subtle` | The `─` rules between Sidebar sections and the `═` rule under the git header, the empty `─` part of each bar, MCP `○`, `no skills used yet`, the pending task `○`, the `│` in the versions footer. |
+| `subtle` | The `─` rules between Sidebar sections and the `═` rule under the git header, the empty `─` part of each bar, MCP `○`, `no skills used yet`, the pending task `󰄰`, the `│` in the versions footer. |
 | `promptBorder` | The `┃` bar beside your prompts in the transcript. Claude Code also colors the prompt's `─` rules with it. |
 | `userMessageBackground` | The panel behind your prompts in the transcript. |
 | `composerSidebarBackground` | The Sidebar's background. Claude Code paints the dock with it, and only a theme picked in `/theme` sets it. |

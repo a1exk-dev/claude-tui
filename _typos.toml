@@ -1,5 +1,7 @@
 [default.extend-words]
 # Project words that typos flags by mistake, e.g. `foo = "foo"`.
+# A reply streamed mid-word in menu.test.tsx: `Hel` then `lo`.
+Hel = "Hel"
 
 [default.extend-identifiers]
 # Read as `PN` + `Gs`.

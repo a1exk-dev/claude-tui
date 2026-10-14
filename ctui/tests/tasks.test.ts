@@ -166,6 +166,24 @@ test('the agent list acts on a change of its own status only', () => {
   expect([tasks.a1.status, tasks.a1.endedAt]).toEqual(['failed', 1])
 })
 
+// From 2.1.292 an agent reads `waiting` while it waits on its own background
+// work (#246); only completed, failed and killed end a row.
+test('the agent list keeps a waiting agent running, and an ended agent that reads waiting runs again', () => {
+  const tasks = { a1: task({ id: 'a1' }), a2: task({ id: 'a2', status: 'completed', endedAt: 1 }) }
+  const waiting = [
+    { id: 'a1', status: 'waiting' },
+    { id: 'a2', status: 'waiting' },
+  ]
+  expect(applyAgentList(tasks, waiting, 4000)).toEqual([])
+  expect(Object.values(tasks).map(({ status, endedAt }) => [status, endedAt])).toEqual([
+    ['running', undefined],
+    ['running', undefined],
+  ])
+  expect(applyAgentList(tasks, [{ id: 'a1', status: 'running' }], 5000)).toEqual([])
+  const raised = applyAgentList(tasks, [{ id: 'a1', status: 'completed' }], 6000)
+  expect(raised.map((toast) => toast.text)).toEqual(['✓ Explore done · list work dir · 6s'])
+})
+
 const start = (id: string): Toast => ({ id, end: false, text: `start ${id}` })
 const end = (id: string): Toast => ({ id, end: true, text: `end ${id}` })
 

@@ -1,0 +1,25 @@
+# The #220 spike's medium job (j208). It hides its steps and asks for brevity,
+# so a task list here is ctui's doing.
+schema_version: "1.1"
+name: medium
+description: A subagent reports calc.ts's bugs in one line, then both bugs are fixed and a sub function added, briefly.
+tags: [todo-nudge]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  # The cheapest model lists the task tools with or without
+  # CLAUDE_CODE_ENABLE_TODO_TOOLS, so the plugin-off arm still can make a list.
+  model: claude-haiku-5-5
+  max_turns: 30
+  timeout_seconds: 600
+  # No Write: it keeps "the first Edit or Write" of the spec's grader to Edit,
+  # which is all a tool_order grader can name.
+  allowed_tools: [Read, Glob, Grep, Edit, Agent, TaskCreate, TaskList, TaskUpdate]
+  prompt: |
+    Use the Agent tool (general-purpose) to have a subagent read calc.ts and report its bugs in one line. Then fix both bugs in calc.ts and add a third function sub(a, b). Be brief.
+graders:
+  - name: list-before-first-edit
+    type: tool_order
+    before: TaskCreate
+    after: Edit
+    arm: both

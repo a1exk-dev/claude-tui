@@ -4,6 +4,7 @@ import { type Engine, expect, mock, test } from 'claude-code/testing'
 import { colors } from '../plugins/colors'
 import skills from '../plugins/skills'
 import type { SkillRow } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `skills` Sidebar plugin (#175): its view with sample rows, and
 // scenarios where `skill.prompt` and a resumed transcript fill it through
@@ -33,7 +34,7 @@ const PANE = {
 // Draws the view's rows in a test Pane, `width` cells wide as a section row is.
 async function draw($: Engine, on: On, rows: SkillRow[], width = 36) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column" width={width}>{skills.view({ skills: rows }, ui, { enable: true }, width, colors())}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
@@ -173,9 +174,14 @@ test('each skill.prompt adds its skill once, with its source', async ($, on) => 
   expect(await pane.find({ type: 'Text', text: '2', in: 'foldrow-skills' })).toBeDefined()
 })
 
-test('a reload keeps the list; /clear empties it', async ($, on) => {
+// A `/config` reload, then `/compact`, which replaces the transcript with its
+// summary — the list is `$.state`'s, not the transcript's, so the rows stay.
+// No live check drives `/compact`.
+test('a reload and /compact keep the list; /clear empties it', async ($, on) => {
   const clock = mock.clock(on)
-  host(on)
+  const world: World = {}
+  host(on, world)
+  on('session.compact', () => ({ messages: [{ role: 'user' as const, text: 'Summary of the conversation', toolUses: [] }] }))
   let cleared = false
   on('state.get', async ($, e, next) => (cleared && e.key === 'skills' ? { value: { value: undefined, version: 0 } } : next(e)))
   on('state.set', async ($, e, next) => {
@@ -188,6 +194,12 @@ test('a reload keeps the list; /clear empties it', async ($, on) => {
   await start($) // a settings reload runs session.start again
   await clock.settle()
   const pane = await sidebar($)
+  expect(await sectionRows(pane)).toEqual(['tdduser'])
+  // `/compact`: the typed skill's row is gone from the transcript.
+  world.messages = [{ role: 'user', text: 'Summary of the conversation', toolUses: [] }]
+  await $.session.compact({ trigger: 'manual', messages: [] })
+  await clock.advance(1000)
+  await pane.redraw()
   expect(await sectionRows(pane)).toEqual(['tdduser'])
   // `/clear`: a new chat with an empty transcript, $.state emptied.
   cleared = true

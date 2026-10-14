@@ -1,7 +1,7 @@
-import type { ElementTable, RenderElement, RenderNode } from 'claude-code'
+import type { RenderElement, RenderNode } from 'claude-code'
 
 import type { Colors } from '../plugins/colors'
-import type { SidebarData, SidebarId, SidebarPlugin } from '../plugins/plugin'
+import type { SidebarData, SidebarId, SidebarPlugin, SidebarUi } from '../plugins/plugin'
 import type { Config } from './config'
 
 export const CAP = 4
@@ -15,7 +15,7 @@ const EXPANDED = '▼'
 const FOLDED = '▶\uFE0E'
 
 export type SidebarInput = {
-  ui: ElementTable<'terminal' | 'desktop'> // the surfaces that draw a Client
+  ui: SidebarUi
   bodyRows: number // the Pane's `scroll.bodyRows`
   bodyColumns: number // the Pane's `bodyColumns`
   plugins: readonly SidebarPlugin[] // enabled, in registry order

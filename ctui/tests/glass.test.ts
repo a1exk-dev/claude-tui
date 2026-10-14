@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { inheritGlass, mix, themeFile } from '../hooks/glass'
+import { grey, inheritGlass, mix, themeFile } from '../hooks/glass'
 
 // Omarchy's Tokyo Night as `custom:omarchy`: `inverseText` is the theme's
 // background and `text` its foreground; no dock color.
@@ -19,6 +19,14 @@ test('a theme that colors its own dock, or lacks a hex background or foreground,
   expect(inheritGlass({ ...TOKYO, composerSidebarBackground: '#363d41' })).toBeUndefined()
   expect(inheritGlass({ text: '#a9b1d6' })).toBeUndefined()
   expect(inheritGlass({ ...TOKYO, inverseText: 'ansi:black' })).toBeUndefined()
+})
+
+test('grey keeps the luminance of a dark or light glass on equal channels', () => {
+  // Solitude's and Everforest's glass, which 256 colors drew as #5f5f5f, and
+  // Catppuccin Latte's, which it drew as #d7ffff.
+  expect(grey('#1b1e20')).toBe('#1e1e1e')
+  expect(grey('#363d41')).toBe('#3c3c3c')
+  expect(grey('#e5e7ed')).toBe('#e7e7e7')
 })
 
 test('only a user custom theme names a file; built-in and plugin themes name none', () => {

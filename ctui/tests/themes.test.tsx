@@ -37,8 +37,9 @@ const THEME_ROW: ConfigRow = {
   isLocked: false,
 }
 
-// The plugin's files, as `$.fs.read` answers them.
-function files(on: On) {
+// The plugin's files, as `$.fs.read` answers them, and the environment.
+function files(on: On, env: Record<string, string> = {}) {
+  mock.env(on, env)
   on('fs.read', (_, e) => {
     if (e.path.endsWith('/.claude-plugin/plugin.json')) {
       return { value: JSON.stringify({ userConfig: { theme: { options: OPTIONS } } }) }
@@ -123,6 +124,18 @@ test("with a Theme selected the Sidebar's root paints the Theme's glass", { opti
   expect((await sidebar($)).background).toBe(EVERFOREST.overrides.composerSidebarBackground)
 })
 
+test("under tmux the Sidebar paints the Theme's glass as a grey", { options: { theme: 'everforest' } }, async ($, on) => {
+  mock.clock(on)
+  files(on, { TMUX: '/tmp/tmux-1000/default,1,0' })
+  expect((await sidebar($)).background).toBe('#3c3c3c')
+})
+
+test("under tmux with CLAUDE_CODE_TMUX_TRUECOLOR the Sidebar paints the Theme's glass", { options: { theme: 'everforest' } }, async ($, on) => {
+  mock.clock(on)
+  files(on, { TMUX: '/tmp/tmux-1000/default,1,0', CLAUDE_CODE_TMUX_TRUECOLOR: '1' })
+  expect((await sidebar($)).background).toBe(EVERFOREST.overrides.composerSidebarBackground)
+})
+
 test('under inherit the Sidebar paints no background', async ($, on) => {
   mock.clock(on)
   files(on)
@@ -149,9 +162,9 @@ const OMARCHY = '/home/a/.claude/themes/omarchy.json'
 const omarchy = (background: string, foreground: string) =>
   JSON.stringify({ name: 'Omarchy', base: 'dark', overrides: { text: foreground, inverseText: background } })
 
-function claudeHome(on: On, world: { theme: string; file: string; mtimeMs: number }) {
+function claudeHome(on: On, world: { theme: string; file: string; mtimeMs: number }, env: Record<string, string> = {}) {
   headerFooter(on)
-  mock.env(on, { HOME: '/home/a' })
+  mock.env(on, { HOME: '/home/a', ...env })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('env.set', () => ({ value: undefined }))
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
@@ -189,6 +202,15 @@ test('under inherit a custom /theme without a dock color paints its glass, and f
   await clock.advance(1000)
   await drawn.redraw()
   expect(await background()).toBeUndefined()
+})
+
+test('under tmux a custom /theme without a dock color paints its glass as a grey', { options: OFF }, async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  claudeHome(on, { theme: 'custom:omarchy', file: omarchy('#2d353b', '#d3c6aa'), mtimeMs: 1 }, { TMUX: '/tmp/tmux-1000/default,1,0' })
+  await $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  const root = (await (await pane($, 'sidebar')).drawn()) as { props: { backgroundColor?: string } }
+  expect(root.props.backgroundColor).toBe('#3d3d3d')
 })
 
 test('after /clear empties $.state, the tick paints the glass again', { options: OFF }, async ($, on) => {

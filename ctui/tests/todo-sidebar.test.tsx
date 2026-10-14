@@ -1,9 +1,10 @@
-import type { On, ToolInfo } from 'claude-code'
+import type { ConfigRow, On, ToolInfo } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 import { colors } from '../plugins/colors'
 import todo from '../plugins/todo'
 import type { Todo } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `todo` Sidebar plugin: its view with sample lists, and scenarios through
 // register.tsx's hooks: Task tool calls draw rows, no task tools draws a hint,
@@ -32,38 +33,41 @@ const PANE = {
   },
 } as const
 
-// Draws the view's rows in a test Pane.
+// Draws the view's rows in a test Pane, the spinner's Client as its first frame.
 async function draw($: Engine, on: On, list: Todo, tools = true) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column">{todo.view({ todo: list }, ui, { enable: true, tools }, 36, colors())}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
 }
 
-// The text of each todo row.
+// The text of each todo row: a done or waiting row's glyph and text, and the
+// text after the spinner, which draws in its own Client.
 async function rowsOf(pane: Awaited<ReturnType<typeof draw>>) {
-  const texts = await pane.findAll({ type: 'Text', text: /^[✓◐○] / })
+  const texts = await pane.findAll({ type: 'Text', text: /^([\u{f0133}\u{f0130}] | \S)/u })
   return texts.map((text) => text.text)
 }
 
-test('rows in list order: ✓ muted, ◐ with its activeForm, ○ faint with muted text', async ($, on) => {
+test('rows in list order: 󰄳 muted, the spinner with its activeForm, 󰄰 faint with muted text', async ($, on) => {
   const pane = await draw($, on, LIST)
-  expect(await rowsOf(pane)).toEqual(['✓ Write the parser', '◐ Running the tests', '○ Open the PR'])
+  expect(await rowsOf(pane)).toEqual(['󰄳 Write the parser', ' Running the tests', '󰄰 Open the PR'])
   const glyph = async (text: string) => (await pane.find({ type: 'Text', text: new RegExp(`^${text}$`) }))?.props
-  expect((await Promise.all(['✓', '◐', '○'].map(glyph))).map((props) => props?.color)).toEqual([
+  expect((await Promise.all(['󰄳', '󰪞', '󰄰'].map(glyph))).map((props) => props?.color)).toEqual([
     'inactive',
     'warning',
     'subtle',
   ])
   expect((await glyph('Write the parser'))?.color).toBe('inactive')
-  expect((await glyph('Running the tests'))?.color).toBe('text')
+  expect((await glyph(' Running the tests'))?.color).toBe('text')
   expect((await glyph('Open the PR'))?.color).toBe('inactive')
+  // The spinner and its text share one row.
+  expect((await pane.findAll({ type: 'Box', text: /^󰪞 Running the tests$/ })).length).toBeGreaterThan(0)
 })
 
 test('an in-progress item without an activeForm shows its subject', async ($, on) => {
   const pane = await draw($, on, { tools: 'todowrite', items: [{ subject: 'Fix it', status: 'in_progress' }] })
-  expect(await rowsOf(pane)).toEqual(['◐ Fix it'])
+  expect(await rowsOf(pane)).toEqual([' Fix it'])
 })
 
 test('the header counts completed over total; folded it adds the item in progress', () => {
@@ -100,7 +104,14 @@ type Task = { id: string; subject: string; status: 'pending' | 'in_progress' | '
 // `world.callers` records whose call reached each Task tool: `ctui` for its own.
 function host(
   on: On,
-  world: { tools: string[]; tasks: Task[]; env: Record<string, string | undefined>; callers?: string[] },
+  world: {
+    tools: string[]
+    tasks: Task[]
+    env: Record<string, string | undefined>
+    callers?: string[]
+    // The active user custom `/theme`'s file, when a test sets one.
+    theme?: { path: string; file: string; mtimeMs: number }
+  },
 ) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/srv/x' }))
@@ -114,10 +125,12 @@ function host(
     value: { exitCode: 128, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
   }))
   on('fs.exists', () => ({ value: false }))
-  on('fs.stat', () => {
-    throw new Error('ENOENT')
+  on('fs.stat', (_, e) => {
+    const theme = world.theme
+    if (!theme || e.path !== theme.path) throw new Error('ENOENT')
+    return { value: { kind: 'file' as const, size: theme.file.length, mtimeMs: theme.mtimeMs, isLink: false } }
   })
-  on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
+  on('fs.read', (_, e) => ({ value: e.path === world.theme?.path ? world.theme.file : '{ "version": "0.0.0" }' }))
   on('env.get', (_, e) => ({ value: world.env[e.name] }))
   on('env.set', (_, e) => {
     world.env[e.name] = e.value
@@ -181,17 +194,81 @@ test('TaskCreate and TaskUpdate draw rows, with activeForm from the inputs', asy
   await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'in_progress' })
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual(['◐ Doing alpha', '○ beta'])
+  expect(await rows()).toEqual([' Doing alpha', '󰄰 beta'])
+  // The spinner turns on its own frame clock, keyed by the task's id.
+  const spinner = await pane.find({ type: 'Client', key: 'spinner-1' })
+  expect(spinner?.props.module).toBe('plugins/todo/spinner.tsx')
+  expect(spinner?.props.props).toEqual({ frames: ['󰪞', '󰪟', '󰪠', '󰪡', '󰪢', '󰪣', '󰪤', '󰪥'], ms: 100, color: 'warning' })
+  expect((await pane.find({ type: 'Text', in: 'spinner-1' }))?.text).toBe('󰪞')
 
   await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'completed' })
   await $.tool.call({ tool: 'TaskUpdate', taskId: '2', status: 'in_progress', activeForm: 'Doing beta' })
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual(['✓ alpha', '◐ Doing beta'])
+  expect(await rows()).toEqual(['󰄳 alpha', ' Doing beta'])
   expect(await count()).toBe('1/2')
 
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-todo' })
   expect(await count()).toBe('1/2 · Doing beta')
+})
+
+const FRAMES = ['󰪞', '󰪟', '󰪠', '󰪡', '󰪢', '󰪣', '󰪤', '󰪥']
+
+// The `/config` theme row, and Omarchy's generated `/theme` file, trimmed:
+// `inverseText` is the background and `text` the foreground (tests/themes.test.tsx).
+const THEME_ROW: ConfigRow = {
+  key: 'theme',
+  label: 'Theme',
+  kind: 'choice',
+  value: 'inherit',
+  options: ['inherit'],
+  provider: { plugin: 'ctui', tier: 'user' },
+  isLocked: false,
+}
+const omarchy = (background: string, foreground: string) =>
+  JSON.stringify({ name: 'Omarchy', base: 'dark', overrides: { text: foreground, inverseText: background } })
+
+// The after-state of a `/theme` switch, which the live check
+// `todo/spinner-focused` drives live. `TaskCreate and TaskUpdate draw rows`
+// above reads the spinner's frames, `ms` and `warning` at rest; under `inherit`
+// the role is the `/theme`'s own, so after a switch the spinner turns in the new
+// theme's `warning`.
+test('after a /theme switch the spinner keeps turning in the new theme’s warning', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  // The active `/theme`, a user custom theme Claude Code keeps in its config dir.
+  const theme = {
+    slug: 'everforest',
+    path: '/home/a/.claude/themes/everforest.json',
+    file: omarchy('#2d353b', '#d3c6aa'),
+    mtimeMs: 1,
+  }
+  host(on, { tools: ['TaskCreate', 'TaskList', 'TaskUpdate'], tasks: [], env: { HOME: '/home/a' }, theme })
+  on('config.list', () => ({ value: [{ ...THEME_ROW, value: `custom:${theme.slug}` }] }))
+  await start($)
+  await clock.settle()
+  const { pane } = await sidebarOf($)
+  await $.tool.call({ tool: 'TaskCreate', subject: 'alpha', description: 'a', activeForm: 'Doing alpha' })
+  await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'in_progress' })
+  await clock.settle()
+  await pane.redraw()
+  const spinner = () => pane.find({ type: 'Client', key: 'spinner-1' })
+  const background = async () => ((await pane.drawn()) as { props: { backgroundColor?: string } }).props.backgroundColor
+  expect((await spinner())?.props.props).toEqual({ frames: FRAMES, ms: 100, color: 'warning' })
+  expect(await background()).toBe('#373e42')
+
+  // `/theme`: Catppuccin Latte, whose glass ctui mixes to #e5e7ed.
+  Object.assign(theme, {
+    slug: 'latte',
+    path: '/home/a/.claude/themes/latte.json',
+    file: omarchy('#eff1f5', '#4c4f69'),
+    mtimeMs: 2,
+  })
+  await clock.advance(1000)
+  await pane.redraw()
+  expect(await background()).toBe('#e5e7ed')
+  // The same spinner Client, still turning, its color the new theme's `warning`.
+  expect((await spinner())?.props.props).toEqual({ frames: FRAMES, ms: 100, color: 'warning' })
+  expect((await pane.find({ type: 'Text', in: 'spinner-1' }))?.text).toBe(FRAMES[0])
 })
 
 test('a list held before session.start draws at once, as after --resume or a reload', async ($, on) => {
@@ -204,7 +281,7 @@ test('a list held before session.start draws at once, as after --resume or a rel
   await start($)
   await clock.settle()
   const { rows } = await sidebarOf($)
-  expect(await rows()).toEqual(['✓ alpha', '○ beta'])
+  expect(await rows()).toEqual(['󰄳 alpha', '󰄰 beta'])
 })
 
 test('/model to a model with the tools loads the list within a second', async ($, on) => {
@@ -218,7 +295,7 @@ test('/model to a model with the tools loads the list within a second', async ($
   world.tools = ['TaskList']
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rows()).toEqual(['○ alpha'])
+  expect(await rows()).toEqual(['󰄰 alpha'])
   expect(await text('no task tools in this session')).toBeUndefined()
 })
 
@@ -258,7 +335,7 @@ test('TodoWrite feeds the list when the Task tools are off', async ($, on) => {
   })
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual(['✓ alpha', '◐ Doing beta'])
+  expect(await rows()).toEqual(['󰄳 alpha', ' Doing beta'])
 })
 
 // Hiding Claude Code's own list (MEMORY.md "While docked with Todo on, ctui runs
@@ -287,7 +364,7 @@ test('docked with Todo on, ctui runs TaskCreate and TaskUpdate itself and answer
   expect(world.callers).toEqual(['ctui', 'ctui'])
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual(['◐ Doing alpha'])
+  expect(await rows()).toEqual([' Doing alpha'])
 })
 
 test('docked, then seated inline, a task call goes on to core', async ($, on) => {
@@ -465,7 +542,7 @@ test('a reload invalidates tool.describe, so a Task tools change applies', { opt
 // request, ctui appends `ctui:todo` to the system prompt.
 
 const TASK_SECTION = `# Task list
-The user follows your progress in a task list shown beside the conversation. For any request that needs 2 or more distinct steps (edits, fixes, checks, delegated agents), your first action is to create one task per step with TaskCreate, before reading files or delegating. Set each task in_progress with TaskUpdate when you start it and completed as soon as it is done. Skip the list only for a single-step request or a pure question.`
+The user follows your progress in a task list shown beside the conversation. Make no list when the whole request is one piece of work — one file's edit, one command, one question answered — however many moves it takes you: reading, searching, editing and checking the same piece are not separate steps. For a request that needs 2 or more distinct pieces of work (several files or fixes, a delegated agent, a build and then its tests), your first action is to create one task per piece with TaskCreate, before reading files or delegating. Set each task in_progress with TaskUpdate when you start it and completed as soon as it is done.`
 
 // Starts a session with core composing a one-section prompt, and returns the
 // sections composed for a request offering `tools`.

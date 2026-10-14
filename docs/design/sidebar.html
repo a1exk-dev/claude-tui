@@ -1,13 +1,16 @@
 <!doctype html>
 <!--
-  The source of the three Sidebar renders in this folder.
+  The source of the design renders in this folder: renders 1–3 the Sidebar,
+  4–7 the `/ctui` menu's four screens in its `Settings` tab, docked in the
+  Sidebar's place.
 
-  Open it with ?render=1, 2 or 3 for one render at its 1320×810 size; with no
-  query it shows all three. To re-export the PNGs after an edit, from the repo root:
+  Open it with ?render=1 … 7 for one render at its 1320×810 size; with no
+  query it shows all seven. To re-export the PNGs after an edit, from the repo root:
 
-    for r in 1-all-folded 2-some-folded 3-all-expanded; do
+    for r in 1:sidebar-1-all-folded 2:sidebar-2-some-folded 3:sidebar-3-all-expanded \
+      4:menu-1-top 5:menu-2-plugins 6:menu-3-plugin 7:menu-4-themes; do
       npx -y playwright@1.63.0 screenshot --viewport-size=1320,810 \
-        "file://$PWD/docs/design/sidebar.html?render=${r%%-*}" "docs/design/sidebar-$r.png"
+        "file://$PWD/docs/design/sidebar.html?render=${r%%:*}" "docs/design/${r#*:}.png"
     done
 
   The grid is 14px JetBrainsMono Nerd Font, the installed font the renders
@@ -20,12 +23,24 @@
   Devicons glyph in muted: U+E725 branch, U+E702 changeset, U+E728 lines.
   At the Sidebar's 42 columns the footer takes two rows: `claude cli: <v>`,
   then `ctui: <v>, <Theme name>`.
+
+  The menu draws as `menuView()` in `ctui/hooks/menu.tsx` ships it: a bold
+  breadcrumb (` › ` muted), blank, faint `═`, blank, the screen's rows, then a
+  faint `─` and a footer of `key: label` pairs (key main, label muted, faint
+  ` · `) on the last body rows, wrapping whole pairs at 38 columns. Each row
+  leads with the engine's one-cell `›` Button: dim (the `/theme`'s muted) at
+  rest, inverse on the ringed row, whose label is bold accent (`suggestion`,
+  the renders' purple). Field labels are ctui Text, `Monthly cost` padded to
+  14 cells; the field itself (value, dim placeholder, inverse cursor,
+  `⏎ submit`) is the engine's, in the `/theme`'s colors. Each screen shows as
+  it opens: the ring on the first row, on Themes in the filter. At 37 body
+  rows the Themes window holds all 23 rows, so neither `more` row shows.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sidebar renders</title>
+<title>Design renders</title>
 <style>
   :root {
     --row: 20.25px;
@@ -104,16 +119,25 @@
   .gap { height: var(--row); }
   .indent { padding-left: calc(2 * var(--col)); }
   .more { text-align: right; }
+  .a { color: var(--purple); }
+  .ring { background: var(--main); color: var(--panel); }
+  .footer { display: flex; flex-wrap: wrap; }
+  .footer > span { height: var(--row); white-space: pre; }
 </style>
 </head>
 <body>
 <script>
-  // What each render shows: a fold state per Sidebar plugin, and whether the
-  // sections window overflows into `↓ more`.
+  // What each render shows: for the Sidebar, a fold state per Sidebar plugin
+  // and whether the sections window overflows into `↓ more`; for the menu, its
+  // screen. `file` is the PNG it exports to.
   const RENDERS = {
-    1: { name: 'all-folded', expanded: [] },
-    2: { name: 'some-folded', expanded: ['skills', 'mcp'] },
-    3: { name: 'all-expanded', expanded: ['context', 'limits', 'todo', 'skills', 'mcp', 'agents'], more: true },
+    1: { file: 'sidebar-1-all-folded', expanded: [] },
+    2: { file: 'sidebar-2-some-folded', expanded: ['skills', 'mcp'] },
+    3: { file: 'sidebar-3-all-expanded', expanded: ['context', 'limits', 'todo', 'skills', 'mcp', 'agents'], more: true },
+    4: { file: 'menu-1-top', menu: 'top' },
+    5: { file: 'menu-2-plugins', menu: 'plugins' },
+    6: { file: 'menu-3-plugin', menu: 'plugin' },
+    7: { file: 'menu-4-themes', menu: 'themes' },
   }
 
   const span = (cls, text) => `<span class="${cls}">${text}</span>`
@@ -154,14 +178,14 @@
       count: span('m', '2/8'),
       cap: 8,
       list: [
-        row(span('m', '✓ read sync command')),
-        row(span('m', '✓ add the flag')),
-        row(`${span('o', '◐')} write the test`),
-        row(span('m', '○ update README')),
-        row(span('m', '○ add --dry-run to help text')),
-        row(span('m', '○ check Windows paths')),
-        row(span('m', '○ run full test suite')),
-        row(span('m', '○ write changelog entry')),
+        row(`${span('m', '\u{f0133}')} ${span('m', 'read sync command')}`),
+        row(`${span('m', '\u{f0133}')} ${span('m', 'add the flag')}`),
+        row(`${span('o', '\u{f0aa1}')} write the test`),
+        row(`${span('f', '\u{f0130}')} ${span('m', 'update README')}`),
+        row(`${span('f', '\u{f0130}')} ${span('m', 'add --dry-run to help text')}`),
+        row(`${span('f', '\u{f0130}')} ${span('m', 'check Windows paths')}`),
+        row(`${span('f', '\u{f0130}')} ${span('m', 'run full test suite')}`),
+        row(`${span('f', '\u{f0130}')} ${span('m', 'write changelog entry')}`),
       ],
     },
     {
@@ -243,6 +267,104 @@
     return shown.map((stop) => stop.html).join('')
   }
 
+  // The `/ctui` menu: each screen's breadcrumb, rows and footer keys, as
+  // `menuView()` draws them. A row is the `›` cell, a space, then its lead,
+  // label and right value; `ring` marks the row that holds the ring.
+  const menuRow = ({ label, lead = '', right = '', ring = false }) =>
+    split(`${ring ? span('ring', '›') : span('m', '›')} ${lead}${ring ? span('a', `<b>${label}</b>`) : label}`, right)
+  // Sections in registry order: Plugins lists them with an eye (shown) or
+  // eye-slash (hidden), and their Start folded state at the right.
+  const PLUGINS = [
+    { title: 'Context', enable: true, folded: false },
+    { title: 'Limits', enable: true, folded: false },
+    { title: 'Todo', enable: true, folded: true },
+    { title: 'Skills', enable: true, folded: true },
+    { title: 'MCP', enable: false, folded: false },
+    { title: 'Agents &amp; shells', enable: true, folded: false },
+  ]
+  const THEMES = ['inherit', 'Catppuccin', 'Catppuccin Latte', 'Ethereal', 'Everforest', 'Flexoki Light', 'Gruvbox',
+    'Hackerman', 'Kanagawa', 'Last Horizon', 'Lumon', 'Lupine', 'Matte Black', 'Miasma', 'Nord', 'Osaka Jade',
+    'Retro 82', 'Ristretto', 'Rose Pine', 'Solitude', 'Tokyo Night', 'Vantablack', 'White']
+  const PLACEHOLDER = 'type to filter'
+  const SCREENS = {
+    top: {
+      crumbs: [],
+      rows: () => [
+        menuRow({ label: 'Plugins', right: span('m', `${PLUGINS.filter((p) => p.enable).length}/${PLUGINS.length} ›`), ring: true }),
+        menuRow({ label: 'Themes', right: span('m', 'inherit ›') }),
+      ],
+      footer: [['↑↓', 'move'], ['enter', 'open'], ['esc', 'close']],
+    },
+    plugins: {
+      crumbs: ['Plugins'],
+      rows: () => PLUGINS.map(({ title, enable, folded }, index) => menuRow({
+        label: title,
+        lead: enable ? span('g', '\u{f06e}  ') : span('m', '\u{f070}  '),
+        right: span('m', folded ? 'folded ›' : 'expanded ›'),
+        ring: index === 0,
+      })),
+      footer: [['↑↓', 'move'], ['enter', 'settings'], ['x', 'show/hide'], ['k/j', 'move row'], ['esc', 'back']],
+    },
+    plugin: {
+      crumbs: ['Plugins', 'Limits'],
+      rows: () => [
+        menuRow({ label: 'Start folded', right: span('m', 'off'), ring: true }),
+        menuRow({ label: 'Cost', right: span('m', 'auto') }),
+        row(`  ${'Monthly cost'.padEnd(14)}100`),
+      ],
+      footer: [['↑↓', 'move'], ['enter', 'change'], ['esc', 'back']],
+    },
+    themes: {
+      crumbs: ['Themes'],
+      rows: () => [
+        // The focused filter: the cursor inverse on the placeholder's first cell.
+        split(`${span('a', '<b>filter </b>')}${span('ring', PLACEHOLDER[0])}${span('m', PLACEHOLDER.slice(1))}`, span('m', '⏎ submit')),
+        // The field's blank row, then the window's `↑ more` and `↓ more` rows:
+        // blank, as all 23 rows fit.
+        row(''),
+        row(''),
+        ...THEMES.map((name) => menuRow({ label: name, right: name === 'inherit' ? span('a', '●') : '' })),
+        row(''),
+      ],
+      footer: [['type', 'filter'], ['↑↓', 'move'], ['enter', 'pick'], ['esc', 'back']],
+    },
+  }
+
+  function menu(level) {
+    const screen = SCREENS[level]
+    const crumbs = screen.crumbs.map((crumb) => `${span('m', ' › ')}${crumb}`).join('')
+    const footer = screen.footer
+      .map(([key, label], index) => `<span>${key}:${span('m', ` ${label}`)}${index < screen.footer.length - 1 ? span('f', ' · ') : ''}</span>`)
+      .join('')
+    return `
+      ${row(`<b>Settings${crumbs}</b>`)}
+      ${row('')}
+      ${row(span('f', '═'.repeat(38)))}
+      ${row('')}
+      ${screen.rows().join('')}
+      <div class="fill"></div>
+      ${row(span('f', '─'.repeat(38)))}
+      <div class="footer">${footer}</div>`
+  }
+
+  function sidebar(render) {
+    return `
+          ${row('<b>~/Projects/open-claude-mod</b>')}
+          ${row('')}
+          ${row(`${span('m', '\ue725')} main`)}
+          ${row(`${span('m', '\ue702')} ⇡2  ⇣0  ${span('g', '+1')}  ${span('o', '!3')}  ${span('m', '?2')}  ${span('v', '≡1')}`)}
+          ${row(`${span('m', '\ue728')} ${span('g', '+24')} ${span('r', '-1')} ${span('m', 'lines changed')}`)}
+          ${row('')}
+          ${row(span('f', '═'.repeat(38)))}
+          ${row('')}
+          ${sections(render)}
+          ${render.more ? row(span('m', '↓ more'), 'more') : ''}
+          <div class="fill"></div>
+          ${row('')}
+          ${row(`${span('m', 'claude cli:')} 2.1.292`)}
+          ${row(`${span('m', 'ctui:')} 0.4.0, inherit`)}`
+  }
+
   const TRANSCRIPT = `
     <div class="prompt">
       ${row('')}${row('Add a --dry-run flag to the sync command and cover it with a test.')}${row('')}
@@ -271,27 +393,12 @@
   function draw(n) {
     const render = RENDERS[n]
     return `
-      <div class="window" id="render-${n}" title="sidebar-${n}-${render.name}.png">
+      <div class="window" id="render-${n}" title="${render.file}.png">
         <div class="titlebar"><i style="left:10px"></i><i style="left:27px"></i><i style="left:44px"></i>~/Projects/open-claude-mod — claude</div>
         <div class="transcript">${TRANSCRIPT}</div>
         <div class="input"><span style="color:var(--chevron)">&gt;</span> Ask anything</div>
         <div class="mode split row"><span>claude-opus-5-5 ${span('m', '· high effort')}</span>${span('g', '⏵⏵ accept edits')}</div>
-        <div class="sidebar"><div class="body">
-          ${row('<b>~/Projects/open-claude-mod</b>')}
-          ${row('')}
-          ${row(`${span('m', '\ue725')} main`)}
-          ${row(`${span('m', '\ue702')} ⇡2  ⇣0  ${span('g', '+1')}  ${span('o', '!3')}  ${span('m', '?2')}  ${span('v', '≡1')}`)}
-          ${row(`${span('m', '\ue728')} ${span('g', '+24')} ${span('r', '-1')} ${span('m', 'lines changed')}`)}
-          ${row('')}
-          ${row(span('f', '═'.repeat(38)))}
-          ${row('')}
-          ${sections(render)}
-          ${render.more ? row(span('m', '↓ more'), 'more') : ''}
-          <div class="fill"></div>
-          ${row('')}
-          ${row(`${span('m', 'claude cli:')} 2.1.292`)}
-          ${row(`${span('m', 'ctui:')} 0.4.0, inherit`)}
-        </div></div>
+        <div class="sidebar"><div class="body">${render.menu ? menu(render.menu) : sidebar(render)}</div></div>
       </div>`
   }
 

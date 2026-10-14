@@ -75,6 +75,50 @@ test('below 110 columns or off fullscreen nothing opens', async ($, on) => {
   expect(opens).toEqual([])
 })
 
+// The live checks' `docking/width-42-at-150` and `docking/width-53-at-170` each
+// open from a fresh session at one width, as the two tests above do. Inside one
+// session the docked Pane's own render re-asks, off the transcript's columns
+// plus the dock's.
+test('widening past 160 asks 53 columns, and narrowing back asks 42 again', async ($, on) => {
+  const clock = mock.clock(on)
+  const opens = recordOpens(on)
+  // 150 columns: the first open asks 42.
+  await sessionMode($, { columns: 150, rows: 40, isFullscreen: true })
+  await clock.settle()
+  // One draw of the docked Pane: the engine hands it the transcript's columns,
+  // so the terminal's are those plus the dock's body and its rule.
+  const dock = async (transcript: number, bodyColumns: number) => {
+    const pane = await $.ui.mount({
+      ...PANE,
+      props: { ...paneProps('dock'), bodyColumns },
+      viewport: { columns: transcript, rows: 40, isFullscreen: true },
+    })
+    await clock.settle()
+    await pane.unmount()
+  }
+  await dock(107, 42) // 150 columns
+  await dock(127, 42) // widened to 170
+  await dock(96, 53) // narrowed back to 150
+  expect(opens.map((open) => open.columns)).toEqual([42, 53, 42])
+})
+
+// The test above asserts that nothing opens below 110; the Sidebar the engine
+// dropped there docks again once the terminal is wide enough. No live check
+// walks that transition.
+test('narrowed below 110 and widened back, the Sidebar docks again', async ($, on) => {
+  const clock = mock.clock(on)
+  const panes = ['sidebar'] // docked at 150 columns
+  const opens = recordOpens(on, true, panes)
+  await sessionMode($, { columns: 109, rows: 40, isFullscreen: true })
+  await clock.settle()
+  expect(opens).toEqual([])
+  // Below 110 the engine drops the pane: `$.ui.panes()` lists it no more.
+  panes.length = 0
+  await sessionMode($, { columns: 120, rows: 40, isFullscreen: true })
+  await clock.settle()
+  expect(opens.map((open) => open.columns)).toEqual([42])
+})
+
 test('an open Sidebar is not opened again', async ($, on) => {
   const clock = mock.clock(on)
   const opens = recordOpens(on, true, ['sidebar'])
