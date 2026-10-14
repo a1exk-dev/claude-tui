@@ -4,6 +4,7 @@ import { type Engine, expect, mock, test } from 'claude-code/testing'
 import { colors } from '../plugins/colors'
 import mcp from '../plugins/mcp'
 import type { McpRow } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `mcp` Sidebar plugin: its view with sample rows, and a scenario where
 // `.claude.json`'s disabled list drives `off` through register.tsx's hooks.
@@ -33,7 +34,7 @@ const PANE = {
 // Draws the view's rows, or the folded summary, in a test Pane.
 async function draw($: Engine, on: On, part: 'view' | 'summary', rows: McpRow[]) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     const drawn =
       part === 'view'
         ? mcp.view({ mcp: rows }, ui, { enable: true }, 36, colors())

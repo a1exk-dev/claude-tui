@@ -143,13 +143,14 @@ test('the git header: glyphs muted, counts in their roles, lines changed muted',
   ])
 })
 
-test('bars: the empty part faint ─, the percent main; pending todo ○ faint with muted text', async ($, on) => {
+test('bars: the empty part faint ─, the percent main; waiting todo 󰄰 faint with muted text, the spinner warning', async ($, on) => {
   const { runs: all } = await draw($, on)
   // Shorter than a rule between sections, which spans the body.
   const empty = all.filter((run) => /^─+$/.test(run.text) && run.text.length < 38)
   expect(empty.map((run) => run.color)).toEqual(['subtle', 'subtle'])
-  expect(colorOf(all, '○')).toEqual(['subtle', 'subtle'])
+  expect(colorOf(all, '󰄰')).toEqual(['subtle'])
   expect(colorOf(all, 'Open the PR')).toEqual(['inactive'])
+  expect(colorOf(all, '󰪞')).toEqual(['warning'])
 })
 
 test('a rule between every two sections draws faint across the body', async ($, on) => {

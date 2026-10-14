@@ -35,7 +35,9 @@ if (!existsSync(tsc) || !existsSync(claude)) {
 }
 
 // validate misses unbound tags in imported Sidebar plugin views; tsc catches them.
+// Two projects: ctui runs in the engine with no Node globals, the live-check harness runs on Node.
 run(tsc, ['-p', '.'])
+run(tsc, ['-p', '.claude/skills/live-checks/harness'])
 run(claude, ['plugin', 'validate', 'ctui', '--strict'])
 run(claude, ['plugin', 'validate', '.', '--strict'])
 run(claude, ['plugin', 'test', 'ctui'])
@@ -84,6 +86,17 @@ if (rows[0]) {
   same('COMPATIBILITY.md top row and plugin.json versions', version ?? '', manifest.version)
   same('COMPATIBILITY.md top row and the pin', claudeVersion ?? '', pin)
 }
+
+// The engine-pinned expectations hold on one engine, so their MEMORY.md entry names the pin.
+const PINNED = 'Engine-pinned expectations hold only on the pinned Claude Code version'
+const entry = readFileSync('MEMORY.md', 'utf8').split('\n## ').find((section) => section.startsWith(PINNED))
+if (!entry) error(`MEMORY.md has no entry "## ${PINNED}"`)
+else if (!entry.includes(pin)) {
+  error(`MEMORY.md entry "## ${PINNED}" does not name the pin ${pin}: re-run the engine-pinned expectations on ${pin} and record the measured values there`)
+}
+
+// The cost live check's fixture generator.
+run('node', ['--test', 'scripts/cost-fixture.test.ts'])
 
 // Themes and the docs/configuration.md table: regenerating must change nothing.
 run('node', ['--test', 'scripts/themes.test.ts'])

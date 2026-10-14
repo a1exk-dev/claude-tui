@@ -2,18 +2,23 @@ import type { Todo, TodoItem } from '../../types'
 import type { Role } from '../colors'
 import type { SidebarPlugin } from '../plugin'
 
-// Each status's glyph and its role, and the role of the item's text.
-const STATUSES: Record<TodoItem['status'], { glyph: string; role: Role; textRole: Role }> = {
-  completed: { glyph: '✓', role: 'muted', textRole: 'muted' },
-  in_progress: { glyph: '◐', role: 'warning', textRole: 'main' },
-  pending: { glyph: '○', role: 'faint', textRole: 'muted' },
+// A done or waiting item's Nerd Font glyph (nf-md-checkbox_marked_circle,
+// nf-md-checkbox_blank_circle_outline) and its role, and the role of its text.
+const STATUSES: Record<Exclude<TodoItem['status'], 'in_progress'>, { glyph: string; role: Role; textRole: Role }> = {
+  completed: { glyph: '\u{f0133}', role: 'muted', textRole: 'muted' },
+  pending: { glyph: '\u{f0130}', role: 'faint', textRole: 'muted' },
 }
+
+// The item in progress's spinner frames, nf-md-circle_slice_1 to 8 (a circle
+// filling up), one every `ms` (`spinner.tsx`).
+const SPINNER = { frames: Array.from({ length: 8 }, (_, i) => String.fromCodePoint(0xf0a9e + i)), ms: 100 }
 
 const textOf = (item: TodoItem) => (item.status === 'in_progress' ? (item.activeForm ?? item.subject) : item.subject)
 
-// `<completed>/<total>`; nothing before the list loads or without task tools.
+// `<completed>/<total>`; nothing before the list loads, while it is empty or
+// without task tools.
 const done = (todo?: Todo) =>
-  todo && todo.tools !== 'none'
+  todo && todo.tools !== 'none' && todo.items.length > 0
     ? `${todo.items.filter((item) => item.status === 'completed').length}/${todo.items.length}`
     : undefined
 
@@ -25,7 +30,8 @@ const plugin: SidebarPlugin = {
   slot: 'section',
   needs: ['todo'],
   list: true,
-  view: ({ todo }, { Text }, cfg, _width, c) => {
+  cap: 8, // a typical plan shows whole (#209)
+  view: ({ todo }, { Box, Text, Client }, cfg, _width, c) => {
     if (!todo) return []
     if (todo.tools === 'none') {
       const hints = cfg.tools
@@ -37,7 +43,31 @@ const plugin: SidebarPlugin = {
         </Text>
       ))
     }
-    return todo.items.map((item) => {
+    if (!todo.items.length)
+      return [
+        <Text color={c.muted} wrap="truncate-end">
+          no tasks yet
+        </Text>,
+      ]
+    return todo.items.map((item, index) => {
+      // The spinner turns on its own surface, outside the focus ring, so it
+      // stays a Client while the Pane is focused.
+      if (item.status === 'in_progress')
+        return (
+          <Box flexDirection="row">
+            <Box width={1} flexShrink={0}>
+              <Client
+                key={`spinner-${item.id ?? index}`}
+                module="./spinner.tsx"
+                props={{ ...SPINNER, color: c.warning }}
+              />
+            </Box>
+            <Text color={c.main} wrap="truncate-end">
+              {' '}
+              {textOf(item)}
+            </Text>
+          </Box>
+        )
       const { glyph, role, textRole } = STATUSES[item.status]
       return (
         <Text wrap="truncate-end">

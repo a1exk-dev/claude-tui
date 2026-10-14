@@ -19,7 +19,7 @@ import {
   staleTranscripts,
   type Transcript,
 } from './month'
-import { inheritGlass, themeFile } from './glass'
+import { grey, inheritGlass, themeFile } from './glass'
 import { addSkill, skillsFromMessages, sourceOf } from './skills'
 import { deniedText, HOTKEYS, isMonthlyKey, KEYS, MENU_START, monthlyKey, type Setting, settingKey, settingRows, menuView, moveId, NO_CONFIG, PARENT, rowId, rowKey, takenBy, themeSlug, type ThemeName, topKey, type TopPick, topPick } from './menu'
 import { type Control, controlKey, foldRowKey, sidebar, type SidebarInput } from './sidebar'
@@ -130,6 +130,13 @@ let stepModel: string | undefined // the last main-loop turn.step's model
 let lastTurn: { turn: Turn; at: number } | undefined // the latest main-loop turn.complete's record
 const drawnFooters = new Set<string>() // TurnDuration instances drawn since load
 
+// A hook's answer from its own call: the result alone, so core maps it for this
+// call's tool_use_id. A deny or error passes through unchanged.
+async function ownCall<R extends { deny?: string; isError?: true; result?: unknown }>(call: Promise<R>): Promise<R> {
+  const ran = await call
+  return ran.deny !== undefined || ran.isError ? ran : ({ result: ran.result } as R)
+}
+
 // A run still going takes this refresh as one more run after it ends.
 async function refreshGit($: EngineInterface) {
   if (gitRunning) {
@@ -158,7 +165,8 @@ async function refreshGit($: EngineInterface) {
   }
 }
 
-// `/clear` and `/resume` empty `$.state` with no `session.start`: the tick refills it.
+// `/clear` and `/resume` empty `$.state` with no `session.start`: the Sidebar's
+// next draw and the tick refill it.
 async function refillVersions($: EngineInterface, slug: string) {
   const { value } = await $.state.get(VERSIONS)
   if (!value) await loadVersions($, slug)
@@ -185,10 +193,17 @@ async function loadUsage($: EngineInterface) {
   await setUsage($, await $.session.usage())
 }
 
-// `/clear` and `/resume` empty `$.state` with no `session.start`: the tick refills it.
+// `/clear` and `/resume` empty `$.state` with no `session.start`: the Sidebar's
+// next draw and the tick refill it.
 async function refillUsage($: EngineInterface) {
   const { value } = await $.state.get(USAGE)
   if (!value) await loadUsage($)
+}
+
+// The usage says whether the cost row shows: the month follows it.
+async function refillUsageAndMonth($: EngineInterface, monthCost: boolean, choice: Config['limits']['cost']) {
+  await refillUsage($)
+  if (monthCost) await refreshMonth($, choice)
 }
 
 // `now` moves when a reset time shown would read differently.
@@ -350,6 +365,14 @@ async function readMcpFiles($: EngineInterface, cwd?: string) {
   }
 }
 
+// A glass as Claude Code can draw it: under tmux without
+// `CLAUDE_CODE_TMUX_TRUECOLOR`, its 256-color test (MEMORY.md "Inside tmux,
+// Claude Code draws 256 colors…"), snapped to a grey.
+async function paintable($: EngineInterface, glass: string) {
+  const palette = (await $.env.get('TMUX')) && !(await $.env.get('CLAUDE_CODE_TMUX_TRUECOLOR'))
+  return palette ? grey(glass) : glass
+}
+
 // Under `inherit`, the glass of the active `/theme` when it's a user custom
 // theme with no dock color (Omarchy's), re-read when the theme or its file's
 // mtime changes: an Omarchy switch rewrites the file.
@@ -367,6 +390,7 @@ async function refreshGlass($: EngineInterface) {
   } catch {
     return // Caught mid-write: the next tick reads it again.
   }
+  if (glass) glass = await paintable($, glass)
   themeSeen = { path, mtimeMs: stat?.mtimeMs }
   // A state value is never undefined: null clears the paint.
   if (value !== glass) await $.state.set(GLASS, glass)
@@ -408,6 +432,15 @@ async function setTodoEnv($: EngineInterface, tools: boolean) {
     await $.state.set(TODO_ENV_SET, false)
   }
 }
+
+// The task tools `todo_tools` keeps out of ToolSearch; TaskList, TaskGet and TaskStop stay deferred.
+const PINNED_TASK_TOOLS = new Set(['TaskCreate', 'TaskUpdate', 'TodoWrite'])
+
+// The `ctui:todo` section, as tested live in #220 and narrowed in #294, naming the
+// tools the request offers. It denies the list before it asks for one, because a
+// weak model counted a one-line fix's read, edit and check as three steps.
+const taskSection = (create: string, update: string) => `# Task list
+The user follows your progress in a task list shown beside the conversation. Make no list when the whole request is one piece of work — one file's edit, one command, one question answered — however many moves it takes you: reading, searching, editing and checking the same piece are not separate steps. For a request that needs 2 or more distinct pieces of work (several files or fixes, a delegated agent, a build and then its tests), your first action is to create one task per piece with ${create}, before reading files or delegating. Set each task in_progress with ${update} when you start it and completed as soon as it is done.`
 
 const TODO_STATUSES = new Set<string>(['pending', 'in_progress', 'completed'])
 
@@ -574,7 +607,7 @@ async function toggle($: EngineInterface, config: Config, { kind, id }: Control)
 async function themeLook($: EngineInterface, theme: string): Promise<Pick<SidebarInput, 'colors' | 'background'>> {
   if (theme === 'inherit') return { colors: colors() }
   const { overrides } = JSON.parse(await $.fs.read(`${$.plugin.root}/themes/${theme}.json`))
-  return { colors: colors(overrides), background: overrides.composerSidebarBackground }
+  return { colors: colors(overrides), background: await paintable($, overrides.composerSidebarBackground) }
 }
 
 // The manifest's `theme` options: under `claude -p` no `/config` row lists them.
@@ -627,9 +660,10 @@ async function writeSetting($: EngineInterface, set: Setting) {
   return deny === undefined
 }
 
-// Puts the menu's ring on `key` once the redraw has drawn it, as #160's spike did.
-function focusLater($: EngineInterface, key: string) {
-  $.clock.after(50, () => $.ui.focus({ requestId: MENU_PANE, key }).catch(() => undefined))
+// Puts the menu's ring on `key` once the redraw has drawn it, as #160's spike
+// did: 50 ms on, or `ms` to follow another move.
+function focusLater($: EngineInterface, key: string, ms = 50) {
+  $.clock.after(ms, () => $.ui.focus({ requestId: MENU_PANE, key }).catch(() => undefined))
 }
 
 // Writes an order the Plugins screen moved, if one waits. Its reload drops
@@ -748,10 +782,19 @@ async function setEffort($: EngineInterface, effort: string | null) {
   if (value !== effort) await $.state.set(EFFORT, effort)
 }
 
+// A change of the dock's columns redraws what fits around it.
+function setDock($: EngineInterface, dock: number) {
+  if (dock !== dockColumns) {
+    dockColumns = dock
+    redrawLater($)
+  }
+}
+
 async function openSidebar($: EngineInterface, columns: number) {
   requested = columns
   const opened = await $.ui.open({ id: SIDEBAR, title: 'Sidebar', columns })
   waiting = !opened.isPlaced
+  if (waiting) setDock($, 0)
 }
 
 export const register: Register = (on, options) => {
@@ -777,6 +820,8 @@ export const register: Register = (on, options) => {
       orderTimer = $.clock.after(1000, () => flushOrder($))
     }
     await setTodoEnv($, config.todo.tools)
+    // `tool.describe` answers are cached for the session: re-ask them, so the pin follows `todo_tools`.
+    $.ui.invalidate('tool.describe')
     void refreshModel($).catch(() => undefined)
     if (needs.has('todo')) void loadTodo($)
     if (needs.has('skills')) void refillSkills($).catch(() => undefined)
@@ -796,10 +841,7 @@ export const register: Register = (on, options) => {
       ticks++
       void refreshModel($).catch(() => undefined)
       if (ticks % 5 === 0 && needs.has('git')) void refreshGit($)
-      // The usage says whether the cost row shows: refilled first after `/clear`.
-      if (needs.has('usage')) {
-        void refillUsage($).then(() => (needs.has('monthCost') ? refreshMonth($, config.limits.cost) : undefined)).catch(() => undefined)
-      }
+      if (needs.has('usage')) void refillUsageAndMonth($, needs.has('monthCost'), config.limits.cost).catch(() => undefined)
       if (needs.has('versions')) void refillVersions($, config.theme)
       if (needs.has('mcp')) void refreshMcp($)
       if (needs.has('todo')) void refreshTodo($)
@@ -817,11 +859,26 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // Names a server's row as /mcp does. Observe only.
-  on('tool.describe', ($, e, next) => {
+  // Names a server's row as /mcp does, and with Task tools on keeps the tools
+  // that start and move a list in the prompt, so their own text nudges Claude to keep one.
+  on('tool.describe', async ($, e, next) => {
     const [segment, name] = serverName(e.tool, e.provider.plugin) ?? []
     if (segment && name) mcpNames[segment] = name
+    if (config.todo.tools && PINNED_TASK_TOOLS.has(e.tool)) return { ...(await next(e)), isDeferred: false }
     return next(e)
+  })
+
+  // With Task tools on, tells Claude the user follows a task list. Pure: it
+  // also runs for /context's measuring render.
+  on('prompt.compose', async ($, e, next) => {
+    const answer = await next(e)
+    if (!config.todo.tools) return answer
+    const text = e.tools.includes('TaskCreate')
+      ? taskSection('TaskCreate', 'TaskUpdate')
+      : e.tools.includes('TodoWrite')
+        ? taskSection('TodoWrite', 'TodoWrite')
+        : undefined
+    return text ? { sections: [...answer.sections, { id: 'ctui:todo', text, scope: 'session' }] } : answer
   })
 
   // After /cd the disabled list is another project's: re-derive its key, and
@@ -858,9 +915,15 @@ export const register: Register = (on, options) => {
     }
   })
 
-  // A task tool's call reloads the list. Observe only.
+  // While the Sidebar is docked with Todo on, a main-loop task call runs as ctui's
+  // own `$.tool.call`: the tool's `set_expanded_view` progress never reaches the
+  // REPL, so Claude Code's own list stays closed. It runs here, not in a hook of
+  // its own, since ctui's own call skips ctui's `tool.call` hooks.
+  const hidesList = (agentId: string | undefined) => agentId === undefined && dockColumns > 0 && needs.has('todo')
+
+  // A task tool's call reloads the list.
   on('tool.call', { tool: 'TaskCreate' }, async ($, e, next) => {
-    const done = await next(e)
+    const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
       await keepActiveForm($, done.result.task.id, e.activeForm)
       void loadTodo($)
@@ -869,7 +932,7 @@ export const register: Register = (on, options) => {
   })
 
   on('tool.call', { tool: 'TaskUpdate' }, async ($, e, next) => {
-    const done = await next(e)
+    const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
       await keepActiveForm($, e.taskId, e.activeForm)
       void loadTodo($)
@@ -890,10 +953,10 @@ export const register: Register = (on, options) => {
 
   // MEMORY.md "Agent and shell events go to toasts, the live list goes to the
   // sidebar", "Task ends come from notifications" and "A Workflow run is one
-  // task row". Every task hook observes only.
+  // task row; teammates stay hidden". Every task hook observes only.
   on('agent.spawn', async ($, e, next) => {
     const done = await next(e)
-    if (tracking && done.agentId) {
+    if (tracking && done.agentId && !e.isTeammate && !e.workflow) {
       const id = done.agentId
       await updateTasks($, (tasks, now) => {
         const task: Task = {
@@ -1033,9 +1096,10 @@ export const register: Register = (on, options) => {
       $.clock.after(0, async () => {
         try {
           // Open or waiting: the pane is placed, or the engine places it as the terminal widens.
-          if (!(await $.ui.panes()).some((pane) => pane.id === SIDEBAR)) {
-            await openSidebar($, widthFor(viewport.columns))
-          }
+          const pane = (await $.ui.panes()).find((pane) => pane.id === SIDEBAR)
+          // Closed or waiting, it isn't docked, and its last docked columns go.
+          if (!pane?.isPlaced) setDock($, 0)
+          if (!pane) await openSidebar($, widthFor(viewport.columns))
         } finally {
           checking = false
         }
@@ -1069,11 +1133,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'Pane', requestId: SIDEBAR }, async ($, e) => {
     const ui = $.ui.resolve(e)
     if (!('Client' in ui)) return <ui.Box />
-    const dock = e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1
-    if (dock !== dockColumns) {
-      dockColumns = dock
-      redrawLater($)
-    }
+    setDock($, e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1)
     if (e.props.placement === 'inline') {
       $.clock.after(0, () => void $.ui.close({ id: SIDEBAR }))
       return <ui.Box />
@@ -1102,6 +1162,11 @@ export const register: Register = (on, options) => {
       $.state.get(TASKS),
       $.state.get(GLASS),
     ])
+    // After `/clear` the engine redraws at once; the tick would refill up to 1 s later.
+    if (needs.has('usage') && !usage.value) {
+      $.clock.after(0, () => void refillUsageAndMonth($, needs.has('monthCost'), config.limits.cost).catch(() => undefined))
+    }
+    if (needs.has('versions') && !versions.value) $.clock.after(0, () => void refillVersions($, config.theme).catch(() => undefined))
     const drawn = sidebar({
       ui,
       bodyRows: e.props.scroll.bodyRows,
@@ -1308,6 +1373,8 @@ export const register: Register = (on, options) => {
     if (top) {
       const { ring: _, ...rest } = menu
       await setMenu($, { ...rest, level: top, filter: '', picks: { ...menu.picks, top } })
+      // The ring keeps its index from the top level: start it on the filter.
+      if (top === 'themes') focusLater($, KEYS.filter)
     } else if (slug) {
       if (slug !== config.theme) await writeSetting($, { key: 'ctui.theme', value: slug })
     } else if (row) {
@@ -1361,11 +1428,14 @@ export const register: Register = (on, options) => {
       saved = await writeSetting($, set)
     }
     // A save reloads and draws the new value; otherwise a new field shows the saved one.
+    // The ring leaves for Cost and comes back after it, at #240's probe timing,
+    // so the engine puts the cursor after the value, not where the text ended.
     if (!saved) {
       const menu = await menuOf($)
       const entry = (menu.entry ?? 0) + 1
       await setMenu($, { ...menu, entry })
-      focusLater($, monthlyKey(entry))
+      focusLater($, settingKey('limits_cost'))
+      focusLater($, monthlyKey(entry), 150)
     }
     return result
   })
@@ -1388,11 +1458,14 @@ export const register: Register = (on, options) => {
       return result
     }
     // The ring goes back to the row just left.
-    await setMenu($, { ...menu, level: up, filter: '', ring: up === 'top' ? topKey(menu.level as TopPick) : menu.focus && rowKey(menu.focus) })
+    const ring = up === 'top' ? topKey(menu.level as TopPick) : menu.focus && rowKey(menu.focus)
+    await setMenu($, { ...menu, level: up, filter: '', ring })
     // Take the keys back first: the order's write reloads the mod, and an
-    // open from the old module after that is lost (live, 2.1.292).
+    // open from the old module after that is lost (live, 2.1.292). The ring
+    // keeps its index through the redraw and the open, so move it too.
     $.clock.after(0, async () => {
       await openMenu($)
+      if (ring) focusLater($, ring)
       await flushOrder($)
     })
     return { deny: 'Back one level in the ctui menu' }

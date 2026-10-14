@@ -1,7 +1,7 @@
-import type { ElementTable, RenderElement, RenderNode } from 'claude-code'
+import type { RenderElement, RenderNode } from 'claude-code'
 
 import type { Colors } from '../plugins/colors'
-import type { SidebarData, SidebarId, SidebarPlugin } from '../plugins/plugin'
+import type { SidebarData, SidebarId, SidebarPlugin, SidebarUi } from '../plugins/plugin'
 import type { Config } from './config'
 
 export const CAP = 4
@@ -15,7 +15,7 @@ const EXPANDED = '▼'
 const FOLDED = '▶\uFE0E'
 
 export type SidebarInput = {
-  ui: ElementTable<'terminal' | 'desktop'> // the surfaces that draw a Client
+  ui: SidebarUi
   bodyRows: number // the Pane's `scroll.bodyRows`
   bodyColumns: number // the Pane's `bodyColumns`
   plugins: readonly SidebarPlugin[] // enabled, in registry order
@@ -130,10 +130,11 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     if (folded) continue
     const body = plugin.view(data, ui, cfg, width - 2, c)
     const expanded = input.expanded[plugin.id] ?? false
-    const capped = plugin.list && body.length > CAP
-    sections.push(...(capped && !expanded ? body.slice(0, CAP) : body).map((node) => line(node, 2)))
+    const cap = plugin.cap ?? CAP
+    const capped = plugin.list && body.length > cap
+    sections.push(...(capped && !expanded ? body.slice(0, cap) : body).map((node) => line(node, 2)))
     if (capped) {
-      const label = expanded ? '▾ show less' : `▸ ${body.length - CAP} more`
+      const label = expanded ? '▾ show less' : `▸ ${body.length - cap} more`
       sections.push(line(control({ kind: 'more', id: plugin.id }, label), 2))
     }
   }

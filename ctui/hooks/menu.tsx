@@ -111,7 +111,7 @@ export function settingRows(id: SidebarId, config: Config): SettingRow[] {
   return rows
 }
 
-const LABEL = 14 // the Monthly cost field's label column
+const LABEL = 14 // the Monthly cost field's label column, as wide as the engine's `Monthly cost: `
 
 // A section as the Plugins screen lists it.
 export type PluginRow = { id: string; title: string; enable: boolean; folded: boolean }
@@ -188,6 +188,12 @@ export function menuView(input: MenuInput): RenderElement {
       </Box>
     </Box>
   )
+  // An Input's label as our own Text: the engine's takes no color. Ringed like a row's.
+  const fieldLabel = (label: string, key: string) => (
+    <Text color={menu.ring === key ? c.accent : c.main} bold={menu.ring === key}>
+      {label}
+    </Text>
+  )
   // The ring sits on `menu.ring` when the list holds it, else on `start`, else on the first row.
   const rows = (list: readonly Row[], start?: string) => {
     const has = (key?: string) => list.some((r) => r.key === key)
@@ -224,11 +230,10 @@ export function menuView(input: MenuInput): RenderElement {
         ...(field && menu.ring === field ? list.map((r) => row(r, false)) : rows(list)),
         ...(field
           ? [
-              <Box height={1} flexShrink={0} paddingLeft={2}>
+              <Box height={1} flexShrink={0} flexDirection="row" paddingLeft={2}>
+                {fieldLabel('Monthly cost'.padEnd(LABEL), field)}
                 <Input
                   key={field}
-                  // The field draws `<label>: `, so its value lines up with the rows'.
-                  label={'Monthly cost'.padEnd(LABEL - 2)}
                   value={String(monthly)}
                   {...(menu.ring === field && { autoFocus: true })}
                   // Required; register.tsx's `ui.input` hook saves on Enter.
@@ -251,10 +256,10 @@ export function menuView(input: MenuInput): RenderElement {
       const from = Math.min(Math.max(at - Math.floor(room / 2), 0), Math.max(list.length - room, 0))
       const shown = list.slice(from, from + room)
       return [
-        <Box height={1} flexShrink={0}>
+        <Box height={1} flexShrink={0} flexDirection="row">
+          {fieldLabel('filter ', KEYS.filter)}
           <Input
             key={KEYS.filter}
-            label="filter "
             placeholder="type to filter"
             value={menu.filter}
             {...(ringed < 0 && { autoFocus: true })}

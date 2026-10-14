@@ -2,14 +2,14 @@
 
 Refs: #
 
-## Live checks
+## Reports
 
-Sections of `docs/testing/live-checks.md` run on the pinned Claude Code (see `CONTRIBUTING.md`). Write N/A for a docs-only change.
+Paste each report whole, or answer `N/A`. A release's pull request and an outside contributor's attach both; the owner's own pull request into `develop` answers `N/A` to both (see `CONTRIBUTING.md`).
 
-- [ ] Sidebar docking
-- [ ] Sidebar layout and scroll
-- [ ] Toasts
-- [ ] Render-site rewrites
-- [ ] Themes
-- [ ] The `/ctui` menu
-- [ ] `claude -p`
+### Live checks
+
+N/A
+
+### Evals
+
+N/A

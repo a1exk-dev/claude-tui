@@ -7,6 +7,7 @@ import context from '../plugins/context'
 import limits from '../plugins/limits'
 import type { SidebarData, SidebarPlugin } from '../plugins/plugin'
 import type { Usage } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `context` and `limits` Sidebar plugins: unit views with sample usage,
 // and a scenario where `session.measure` moves the Sidebar's rows.
@@ -37,7 +38,7 @@ const OFF: SectionConfig = { ...AUTO, cost: 'off' }
 // Draws one plugin's view rows in a test Pane, as the Sidebar does.
 async function draw($: Engine, on: On, plugin: SidebarPlugin, data: SidebarData, cfg: SectionConfig = AUTO, width = WIDTH) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column">{plugin.view(data, ui, cfg, width, colors())}</ui.Box>
   })
   return $.ui.mount({
@@ -428,7 +429,7 @@ test(
 
 // `/clear` empties `$.state` with no `session.start`; the test empties the
 // `usage` and `versions` keys beneath the plugin until the plugin writes them again.
-test('after /clear empties $.state, the tick reloads the usage and the versions', async ($, on) => {
+test('after /clear empties $.state, the next redraw reloads the usage and the versions', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
   host(on, { startedAt: NOW, ...MEASURED })
   const cleared = new Set<string>()
@@ -447,7 +448,7 @@ test('after /clear empties $.state, the tick reloads the usage and the versions'
   await pane.redraw()
   expect(await pane.find({ text: /tokens/ })).toBeUndefined()
   expect(await pane.find({ text: /claude cli/ })).toBeUndefined()
-  await clock.advance(1000)
+  await clock.settle()
   await pane.redraw()
   expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()
@@ -595,6 +596,35 @@ test('after /clear the old session counts by its line and the new one by its liv
   await clock.advance(1000)
   await pane.redraw()
   expect(await costLine(pane)).toBe('46.25$ of 100$')
+})
+
+// The engine swaps the session id and the live cost in one step (MEMORY.md,
+// "Engine-pinned expectations hold only on the pinned Claude Code version",
+// `clear-swaps-id-and-cost`), so the total reads as it did before `/clear` once
+// the old session's own line holds the cost it had live — counted by its line,
+// never twice.
+test('the total after /clear reads as before it, the old session counted once', async ($, on) => {
+  const usage = { ...LIVE }
+  const world: World = { transcripts: transcripts(), greps: [] }
+  const cleared = new Set<string>()
+  on('state.get', async ($, e, next) => (cleared.has(e.key) ? { value: { value: undefined, version: 0 } } : next(e)))
+  on('state.set', async ($, e, next) => {
+    cleared.delete(e.key)
+    return next(e)
+  })
+  const { clock, pane } = await start($, on, world, usage)
+  // 3 for `a` and 2.25 for `b` ended, plus the current session's 0.5 live.
+  expect(await costLine(pane)).toBe('5.75$ of 100$')
+
+  // `/clear` writes the old session's line at the cost it had live, gives a new
+  // id and empties `$.state`; both switch in one step.
+  world.transcripts['p1/current.jsonl'] = { mtimeMs: OCTOBER + 1, lines: [cost('current', 0.5)] }
+  world.session = 'next'
+  usage.cost = { usd: 0 }
+  cleared.add('usage').add('month')
+  await clock.advance(1000)
+  await pane.redraw()
+  expect(await costLine(pane)).toBe('5.75$ of 100$')
 })
 
 // `/resume` switches to an ended session and restores its cost as the live one.

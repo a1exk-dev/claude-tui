@@ -1,7 +1,7 @@
 {
   "name": "ctui",
   "displayName": "ctui",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A skin for the Claude Code TUI: a docked sidebar with git, context, limits, todo, skills, MCP and agent sections, plus agent and shell toasts and a /ctui menu for plugins and themes.",
   "author": {
     "name": "Aliaksandr Katkou"
@@ -74,7 +74,7 @@
     "todo_tools": {
       "type": "boolean",
       "title": "Task tools",
-      "description": "Give Claude the Task tools (TaskCreate, TaskList, TaskUpdate) on models without them by default, such as Opus 5.x, by setting CLAUDE_CODE_ENABLE_TODO_TOOLS=1 for the session; the Todo section shows their list",
+      "description": "Give Claude the Task tools (TaskCreate, TaskList, TaskUpdate) on models without them by default, such as Opus 5.x, by setting CLAUDE_CODE_ENABLE_TODO_TOOLS=1 for the session; the Todo section shows their list. It also keeps TaskCreate, TaskUpdate and a short task-list instruction in Claude's prompt so Claude keeps a list, at about 1.2k cached tokens per request. A change fully reaches Claude from the next /clear",
       "default": true
     },
     "skills_enable": {

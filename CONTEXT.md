@@ -15,3 +15,11 @@ A `ctui/themes/<slug>.json` file in Claude Code's theme format, selected in the 
 ## ctui
 
 The Claude Code plugin this repo ships (`name` and `displayName` both `ctui`), installed from the `claude-tui` marketplace. It skins Claude Code's TUI: the **Sidebar**, the lines under the prompt input, and other render sites. It is not limited to the Sidebar.
+
+## Live check
+
+A check an **agent** drives against a real, signed-in Claude Code through the pty harness in `.claude/skills/live-checks/`, asserting what no mock reaches: the engine's docking and chrome, toast drawing, the paint a **Theme** puts on a cell. It is not a check a person runs by hand — the operator picks the model, starts the run and reads the report. Each one has a named id whose prefix is its section in that report (`themes/glass-flat`), and the ids, the scenarios they run in and the report's shape belong to the skill; `docs/testing/live-checks.md` is the operator's page for running one. Behaviour a test can reach is not a live check: `MEMORY.md`, "Tests cover real usage", holds the rule that places a check.
+
+## Engine-pinned expectation
+
+A behaviour of the pinned Claude Code version that a live check asserts but that belongs to the engine rather than to **ctui**: ctui neither asks for it nor can suppress it, so no ctui change can regress it and no test can reach it. It is true of one engine version, so each one is recorded in `MEMORY.md` under "Engine-pinned expectations hold only on the pinned Claude Code version" with the pin it was measured on, and `node scripts/check.ts` fails when the pin moves and that entry does not. Everything else a live check finds is ctui's own expectation, which a test asserts wherever one can reach it.

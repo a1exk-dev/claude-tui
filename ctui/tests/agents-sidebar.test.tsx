@@ -4,6 +4,7 @@ import { type Engine, expect, mock, test } from 'claude-code/testing'
 import agents from '../plugins/agents'
 import { colors } from '../plugins/colors'
 import type { Task } from '../types'
+import { clientsAsTrees } from './clients'
 
 // The `agents` Sidebar plugin and the toasts: the view with sample tasks, and
 // scenarios through register.tsx's hooks, from spawns and background shells
@@ -36,7 +37,7 @@ const task = (fields: Partial<Task> & Pick<Task, 'id'>): Task => ({
 // Draws the view's rows in a test Pane.
 async function draw($: Engine, on: On, tasks: Record<string, Task>, now: number) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column">{agents.view({ tasks, now }, ui, { enable: true }, 36, colors())}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
@@ -123,7 +124,9 @@ function host(on: On, world: { agents: AgentInfo[]; toasts: string[]; files?: st
   on('env.get', () => ({ value: '1' }))
   on('tool.list', () => ({ value: [] }))
   on('agent.list', () => ({ value: world.agents }))
+  // A workflow agent runs as `x9`, and no list names it.
   on('agent.spawn', (_, e) => {
+    if (e.workflow) return { model: 'claude-haiku-4-5-20251001', agentId: 'x9' }
     const id = `a${world.agents.length + 1}`
     world.agents.push({ id, description: e.description, type: e.subagentType, status: 'running' })
     return { model: 'claude-haiku-4-5-20251001', agentId: id }
@@ -150,7 +153,17 @@ function host(on: On, world: { agents: AgentInfo[]; toasts: string[]; files?: st
 
 const start = ($: Engine) => $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
 
-const spawn = ($: Engine, description: string, subagentType = 'Explore', parentAgentId?: string) =>
+const spawn = (
+  $: Engine,
+  description: string,
+  subagentType = 'Explore',
+  extra: {
+    parentAgentId?: string
+    name?: string
+    isTeammate?: true
+    workflow?: { runId: string; agentIndex: number }
+  } = {},
+) =>
   $.agent.spawn({
     tool_use_id: `toolu_${description}`,
     prompt: description,
@@ -160,7 +173,7 @@ const spawn = ($: Engine, description: string, subagentType = 'Explore', parentA
     parentModel: 'claude-opus-5-5',
     background: true,
     fork: false,
-    ...(parentAgentId && { parentAgentId }),
+    ...extra,
   })
 
 const notify = ($: Engine, id: string, status: string, summary: string) =>
@@ -217,7 +230,7 @@ test('a nested agent draws under its parent', async ($, on) => {
   host(on, { agents: [], toasts: [] })
   await start($)
   await spawn($, 'audit', 'general-purpose')
-  await spawn($, 'scan', 'Explore', 'a1')
+  await spawn($, 'scan', 'Explore', { parentAgentId: 'a1' })
   await clock.settle()
   const { rows } = await sidebarOf($)
   expect(await rows()).toEqual(['◐ general-purpose · audit', '└ ◐ Explore · scan'])
@@ -347,6 +360,31 @@ test("a subagent's shell ends through the row delivered into that subagent's loo
   expect(world.toasts.at(-1)).toBe('✓ shell done · sleep 5 · 5s')
 })
 
+// #246, 2.1.292: an agent that ends its turn to wait on its own background
+// shell reads `waiting`, then `running` when the shell wakes it.
+test('an agent waiting on its own shell keeps its row and the shell under it', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  const world = { agents: [] as AgentInfo[], toasts: [] as string[] }
+  host(on, world)
+  await start($)
+  await spawn($, 'bg waiter', 'general-purpose')
+  await background($, 'sleep 25', 'a1')
+  await clock.advance(6000)
+  const toasts = [...world.toasts]
+  world.agents[0]!.status = 'waiting'
+  await clock.advance(10_000)
+  const { rows } = await sidebarOf($)
+  expect(await rows()).toEqual(['◐ general-purpose · bg waiter', '└ ◐ $ sleep 25'])
+  expect(world.toasts).toEqual(toasts)
+
+  world.agents[0]!.status = 'running'
+  await clock.advance(1000)
+  world.agents[0]!.status = 'completed'
+  await clock.advance(2100)
+  expect((await rows())[0]).toBe('✓ general-purpose · bg waiter')
+  expect(world.toasts.at(-1)).toBe('✓ general-purpose done · bg waiter · 18s')
+})
+
 // `tasks` beneath the plugin, so a test can empty it as /clear does.
 function tasksState(on: On) {
   const box: { value?: Record<string, Task> } = {}
@@ -379,12 +417,15 @@ test('/clear carries running work into the new session, and its end still report
   expect(world.toasts.at(-1)).toBe('✓ shell done · sleep 30 · 2s')
 })
 
+// #245, 2.1.292: a workflow agent fires `agent.spawn` with `workflow` set, and
+// no list names its id.
 test('a Workflow run is one row; a shell of its agent nests under it quietly', async ($, on) => {
   const clock = mock.clock(on, { now: 0 })
   const world = { agents: [] as AgentInfo[], toasts: [] as string[], files: ['/tmp/wf/w1/agent-x9.jsonl'] }
   host(on, world)
   await start($)
   await $.tool.call({ tool: 'Workflow', script: 'export const meta = {}' })
+  await spawn($, 'lint', 'workflow-subagent', { workflow: { runId: 'wf_1', agentIndex: 1 } })
   await background($, 'sleep 9', 'x9')
   await background($, 'sleep 7', 'teammate')
   await clock.advance(3000)
@@ -397,12 +438,17 @@ test('a Workflow run is one row; a shell of its agent nests under it quietly', a
   expect(world.toasts).toEqual(['◆ workflow started: review', '✓ workflow done · review · 3s'])
 })
 
-test('a teammate in the agent list gets no row and no toast', async ($, on) => {
+// #244, 2.1.292: a teammate fires `agent.spawn`, and the list names it too. Its
+// TaskStop names its task id (the probe's below), not the spawn's `agentId`.
+test('a teammate, its shell and its TaskStop get no row and no toast', async ($, on) => {
   const clock = mock.clock(on, { now: 0 })
   const world = { agents: [] as AgentInfo[], toasts: [] as string[] }
   host(on, world)
-  world.agents.push({ id: 't1', description: 'reviewer', type: 'teammate', status: 'running', name: 'reviewer' })
   await start($)
+  const { agentId } = await spawn($, 'reviewer', 'teammate', { name: 'reviewer', isTeammate: true })
+  await background($, 'sleep 7', agentId)
+  await clock.advance(1000)
+  await $.tool.call({ tool: 'TaskStop', task_id: 'tin1b73zq' })
   await clock.advance(3000)
   const { rows } = await sidebarOf($)
   expect(await rows()).toEqual([])

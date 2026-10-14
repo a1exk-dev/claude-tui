@@ -11,13 +11,13 @@
 # Knowledge
 
 - Before exploring or changing the repo, read `CONTEXT.md` for canonical concepts and `MEMORY.md` for applicable durable guidance.
-- Build: before building ctui v0.1 in `ctui/`, follow [`docs/spec/v0.1.md`](docs/spec/v0.1.md) slice by slice.
+- Build: before building ctui v0.1 in `ctui/`, follow [`docs/spec/v0.1.md`](docs/spec/v0.1.md) slice by slice. Before building the live-check skill, the harness, the converted tests or the eval suite, follow [`docs/spec/live-checks.md`](docs/spec/live-checks.md) the same way.
 - Prototypes: `prototypes/` holds throwaway work. Take facts and decisions from the rest of the repo, and open `prototypes/` only when the human's current prompt asks for it.
 - Before defining or editing `AGENTS.md`, `CONTEXT.md`, or `MEMORY.md`, and at task completion, follow [`docs/agents/domain.md`](docs/agents/domain.md).
 
 # Workflow
 
 - Branches: Before creating a branch, opening or merging a pull request, or tagging, follow Git Flow strictly. Open pull requests into `main` only from `release/<semver>` or `hotfix/<name>`, and tag each merge into `main` as `v<semver>`. While a `release/<semver>` pull request is open, cut a `bugfix/<name>` for anything that release ships from `release/<semver>` and open its pull request into that branch, which merges back into `develop`. Send every other change, including `feature/<name>` and other `bugfix/<name>`, through a pull request into `develop`. Change `main` and `develop` only through pull requests with merge commits.
-- Merging: Pull requests into `develop` opened under the human's account (`a1exk-dev`) merge automatically once every required check passes (`.github/workflows/auto-merge.yml`); do not merge them by hand. Once one merges, close each issue it refs with a comment linking the pull request, and remove the issue's `ready-for-agent` label. Merge each pull request into `release/0.3.0` yourself with `gh pr merge --merge` once every required check passes, then close its issues the same way. Leave pull requests into `main` for the human to merge.
+- Merging: Pull requests into `develop` opened under the human's account (`a1exk-dev`) merge automatically once every required check passes (`.github/workflows/auto-merge.yml`); do not merge them by hand. Once one merges, close each issue it refs with a comment linking the pull request, and remove the issue's `ready-for-agent` label. Merge each `bugfix/<name>` pull request into the `release/<semver>` it was cut from yourself with `gh pr merge --merge` once every required check passes, then close its issues the same way. Leave pull requests into `main` for the human to merge.
 - Commits: Before creating a commit or proposing or using a commit message, read and follow [`docs/agents/commit-policy.md`](docs/agents/commit-policy.md).
 - Checks: Before each commit, run `node scripts/check.ts`. Done when it exits 0; fix every error it reports.
