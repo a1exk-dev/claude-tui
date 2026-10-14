@@ -4,7 +4,7 @@ import type { SectionConfig } from '../hooks/config'
 import type { GitSnapshot, McpRow, SkillRow, Task, Todo, Usage, Versions } from '../types'
 import type { Colors } from './colors'
 
-export type SidebarId = 'git' | 'context' | 'limits' | 'todo' | 'skills' | 'mcp' | 'agents' | 'versions'
+export type SidebarId = 'git' | 'context' | 'limits' | 'todo' | 'skills' | 'spike' | 'mcp' | 'agents' | 'versions'
 
 // What register.tsx loads for the enabled plugins' `needs`.
 export type SidebarData = {
