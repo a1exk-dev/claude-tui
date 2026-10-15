@@ -240,8 +240,7 @@ it` — which parks one sweeping row for 60 s, longer than any hold the scenario
 is ~36 s in). The engine refuses a standalone foreground `sleep`, so the hold is never a bare `sleep`. Check the
 hold took before sampling: look at the `timeout 60 tail -f /dev/null` Bash row, which reads `interrupted` and
 ends the turn in seconds when the hold was refused, instead of parking a sweeping row. On seeing that, re-drive
-the same turn once; a second refusal is a FAIL on the three motion checks, naming what the Bash row showed. Drive `todo/spinner-animates`,
-`todo/fold-line-still` and `todo/spinner-focused` inside that window.
+the same turn. Drive `todo/spinner-animates`, `todo/fold-line-still` and `todo/spinner-focused` inside that window.
 
 | Check | Drive | `measured` carries |
 |---|---|---|
