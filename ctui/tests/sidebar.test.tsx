@@ -245,14 +245,14 @@ const CAPS: SidebarData = {
   mcp: Array.from({ length: 5 }, (_, i) => ({ server: `s${i}`, label: `server ${i}`, source: 'user', state: 'ok' as const, tools: 3 })),
 }
 const capsPlugins = ['git', 'todo', 'mcp', 'versions'].map((id) => plugins.find((plugin) => plugin.id === id)!)
-const tasksOf = (sizes: (string | number)[]) => sizes.filter((size) => typeof size === 'string' && size.startsWith('󰄰 '))
+const tasksOf = (sizes: (string | number)[]) => sizes.filter((size) => typeof size === 'string' && size.startsWith('󰄰  '))
 
 test('Todo caps at its own 8 rows; another list section keeps 4', async ($, on) => {
   const sizes = layout((await draw($, on, { plugins: capsPlugins, data: CAPS, bodyRows: 60 })).tree)
   const tasks = tasksOf(sizes)
-  expect(tasks).toEqual(Array.from({ length: 8 }, (_, i) => `󰄰 task ${i}`))
+  expect(tasks).toEqual(Array.from({ length: 8 }, (_, i) => `󰄰  task ${i}`))
   expect(sizes[sizes.indexOf(tasks[7]!) + 1]).toBe('▸ 1 more')
-  const servers = sizes.filter((size) => typeof size === 'string' && size.startsWith('● server'))
+  const servers = sizes.filter((size) => typeof size === 'string' && size.startsWith('󰗡  server'))
   expect(servers).toHaveLength(4)
   expect(sizes[sizes.indexOf(servers[3]!) + 1]).toBe('▸ 1 more')
 })
@@ -356,7 +356,7 @@ test("#85's busy data at 34 body rows: 40 section rows overflow 22 free rows", a
   // A 4-row header (path, blank row, branch, counts) and the 2-row footer
   // leave 22 free rows. `↓ more` leaves 21, which hold Context, Limits and
   // MCP to its fourth server (21 rows) but not `▸ 3 more`.
-  expect(window.slice(-4)).toEqual(['● server 1user · 3 tools', '● server 2user · 3 tools', '● server 3user · 3 tools', '↓ more'])
+  expect(window.slice(-4)).toEqual(['󰗡  server 1user · 3 tools', '󰗡  server 2user · 3 tools', '󰗡  server 3user · 3 tools', '↓ more'])
   expect(height(window)).toBe(22)
   expect(window.filter((size) => size === B)).toHaveLength(5)
   expect(window.filter((size) => size === R)).toHaveLength(2)
@@ -367,8 +367,8 @@ test("#85's busy data at 34 body rows: 40 section rows overflow 22 free rows", a
 
 test("#85's busy data scrolled to the end", async ($, on) => {
   const window = windowOf(layout((await busy($, on, 99)).tree))
-  expect(window.slice(0, 2)).toEqual(['↑ more', '● server 2user · 3 tools'])
-  expect(window.at(-1)).toBe('◐ Plan · plan0s')
+  expect(window.slice(0, 2)).toEqual(['↑ more', '󰗡  server 2user · 3 tools'])
+  expect(window.at(-1)).toBe('󰪞  planPlan · 0s')
   expect(height(window)).toBe(22)
 })
 

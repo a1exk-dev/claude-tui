@@ -1,6 +1,6 @@
 # Live checks
 
-Checks that mocks can't reach: docking, engine chrome, toast drawing, the Themes' paint, the Todo spinner and the fullscreen and main-screen looks. An agent drives them against a real, signed-in Claude Code on the pinned version (`@anthropic-ai/claude-code` in the root `package.json`) through the pty harness in `.claude/skills/live-checks/`, which is where the scenarios, the checks and the report's shape live. `CONTEXT.md` defines the term; this page is the operator's, for starting a run and reading what comes back. `CONTRIBUTING.md` says which pull request runs one.
+Checks that mocks can't reach: docking, engine chrome, toast drawing, the Themes' paint, the Todo spinner, the column a Sidebar row's text lands in once the terminal has drawn its Nerd Font glyph two cells wide, and the fullscreen and main-screen looks. An agent drives them against a real, signed-in Claude Code on the pinned version (`@anthropic-ai/claude-code` in the root `package.json`) through the pty harness in `.claude/skills/live-checks/`, which is where the scenarios, the checks and the report's shape live. `CONTEXT.md` defines the term; this page is the operator's, for starting a run and reading what comes back. `CONTRIBUTING.md` says which pull request runs one.
 
 ## Running them
 

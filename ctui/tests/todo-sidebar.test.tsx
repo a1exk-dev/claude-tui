@@ -42,43 +42,65 @@ async function draw($: Engine, on: On, list: Todo, tools = true) {
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
 }
 
-// The text of each todo row: a done or waiting row's glyph and text, and the
-// text after the spinner, which draws in its own Client.
+// The text of each todo row: a done or waiting row's glyph and the two spaces
+// after it, and the text after the spinner, which draws in its own Client.
 async function rowsOf(pane: Awaited<ReturnType<typeof draw>>) {
-  const texts = await pane.findAll({ type: 'Text', text: /^([\u{f0133}\u{f0130}] | \S)/u })
+  const texts = await pane.findAll({ type: 'Text', text: /^[\u{f0133}\u{f0130}]? {2}\S/u })
   return texts.map((text) => text.text)
 }
 
-test('rows in list order: 󰄳 muted, the spinner with its activeForm, 󰄰 faint with muted text', async ($, on) => {
+test('rows in list order: 󰄳 success, the spinner with its activeForm, 󰄰 faint with muted text', async ($, on) => {
   const pane = await draw($, on, LIST)
-  expect(await rowsOf(pane)).toEqual(['󰄳 Write the parser', ' Running the tests', '󰄰 Open the PR'])
+  expect(await rowsOf(pane)).toEqual(['󰄳  Write the parser', '  Running the tests', '󰄰  Open the PR'])
   const glyph = async (text: string) => (await pane.find({ type: 'Text', text: new RegExp(`^${text}$`) }))?.props
   expect((await Promise.all(['󰄳', '󰪞', '󰄰'].map(glyph))).map((props) => props?.color)).toEqual([
-    'inactive',
+    'success',
     'warning',
     'subtle',
   ])
+  // A completed task's tick turns green while its text stays muted.
   expect((await glyph('Write the parser'))?.color).toBe('inactive')
-  expect((await glyph(' Running the tests'))?.color).toBe('text')
+  expect((await glyph('  Running the tests'))?.color).toBe('text')
   expect((await glyph('Open the PR'))?.color).toBe('inactive')
   // The spinner and its text share one row.
-  expect((await pane.findAll({ type: 'Box', text: /^󰪞 Running the tests$/ })).length).toBeGreaterThan(0)
+  expect((await pane.findAll({ type: 'Box', text: /^󰪞  Running the tests$/ })).length).toBeGreaterThan(0)
 })
 
 test('an in-progress item without an activeForm shows its subject', async ($, on) => {
   const pane = await draw($, on, { tools: 'todowrite', items: [{ subject: 'Fix it', status: 'in_progress' }] })
-  expect(await rowsOf(pane)).toEqual([' Fix it'])
+  expect(await rowsOf(pane)).toEqual(['  Fix it'])
 })
 
-test('the header counts completed over total; folded it adds the item in progress', () => {
+test('the header counts completed over total', () => {
   const ui = {} as never
   const cfg = { enable: true, tools: true }
   expect(todo.count?.({ todo: LIST }, ui, cfg, 36, colors())).toBe('1/3')
-  expect(todo.summary?.({ todo: LIST }, ui, cfg, 36, colors())).toBe('1/3 · Running the tests')
-  const idle = { tools: 'task' as const, items: LIST.items.filter((item) => item.status !== 'in_progress') }
-  expect(todo.summary?.({ todo: idle }, ui, cfg, 36, colors())).toBe('1/2')
   expect(todo.count?.({ todo: { tools: 'none', items: [] } }, ui, cfg, 36, colors())).toBeUndefined()
   expect(todo.summary?.({ todo: { tools: 'none', items: [] } }, ui, cfg, 36, colors())).toBeUndefined()
+})
+
+// Folded, Todo says how much is done as a tally — completed, in progress,
+// pending — and no longer what is happening.
+test('folded, the tally counts completed, in progress and pending, the sweep frozen', async ($, on) => {
+  let list: Todo = LIST
+  on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
+    const ui = clientsAsTrees($.ui.resolve(e))
+    const right = todo.summary?.({ todo: list }, ui, { enable: true, tools: true }, 36, colors())
+    return <ui.Box>{right ?? <ui.Text>none</ui.Text>}</ui.Box>
+  })
+  const pane = await $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
+  const summary = async (next: Todo) => {
+    list = next
+    await pane.redraw()
+    return (await pane.find({ type: 'Text' }))?.text
+  }
+  expect(await summary(LIST)).toBe('󰄳  1  󰪣  1  󰄰  1')
+  // No term for a state with no rows, so the terms sum to the task count.
+  expect(await summary({ tools: 'task', items: LIST.items.filter((item) => item.status !== 'in_progress') })).toBe(
+    '󰄳  1  󰄰  1',
+  )
+  expect(await summary({ tools: 'task', items: [] })).toBe('none')
+  expect(await summary({ tools: 'none', items: [] })).toBe('none')
 })
 
 test('an empty list draws a bare title and no tasks yet in muted', async ($, on) => {
@@ -194,7 +216,7 @@ test('TaskCreate and TaskUpdate draw rows, with activeForm from the inputs', asy
   await $.tool.call({ tool: 'TaskUpdate', taskId: '1', status: 'in_progress' })
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual([' Doing alpha', '󰄰 beta'])
+  expect(await rows()).toEqual(['  Doing alpha', '󰄰  beta'])
   // The spinner turns on its own frame clock, keyed by the task's id.
   const spinner = await pane.find({ type: 'Client', key: 'spinner-1' })
   expect(spinner?.props.module).toBe('plugins/todo/spinner.tsx')
@@ -205,11 +227,12 @@ test('TaskCreate and TaskUpdate draw rows, with activeForm from the inputs', asy
   await $.tool.call({ tool: 'TaskUpdate', taskId: '2', status: 'in_progress', activeForm: 'Doing beta' })
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual(['󰄳 alpha', ' Doing beta'])
+  expect(await rows()).toEqual(['󰄳  alpha', '  Doing beta'])
   expect(await count()).toBe('1/2')
 
+  // Folded, the tally replaces the count, and the activeForm goes.
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'fold-todo' })
-  expect(await count()).toBe('1/2 · Doing beta')
+  expect(await count()).toBe('󰄳  1  󰪣  1')
 })
 
 const FRAMES = ['󰪞', '󰪟', '󰪠', '󰪡', '󰪢', '󰪣', '󰪤', '󰪥']
@@ -281,7 +304,7 @@ test('a list held before session.start draws at once, as after --resume or a rel
   await start($)
   await clock.settle()
   const { rows } = await sidebarOf($)
-  expect(await rows()).toEqual(['󰄳 alpha', '󰄰 beta'])
+  expect(await rows()).toEqual(['󰄳  alpha', '󰄰  beta'])
 })
 
 test('/model to a model with the tools loads the list within a second', async ($, on) => {
@@ -295,7 +318,7 @@ test('/model to a model with the tools loads the list within a second', async ($
   world.tools = ['TaskList']
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rows()).toEqual(['󰄰 alpha'])
+  expect(await rows()).toEqual(['󰄰  alpha'])
   expect(await text('no task tools in this session')).toBeUndefined()
 })
 
@@ -335,7 +358,7 @@ test('TodoWrite feeds the list when the Task tools are off', async ($, on) => {
   })
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual(['󰄳 alpha', ' Doing beta'])
+  expect(await rows()).toEqual(['󰄳  alpha', '  Doing beta'])
 })
 
 // Hiding Claude Code's own list (MEMORY.md "While docked with Todo on, ctui runs
@@ -364,7 +387,7 @@ test('docked with Todo on, ctui runs TaskCreate and TaskUpdate itself and answer
   expect(world.callers).toEqual(['ctui', 'ctui'])
   await clock.settle()
   await pane.redraw()
-  expect(await rows()).toEqual([' Doing alpha'])
+  expect(await rows()).toEqual(['  Doing alpha'])
 })
 
 test('docked, then seated inline, a task call goes on to core', async ($, on) => {

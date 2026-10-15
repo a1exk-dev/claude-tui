@@ -77,9 +77,12 @@ row is working and in what state.
 ## Spacing
 
 Every row glyph is followed by **two spaces**: the engine counts the glyph as one cell, the terminal draws
-it two cells wide, so the first space takes the overflow and the second shows as the gap. `todo` and the
-git header already draw this way; `mcp`, `skills` and `agents` draw plain Unicode at one cell today and so
-carry none of it.
+it two cells wide, so the first space takes the overflow and the second shows as the gap. `todo` already
+draws this way; `mcp`, `skills` and `agents` draw plain Unicode at one cell today and so carry none of it.
+
+The git header is the exception, and stays as it is: its Devicons draw **one** cell wide, so a single space
+puts its text in column 2, which is where the `layout/git-glyph-columns` live check reads it. Two spaces is
+what a double-width circle needs, not a rule about every glyph.
 
 Converting them is a spacing change as well as a glyph change: **each converted row's label loses one
 column**. Those rows already pair a truncating label with a right-hand value in a `flexShrink: 0` Box, so
@@ -165,7 +168,7 @@ Part of the build, in the same work.
 
 | Entry | What changes |
 |---|---|
-| A Nerd Font icon takes two spaces after it | **Stands**, and now reaches every Sidebar row glyph rather than `todo` and the header alone. |
+| A Nerd Font icon takes two spaces after it | **Stands**, and now reaches every Sidebar row glyph rather than `todo` alone. The git header's single-width Devicons keep their one space, which the entry records as the exception. |
 | The `todo` Sidebar plugin turns the task tools on by default | The three glyphs stand. Completed moves from `muted` to `success` (one glyph, one colour), and "The folded summary stays text" is overturned by the tally. |
 | The `mcp` Sidebar plugin reads live tools and MCP config names | The row glyphs `●`, `!`, `◐`, `✕`, `○` become the circles above; the folded summary becomes a tally with the busy term leading. The states, the sources, the order and the no-probe rule are untouched. |
 | The `skills` Sidebar plugin lists every `skill.prompt` | "Draw like an MCP row without the glyph" is overturned: the row leads with `asterisk_circle_outline` in `muted`, and the summary is that ring before the count. |
