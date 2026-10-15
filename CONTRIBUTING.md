@@ -16,7 +16,9 @@ Run `node scripts/check.ts` before each commit. It runs `tsc`, `claude plugin va
 
 ## Live checks
 
-Docking, engine chrome, toast drawing, the Themes' paint and the fullscreen and main-screen looks need a signed-in terminal, so an agent drives them against the pinned Claude Code instead of a mock. The pass runs on an inexpensive model — **Sonnet at medium effort**, which is enough because the checks read colors and column ranges off a cell grid and take no judgement — and a subshell starts it without switching the starting session's own model, so an operator or an agent session on any model launches a whole pass. From the repo root:
+Docking, engine chrome, toast drawing, the Themes' paint and the fullscreen and main-screen looks need a signed-in terminal, so an agent drives them against the pinned Claude Code instead of a mock. To run them: switch the session to an inexpensive model — **Sonnet at medium effort**, which is enough because the checks read colors and column ranges off a cell grid and take no judgement — invoke the `live-checks` skill from the repo root, and read the report it prints the path of. [`docs/testing/live-checks.md`](docs/testing/live-checks.md) is the operator's page for starting a run and reading what comes back, including how long one takes.
+
+A session that stays on its own model starts the same pass in a subshell instead, which runs on Sonnet at medium effort without switching the starting session's model, so an operator or an agent session on any model launches a whole pass. From the repo root:
 
 ```bash
 RUN=$(mktemp -d -t ctui-live-checks-XXXXXX)
@@ -32,15 +34,13 @@ Both cheaper axes were measured on 2.1.300 and rejected, so nobody has to run th
 
 The starting session then does these steps, in order, when the subshell returns:
 
-1. Read `permission_denials` first, before a single row. A non-empty array means the pass is **void**, not a pass with FAIL rows in it, because a denial stops a step rather than measuring a cell. Name the denied tool and its full `tool_input`, and start over.
-2. The exit status proves nothing: a denied pass still exits `subtype: "success"`, `is_error: false`.
+1. Read `permission_denials` first, before a single row. A non-empty array means the pass is **void**, not a pass with FAIL rows in it, because a denial stops a step rather than measuring a cell. Name the denied tool and its full `tool_input`, and start over. All three passes came back empty, so the grant is known to cover a whole pass; a denial means the list or the harness moved.
+2. The exit status proves nothing: a denied pass still exits `subtype: "success"`, `is_error: false`, and a denial surfaces only as an `is_error=true` tool row inside the subshell's own output and as an entry in that array.
 3. Read `.result` for the lead's last line (the verdict, the tally and the path) as a cross-check that the lead wrote where it was told.
 4. Fill the version block's two holes in `$RUN/report.md`: `cost` from the result JSON's `total_cost_usd`, and `wall` from your own timing. The lead can measure neither and writes both as `—`.
 5. Never write a turn count. `num_turns` counts the lead's own turns, not the pass's, and no result-JSON field is the pass's turn count.
 6. Name each `FAIL` with its measured cell, so the human reads what the screen showed rather than a tally.
 7. Ask before writing anything into a pull request. On the operator's word and not before, paste the whole report, with the version block filled, into the release pull request's `## Reports` › `### Live checks` section, the one into `main`.
-
-[`docs/testing/live-checks.md`](docs/testing/live-checks.md) is the operator's page for starting a run and reading what comes back, including how long one takes.
 
 ## Evals
 
