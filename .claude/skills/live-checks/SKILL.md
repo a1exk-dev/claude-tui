@@ -6,11 +6,11 @@ disable-model-invocation: true
 
 # Live checks
 
-32 **checks** over 7 **scenarios**. A scenario is one seeded config dir and one engine boot — the unit that
+33 **checks** over 7 **scenarios**. A scenario is one seeded config dir and one engine boot — the unit that
 costs — so every resize, `/theme`, `setopt` and fold happens inside its session. You are the **lead**: run the
 gate, spawn one subagent per scenario, merge the rows they return into one report, print its path.
 
-One run spends 7 boots, 5 model turns and about 550 MB of temp churn. The model and effort it runs on, and
+One run spends 7 boots, 6 model turns and about 550 MB of temp churn. The model and effort it runs on, and
 which pull request runs it, are the operator's call: `CONTRIBUTING.md` holds both, and the report's version
 block records what this run used.
 
@@ -75,13 +75,14 @@ Group the rows by the prefix of their check ids — the prefix *is* the report s
 | `toasts/` | Toasts | 1 |
 | `themes/` | Themes | 10 |
 | `menu/` | The `/ctui` menu | 2 |
+| `skills/` | Skills | 1 |
 | `todo/` | Todo | 5 |
 | `cost/` | Cost | 2 |
 
 Write `$RUN/report.md` in this shape and print its path as the last thing you say:
 
 ```markdown
-## ctui live checks — PASS (32/32)
+## ctui live checks — PASS (33/33)
 
 plugin ctui 0.5.0 (95e5d10)
 engine @anthropic-ai/claude-code 2.1.292
@@ -101,7 +102,7 @@ run dir /tmp/ctui-live-checks-7Qa1Zx
 ```
 
 The heading counts the passes. Under the sections, list each kept config dir as `scenario <name>: <path>` so a
-FAIL's config, transcript and settings are still readable at a named path. All 32 rows appear in every report,
+FAIL's config, transcript and settings are still readable at a named path. All 33 rows appear in every report,
 whatever the run found: one shape, always complete, is what makes it attachable.
 
 ## Driving a scenario
@@ -122,11 +123,13 @@ scenario. Finish with `printf 'quit\n' | … send $S/fifo $S/out 2`, and `rm -rf
 A step that throws prints `!! …` and leaves the session up, so a mistyped step costs no boot. `pkill -f
 'harness.ts serve'` is the fallback when a session will not quit.
 
-## Scenario 1: `default-150` — 9 checks, 1 model turn
+## Scenario 1: `default-150` — 10 checks, 2 model turns
 
 Seed a scratch repo in `$S/repo` first — `git init`, a bare repo as `origin` with an upstream branch, one staged,
-one modified and one untracked file, one stash — then seed with `--trust $S/repo --mcp` and boot with
-`--cwd $S/repo` at 150×45. `--mcp` gives the session the stub server, so the process-tree check reads what the
+one modified and one untracked file, one stash, and a project skill at `$S/repo/.claude/skills/ctuicheck/SKILL.md`
+whose body is `Reply with ok and nothing else.` — then seed with `--trust $S/repo --mcp` and boot with
+`--cwd $S/repo` at 150×45. That skill is the one the Skills section draws a row for, and its turn is the
+cheapest in the run. `--mcp` gives the session the stub server, so the process-tree check reads what the
 session does start as well as what it does not.
 
 | Check | Drive | `measured` carries |
@@ -139,6 +142,7 @@ session does start as well as what it does not.
 | `layout/frame-and-footer` | `grep claude cli:`, `runs` the footer rows and the `│` column, at 53 and again at 42 | one footer row at 53 and two at 42, the `│` on every body row at the dock's left edge with the colours its cells carry, no update icon |
 | `layout/no-child-processes` | `sh for i in $(seq 10); do pstree -a -p $(pgrep -n -f 'claude --plugin-dir'); sleep 1; done \| sort -u` | the distinct child commands seen over the 10 s: the seeded `ctuistub` server and short `git` runs, and no `claude -p` or `claude mcp list` |
 | `rewrites/rule-gutter` | one prompt: a wrapped several-line ask for a reply that ends with a 200-character unbroken token, plus a long `Bash` run; then `dump` | the rightmost text column the prompt panel, the reply and the `$ Bash` row each reach, none of them at 105 or right of it, with the reply's forced token wrapping at 104 and cols 105–106 blank; and, as the control, the rightmost column the prompt box's own border rule reaches, which ctui does not pad |
+| `skills/glyph-columns` | `type /ctuicheck`, `enter`, `wait 10`; `grep ctuicheck` for its Skills row, then `cells <row> 110 116` over that row | the `asterisk_circle_outline` codepoint (U+F1A27) at content column 0, its `fg`, the two gap cells, and the skill name's first text cell at content column 3 |
 | `rewrites/ctrl-o-transcript` | `key \x0f`, `dump`, `key \x0f`, `dump` | the rows both views show, and each call carrying its full result under it |
 
 ## Scenario 2: `fresh-110` — 2 checks, 1 model turn, two launches

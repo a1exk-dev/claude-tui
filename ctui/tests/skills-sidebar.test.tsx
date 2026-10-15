@@ -10,6 +10,9 @@ import { clientsAsTrees } from './clients'
 // scenarios where `skill.prompt` and a resumed transcript fill it through
 // register.tsx's hooks.
 
+// `asterisk_circle_outline`, the rest ring every row leads with (#317).
+const RING = '\u{f1a27}'
+
 const ROWS: SkillRow[] = [
   { name: 'tdd', source: 'user' },
   { name: 'pr:review', source: 'pr' },
@@ -40,7 +43,7 @@ async function draw($: Engine, on: On, rows: SkillRow[], width = 36) {
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
 }
 
-// Each skill row's name and source: a Box spreading the two.
+// Each skill row's lead ring, name and source: a Box spreading the two halves.
 async function rowsOf(pane: Awaited<ReturnType<typeof draw>>) {
   const boxes = await pane.findAll({ type: 'Box' })
   return Promise.all(
@@ -50,37 +53,71 @@ async function rowsOf(pane: Awaited<ReturnType<typeof draw>>) {
   )
 }
 
-test('rows: the name without its prefix, the source at the right; A–Z, then by source', async ($, on) => {
+test('rows: the rest ring, the name without its prefix, the source at the right; A–Z, then by source', async ($, on) => {
   const pane = await draw($, on, ROWS)
   expect(await rowsOf(pane)).toEqual([
-    'artifact-capabilitiesanthropic-skills',
-    'git-guardrails-claude-codeuser',
-    'reviewcode',
-    'reviewpr',
-    'tdduser',
+    `${RING} artifact-capabilitiesanthropic-skills`,
+    `${RING} git-guardrails-claude-codeuser`,
+    `${RING} reviewcode`,
+    `${RING} reviewpr`,
+    `${RING} tdduser`,
   ])
-  const name = await pane.find({ type: 'Text', text: 'tdd' })
-  const source = await pane.find({ type: 'Text', text: 'anthropic-skills' })
-  expect([name?.props.color, name?.props.wrap, source?.props.color]).toEqual(['text', 'truncate-end', 'inactive'])
+  // The ring is muted, two spaces lead the name, and the left half truncates
+  // while the source's Box holds its room.
+  const ring = await pane.find({ type: 'Text', text: new RegExp(`^${RING}$`, 'u') })
+  const left = await pane.find({ type: 'Text', text: new RegExp(`^${RING} {2}tdd$`, 'u') })
+  const name = await pane.find({ type: 'Text', text: /^tdd$/ })
+  const source = await pane.find({ type: 'Text', text: /^anthropic-skills$/ })
+  expect([ring?.props.color, left?.props.wrap, name?.props.color, source?.props.color]).toEqual([
+    'inactive',
+    'truncate-end',
+    'text',
+    'inactive',
+  ])
 })
 
 test('a long name truncates; the source stays whole', async ($, on) => {
   const pane = await draw($, on, [{ name: 'a-very-long-skill-name-that-does-not-fit', source: 'anthropic-skills' }], 30)
-  const source = await pane.find({ type: 'Text', text: 'anthropic-skills' })
+  const source = await pane.find({ type: 'Text', text: /^anthropic-skills$/ })
   expect(source).toBeDefined()
+  // The ring leads even here: the glyph and its two spaces take the row's
+  // first three columns, and the name gives way instead.
+  expect((await rowsOf(pane))[0]).toBe(`${RING} a-very-long-skill-name-that-does-not-fitanthropic-skills`)
   // The source sits in a Box that never shrinks; only the name's Text truncates.
   const boxes = await pane.findAll({ type: 'Box' })
   expect(boxes.some((box) => box.props.flexShrink === 0 && box.text === 'anthropic-skills')).toBe(true)
 })
 
-test('the header counts the rows, open and folded; an empty chat reads 0 and no skills used yet', async ($, on) => {
+test('the header counts the rows; an empty chat reads 0 and no skills used yet', async ($, on) => {
   const ui = {} as never
   expect(skills.count?.({ skills: ROWS }, ui, { enable: true }, 36, colors())).toBe('5')
-  expect(skills.summary?.({ skills: ROWS }, ui, { enable: true }, 36, colors())).toBe('5')
   expect(skills.count?.({ skills: [] }, ui, { enable: true }, 36, colors())).toBe('0')
   const pane = await draw($, on, [])
   const empty = await pane.find({ type: 'Text', text: 'no skills used yet' })
   expect(empty?.props.color).toBe('subtle')
+})
+
+// Folded, the one rest ring before the count: the section has a single state,
+// so its tally has a single term. With no rows it falls back to the bare 0,
+// the empty section's text saying the rest.
+test('folded, the rest ring leads the count; empty stays a bare 0', async ($, on) => {
+  let rows: SkillRow[] = ROWS
+  on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
+    const ui = clientsAsTrees($.ui.resolve(e))
+    const right = skills.summary?.({ skills: rows }, ui, { enable: true }, 36, colors())
+    return <ui.Box>{typeof right === 'string' ? <ui.Text>{right}</ui.Text> : right}</ui.Box>
+  })
+  const pane = await $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
+  const summary = async (next: SkillRow[]) => {
+    rows = next
+    await pane.redraw()
+    return (await pane.find({ type: 'Text' }))?.text
+  }
+  expect(await summary(ROWS)).toBe(`${RING}  5`)
+  // The term draws in the ring's own role, as every section's tally does.
+  const terms = await pane.findAll({ type: 'Text', text: new RegExp(`^${RING} {2}5$`, 'u') })
+  expect(terms.map((term) => term.props.color)).toContain('inactive')
+  expect(await summary([])).toBe('0')
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.
@@ -150,12 +187,14 @@ function host(on: On, world: World = {}) {
 const start = ($: Engine) => $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
 const sidebar = ($: Engine) => $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
 
-// The section's rows: the Text runs inside each skill row's spread Box.
+// The section's rows: the Text runs inside each skill row's spread Box, less
+// the lead ring, which every row carries and which the view's own test pins.
+// The ring also tells a skill row from another section's row.
 async function sectionRows(pane: Awaited<ReturnType<typeof sidebar>>) {
   const boxes = await pane.findAll({ type: 'Box' })
   return boxes
-    .filter((box) => box.props.justifyContent === 'space-between' && !/^[●!◐✕○]/.test(box.text))
-    .map((box) => box.text.replace(/\s+/g, ' '))
+    .filter((box) => box.props.justifyContent === 'space-between' && box.text.startsWith(RING))
+    .map((box) => box.text.slice(RING.length).replace(/\s+/g, ' ').trim())
 }
 
 test('each skill.prompt adds its skill once, with its source', async ($, on) => {
