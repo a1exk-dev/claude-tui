@@ -1,26 +1,30 @@
 import type { Todo, TodoItem } from '../../types'
 import type { Role } from '../colors'
+import { GAP, lead, type Mark, MARKS, SWEEP, tally, working } from '../marks'
 import type { SidebarPlugin } from '../plugin'
 
-// A done or waiting item's Nerd Font glyph (nf-md-checkbox_marked_circle,
-// nf-md-checkbox_blank_circle_outline) and its role, and the role of its text.
-const STATUSES: Record<Exclude<TodoItem['status'], 'in_progress'>, { glyph: string; role: Role; textRole: Role }> = {
-  completed: { glyph: '\u{f0133}', role: 'muted', textRole: 'muted' },
-  pending: { glyph: '\u{f0130}', role: 'faint', textRole: 'muted' },
+// A done or waiting item's mark from the Sidebar's shared circle vocabulary
+// (`plugins/marks.tsx`), and the role of its text.
+const STATUSES: Record<Exclude<TodoItem['status'], 'in_progress'>, { mark: Mark; textRole: Role }> = {
+  completed: { mark: MARKS.checkbox_marked_circle, textRole: 'muted' },
+  pending: { mark: MARKS.checkbox_blank_circle_outline, textRole: 'muted' },
 }
 
-// The item in progress's spinner frames, nf-md-circle_slice_1 to 8 (a circle
-// filling up), one every `ms` (`spinner.tsx`).
-const SPINNER = { frames: Array.from({ length: 8 }, (_, i) => String.fromCodePoint(0xf0a9e + i)), ms: 100 }
+// The item in progress sweeps in `warning`, its own role, one frame every
+// `SWEEP.ms` (`spinner.tsx`); folded, that term freezes at the same role.
+const WORKING: Role = 'warning'
 
 const textOf = (item: TodoItem) => (item.status === 'in_progress' ? (item.activeForm ?? item.subject) : item.subject)
 
+// The list once it has loaded, is not empty and the session has task tools.
+const listed = (todo?: Todo) => (todo && todo.tools !== 'none' && todo.items.length > 0 ? todo.items : undefined)
+
 // `<completed>/<total>`; nothing before the list loads, while it is empty or
 // without task tools.
-const done = (todo?: Todo) =>
-  todo && todo.tools !== 'none' && todo.items.length > 0
-    ? `${todo.items.filter((item) => item.status === 'completed').length}/${todo.items.length}`
-    : undefined
+const done = (todo?: Todo) => {
+  const items = listed(todo)
+  return items && `${items.filter((item) => item.status === 'completed').length}/${items.length}`
+}
 
 // Claude's task list in list order (MEMORY.md "The `todo` Sidebar plugin turns
 // the task tools on by default"). With no task tools, a hint to turn them on.
@@ -51,7 +55,8 @@ const plugin: SidebarPlugin = {
       ]
     return todo.items.map((item, index) => {
       // The spinner turns on its own surface, outside the focus ring, so it
-      // stays a Client while the Pane is focused.
+      // stays a Client while the Pane is focused. It draws the glyph's cell;
+      // the gap after it leads the text, as `lead` writes it elsewhere.
       if (item.status === 'in_progress')
         return (
           <Box flexDirection="row">
@@ -59,28 +64,41 @@ const plugin: SidebarPlugin = {
               <Client
                 key={`spinner-${item.id ?? index}`}
                 module="./spinner.tsx"
-                props={{ ...SPINNER, color: c.warning }}
+                props={{ ...SWEEP, color: c[WORKING] }}
               />
             </Box>
             <Text color={c.main} wrap="truncate-end">
-              {' '}
+              {GAP}
               {textOf(item)}
             </Text>
           </Box>
         )
-      const { glyph, role, textRole } = STATUSES[item.status]
+      const { mark, textRole } = STATUSES[item.status]
       return (
         <Text wrap="truncate-end">
-          <Text color={c[role]}>{glyph}</Text> <Text color={c[textRole]}>{textOf(item)}</Text>
+          {lead(Text, mark, c)}
+          <Text color={c[textRole]}>{textOf(item)}</Text>
         </Text>
       )
     })
   },
   count: ({ todo }) => done(todo),
-  summary: ({ todo }) => {
-    const count = done(todo)
-    const current = todo?.items.find((item) => item.status === 'in_progress')
-    return count && current ? `${count} · ${textOf(current)}` : count
+  // Folded, how much is done rather than what is happening: a tally of the
+  // three states, its in-progress term the frozen sweep (a fold line never
+  // animates).
+  summary: ({ todo }, { Text }, _cfg, _width, c) => {
+    const items = listed(todo)
+    if (!items) return undefined
+    const count = (status: TodoItem['status']) => items.filter((item) => item.status === status).length
+    return tally(
+      Text,
+      [
+        { mark: STATUSES.completed.mark, count: count('completed') },
+        { mark: working(WORKING), count: count('in_progress') },
+        { mark: STATUSES.pending.mark, count: count('pending') },
+      ],
+      c,
+    )
   },
 }
 

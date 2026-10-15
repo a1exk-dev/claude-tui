@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Live checks
 
-30 **checks** over 7 **scenarios**. A scenario is one seeded config dir and one engine boot — the unit that
+31 **checks** over 7 **scenarios**. A scenario is one seeded config dir and one engine boot — the unit that
 costs — so every resize, `/theme`, `setopt` and fold happens inside its session. You are the **lead**: run the
 gate, spawn one subagent per scenario, merge the rows they return into one report, print its path.
 
@@ -74,13 +74,13 @@ Group the rows by the prefix of their check ids — the prefix *is* the report s
 | `toasts/` | Toasts | 1 |
 | `themes/` | Themes | 10 |
 | `menu/` | The `/ctui` menu | 2 |
-| `todo/` | Todo | 4 |
+| `todo/` | Todo | 5 |
 | `cost/` | Cost | 2 |
 
 Write `$RUN/report.md` in this shape and print its path as the last thing you say:
 
 ```markdown
-## ctui live checks — PASS (30/30)
+## ctui live checks — PASS (31/31)
 
 plugin ctui 0.5.0 (95e5d10)
 engine @anthropic-ai/claude-code 2.1.292
@@ -100,7 +100,7 @@ run dir /tmp/ctui-live-checks-7Qa1Zx
 ```
 
 The heading counts the passes. Under the sections, list each kept config dir as `scenario <name>: <path>` so a
-FAIL's config, transcript and settings are still readable at a named path. All 30 rows appear in every report,
+FAIL's config, transcript and settings are still readable at a named path. All 31 rows appear in every report,
 whatever the run found: one shape, always complete, is what makes it attachable.
 
 ## Driving a scenario
@@ -189,17 +189,18 @@ Boot at 200×45 with `-- --settings '{"tui":"default"}'`.
 | `toasts/main-screen-prefix` | one prompt asking Claude to start a background Explore agent that lists the folder; `watch 30 ctui:`, `runs` that row | the toast text as `ctui: ◆ Explore started: …` and its start column against the line under the prompt |
 | `menu/frame-fits-content` | `resize 120 45`; `type /ctui`, `enter`; open each screen with `key` and `dump` | the body's column span against the frame, and the `─` and footer rows sitting directly under each screen's last content row |
 
-## Scenario 6: `todo` — 4 checks, 2 model turns
+## Scenario 6: `todo` — 5 checks, 2 model turns
 
 Task tools are on by default and the default model stays. These two turns always run: no skip flag, so every
 report is the same shape. Ask each one explicitly — `plan three steps with your task tools and work through them`
-— and drive the three docked checks while the first turn is still working.
+— and drive the four docked checks while the first turn is still working.
 
 | Check | Drive | `measured` carries |
 |---|---|---|
 | `todo/own-list-hidden` | boot at 150×45, turn 1, then `grep ctrl+t`, `dump`; `key \x14`, `dump` | no list under the spinner, the footer reading `ctrl+t to show tasks`, and Claude Code's own list after ctrl+t |
 | `todo/spinner-animates` | `anim 2 0.3 <the in-progress task's text>` | the in-progress cell's glyph in each of the two samples, ~300 ms apart |
 | `todo/spinner-focused` | `key \x18\t`, then `anim 2 0.3 <the same text>` | the glyph differing across the samples while the Sidebar holds the engine-granted focus |
+| `todo/glyph-columns` | `grep` a completed task's text for its row, then `cells <row> 110 116` over that row | the `checkbox_marked_circle` codepoint at content column 0, its `fg`, the two gap cells, and the task's first text cell at content column 3 |
 | `todo/no-dock-100-cols` | `resize 100 45`, turn 2, then `grep ctrl+t`, `dump` | Claude Code's list drawn under the spinner and the footer reading `ctrl+t to hide tasks` |
 
 ## Scenario 7: `cost-cold-cache` — 2 checks
