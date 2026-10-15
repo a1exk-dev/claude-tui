@@ -10,9 +10,9 @@ disable-model-invocation: true
 costs — so every resize, `/theme`, `setopt` and fold happens inside its session. You are the **lead**: run the
 gate, spawn one subagent per scenario, merge the rows they return into one report, print its path.
 
-One run spends 7 boots, 10 model turns (a floor, not an estimate: a pass has spent 14) and about 550 MB of temp churn. The model and effort it runs on, and
-which pull request runs it, are the operator's call: `CONTRIBUTING.md` holds both, and the report's version
-block records what this run used.
+One run spends 7 boots, 10 model turns (a floor, not an estimate: a pass has spent 14) and about 550 MB of
+temp churn. The model and effort it runs on, and which pull request runs it, are the operator's call:
+`CONTRIBUTING.md` holds both, and the report's version block records what this run used.
 
 [`harness/HARNESS.md`](harness/HARNESS.md) holds the step vocabulary, the geometry at each dock width, and the
 theme facts the checks compare against. Every scenario drives the harness through it, and no check restates it.
@@ -131,7 +131,7 @@ Each subagent owns one scenario end to end:
 CFG=$(node .claude/skills/live-checks/harness/harness.ts seed <scenario> [--settings '<json>'])
 S=$RUN/<scenario>; mkdir -p $S; rm -f $S/fifo $S/out
 node .claude/skills/live-checks/harness/harness.ts serve $CFG 150 45 $S/fifo $S/out [options] &
-SERVE=$!
+echo $! > $S/pid
 printf 'wait 20\ngrep claude cli:\n' | node .claude/skills/live-checks/harness/harness.ts send $S/fifo $S/out 4
 ```
 
@@ -140,7 +140,7 @@ a few steps per `send`, reading each batch's output before choosing the next: on
 scenario. Finish with `printf 'quit\n' | … send $S/fifo $S/out 2`, and `rm -rf "$CFG"` once every row passed.
 
 A step that throws prints `!! …` and leaves the session up, so a mistyped step costs no boot. When a session
-will not quit, kill only your own: start `serve` with `&` and keep its pid (`SERVE=$!`), then `kill $SERVE`.
+will not quit, kill only your own: start `serve` with `&` and write its pid to `$S/pid` in the same call, as above (a shell variable does not survive from one Bash call to the next), then `kill $(cat $S/pid)`.
 The pattern `pkill -f 'harness.ts serve'` matches every concurrent scenario's serve, so it is the one way a
 scenario costs another its boot.
 
@@ -238,8 +238,9 @@ steps and runs 0/3 to 3/3 in seconds. Spend a turn of its own on the hold — `c
 the second one in progress, then run "timeout 60 tail -f /dev/null" with Bash in the foreground and wait for
 it` — which parks one sweeping row for 60 s, longer than any hold the scenario takes (the longest sample pair
 is ~36 s in). The engine refuses a standalone foreground `sleep`, so the hold is never a bare `sleep`. Check the
-hold took before sampling: a refused hold shows as a Bash row reading `interrupted` with the turn ending in
-seconds instead of parking a sweeping row. On seeing that, re-drive the same turn. Drive `todo/spinner-animates`,
+hold took before sampling: look at the `timeout 60 tail -f /dev/null` Bash row, which reads `interrupted` and
+ends the turn in seconds when the hold was refused, instead of parking a sweeping row. On seeing that, re-drive
+the same turn once; a second refusal is a FAIL on the three motion checks, naming what the Bash row showed. Drive `todo/spinner-animates`,
 `todo/fold-line-still` and `todo/spinner-focused` inside that window.
 
 | Check | Drive | `measured` carries |
