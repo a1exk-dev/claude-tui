@@ -34,7 +34,8 @@ const stubServers = () => ({
   ctuistub: {
     type: 'stdio',
     command: process.execPath,
-    args: [join(fixtures, 'mcp-server.ts'), 'ctuistub', '2'],
+    // 10 s per call, so a check can read the busy row twice while one is in flight.
+    args: [join(fixtures, 'mcp-server.ts'), 'ctuistub', '2', '0', '10000'],
   },
 })
 

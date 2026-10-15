@@ -34,6 +34,7 @@ export type McpRow = {
   label: string
   source: string // `user`, `project`, `local`, `claude.ai`, a plugin's name, `managed`, `enterprise`, `dynamic`
   state: 'ok' | 'auth' | 'connecting' | 'down' | 'off'
+  busy?: true // at least one call to the server is in flight; an overlay on the glyph cell, not a sixth state
   tools?: number
   since?: number
 }

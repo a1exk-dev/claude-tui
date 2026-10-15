@@ -1,6 +1,6 @@
 import type { McpRow } from '../../types'
 import type { Role } from '../colors'
-import { lead, type Mark, MARKS, tally } from '../marks'
+import { frozenSweep, lead, type Mark, MARKS, SWEEP_ROLE, sweeping, tally } from '../marks'
 import type { SidebarPlugin } from '../plugin'
 
 // Each state's mark from the Sidebar's shared circle vocabulary
@@ -28,15 +28,25 @@ const plugin: SidebarPlugin = {
   slot: 'section',
   needs: ['mcp'],
   list: true,
-  view: ({ mcp = [] }, { Box, Text }, _cfg, _width, c) =>
-    mcp.map((row) => {
+  view: ({ mcp = [] }, ui, _cfg, _width, c) => {
+    const { Box, Text } = ui
+    return mcp.map((row) => {
       const { mark, text, textRole } = STATES[row.state]
       return (
         <Box flexGrow={1} justifyContent="space-between" columnGap={1}>
-          <Text color={c.main} wrap="truncate-end">
-            {lead(Text, mark, c)}
-            {row.label}
-          </Text>
+          {/* The glyph cell is the row's live cell: while a call to the server
+              is in flight the sweep replaces the state's mark, in that state's
+              own role, and the state text at the right is untouched. */}
+          {row.busy ? (
+            <Box flexShrink={1} minWidth={0}>
+              {sweeping(ui, `spinner-${row.server}`, row.label, c, mark.role)}
+            </Box>
+          ) : (
+            <Text color={c.main} wrap="truncate-end">
+              {lead(Text, mark, c)}
+              {row.label}
+            </Text>
+          )}
           <Box flexShrink={0}>
             <Text color={c.muted}>
               {row.source} · <Text color={c[textRole]}>{text(row)}</Text>
@@ -44,15 +54,22 @@ const plugin: SidebarPlugin = {
           </Box>
         </Box>
       )
-    }),
+    })
+  },
   count: ({ mcp = [] }) => `${mcp.filter((row) => row.state === 'ok').length}/${mcp.length}`,
   // Folded, a tally of the connection states in the same order, each mark
   // then its count; a state with no servers is left out, so the terms sum to
-  // the listed servers.
+  // the listed servers. The busy term leads, drawing the frozen sweep frame
+  // (a fold line never animates) and always in `warning` however the busy
+  // servers' own states differ: folded, the term claims only that something is
+  // working. A busy server leaves its state term, so the terms still sum.
   summary: ({ mcp = [] }, { Text }, _cfg, _width, c) =>
     tally(
       Text,
-      ORDER.map((state) => ({ mark: STATES[state].mark, count: mcp.filter((row) => row.state === state).length })),
+      [
+        { mark: frozenSweep(SWEEP_ROLE), count: mcp.filter((row) => row.busy).length },
+        ...ORDER.map((state) => ({ mark: STATES[state].mark, count: mcp.filter((row) => row.state === state).length })),
+      ],
       c,
     ),
 }

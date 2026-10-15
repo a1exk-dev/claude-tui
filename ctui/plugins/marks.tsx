@@ -27,8 +27,9 @@ export const MARKS = {
 // colour": the sweep takes its row's own role, so it carries none here.
 export const SWEEP = { frames: Array.from({ length: 8 }, (_, i) => String.fromCodePoint(0xf0a9e + i)), ms: 100 }
 
-// The sweep's role, named once for every section that draws motion: a working
-// row turns in `warning` and its folded term freezes at the same role.
+// The role `todo` and `agents` sweep in: a Todo item in progress and a running
+// task are not state machines with colours of their own, so both turn in
+// `warning`. `mcp` hands `sweeping` its row's own connection role instead.
 export const SWEEP_ROLE: Role = 'warning'
 
 // The frozen sweep frame a fold line's working term draws, nf-md-circle_slice_6
@@ -54,10 +55,18 @@ export const lead = (Text: SidebarUi['Text'], { glyph, role }: Mark, c: Colors):
 // label. The sweep turns on its own surface, outside the focus ring, so it
 // stays a `Client` while the Pane is focused; it draws the glyph's cell, and
 // the gap after it leads the text exactly as `lead` writes it. `key` is the
-// row's own, so a row keeps its frame clock across redraws.
-export const sweeping = ({ Box, Text, Client }: SidebarUi, key: string, label: string, c: Colors): RenderNode[] => [
+// row's own, so a row keeps its frame clock across redraws. `role` is the
+// row's own: shape says in progress, colour keeps saying which state the row
+// is in (`docs/spec/working-now.md`, "The motion").
+export const sweeping = (
+  { Box, Text, Client }: SidebarUi,
+  key: string,
+  label: string,
+  c: Colors,
+  role: Role,
+): RenderNode[] => [
   <Box width={1} flexShrink={0}>
-    <Client key={key} module="./todo/spinner.tsx" props={{ ...SWEEP, color: c[SWEEP_ROLE] }} />
+    <Client key={key} module="./todo/spinner.tsx" props={{ ...SWEEP, color: c[role] }} />
   </Box>,
   <Text color={c.main} wrap="truncate-end">
     {GAP}

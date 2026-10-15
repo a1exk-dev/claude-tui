@@ -50,7 +50,12 @@ const AUTH = '\u{f0028}' // nf-md-alert_circle
 const CONNECTING = '\u{f043e}' // nf-md-radiobox_marked
 const DOWN = '\u{f0159}' // nf-md-close_circle
 const OFF = '\u{f0377}' // nf-md-minus_circle_outline
-const CIRCLES = new RegExp(`^[${OK}${AUTH}${CONNECTING}${DOWN}${OFF}]`, 'u')
+// A busy row draws the sweep in the glyph cell instead; at rest its Client
+// draws the first frame, and a fold line's busy term the frozen sixth.
+const SWEEP_1 = '\u{f0a9e}' // nf-md-circle_slice_1
+const SWEEP_6 = '\u{f0aa3}' // nf-md-circle_slice_6
+const SWEEP_FRAMES = Array.from({ length: 8 }, (_, index) => String.fromCodePoint(0xf0a9e + index))
+const CIRCLES = new RegExp(`^[${OK}${AUTH}${CONNECTING}${DOWN}${OFF}${SWEEP_1}]`, 'u')
 
 // The text of each MCP row: a Box spreading the label and the state. The two
 // spaces after the glyph are part of the row, so they are kept as drawn.
@@ -92,6 +97,34 @@ test('each row: the mark in its role, two spaces, the label, the state at the ri
   expect((await pane.find({ type: 'Text', text: new RegExp(`^${OK} {2}playwright$`, 'u') }))?.props.color).toBe('text')
 })
 
+// Busy is an overlay on the glyph cell, not a sixth state: the sweep replaces
+// whatever the connection state would draw, in that state's own role, and the
+// right-hand `<source> · <state text>` is untouched (`docs/spec/working-now.md`).
+test('a busy row sweeps in its own state’s role, its state text unchanged', async ($, on) => {
+  const busy = ROWS.filter((row) => row.state !== 'connecting').map((row) => ({ ...row, busy: true as const }))
+  const pane = await draw($, on, 'view', [
+    ...busy,
+    { server: 'linear', label: 'linear', source: 'dynamic', state: 'connecting', since: 0, busy: true },
+  ])
+  expect(await rowsOf(pane)).toEqual([
+    `${SWEEP_1}  playwrightuser · 22 tools`,
+    `${SWEEP_1}  githubuser · off`,
+    `${SWEEP_1}  Claude Docsclaude.ai · 1 tool`,
+    `${SWEEP_1}  sentryproject · down`,
+    `${SWEEP_1}  authylocal · needs auth`,
+    `${SWEEP_1}  lineardynamic · connecting`,
+  ])
+  const sweeps = await pane.findAll({ type: 'Text', text: new RegExp(`^${SWEEP_1}$`, 'u') })
+  expect(sweeps.map((sweep) => sweep.props.color)).toEqual([
+    'success',
+    'subtle',
+    'success',
+    'error',
+    'warning',
+    'warning',
+  ])
+})
+
 // The gap costs the label a column, so at the 42-column dock the label is the
 // half that gives way and `<source> · <state text>` keeps its room.
 test('at the 42-column dock the glyph and gap sit in the truncating half', async ($, on) => {
@@ -100,6 +133,20 @@ test('at the 42-column dock the glyph and gap sit in the truncating half', async
   const label = await pane.find({ type: 'Text', text: new RegExp(`^${OK} {2}${long.label}$`, 'u') })
   expect(label?.props.wrap).toBe('truncate-end')
   const boxes = await pane.findAll({ type: 'Box' })
+  expect(boxes.some((box) => box.props.flexShrink === 0 && box.text === 'user · 7 tools')).toBe(true)
+})
+
+// Busy swaps the glyph cell for its own `Client`, so the truncating half is
+// the Box around the sweep rather than one Text. The row gives way the same
+// way: the label truncates and `<source> · <state text>` keeps its room.
+test('at the 42-column dock a busy row’s sweep and gap sit in the truncating half', async ($, on) => {
+  const long = { server: 'l', label: 'a-very-long-mcp-server-name-that-cannot-fit', source: 'user', state: 'ok' as const, tools: 7, busy: true as const }
+  const pane = await draw($, on, 'view', [long])
+  const label = await pane.find({ type: 'Text', text: new RegExp(`^ {2}${long.label}$`, 'u') })
+  expect(label?.props.wrap).toBe('truncate-end')
+  const boxes = await pane.findAll({ type: 'Box' })
+  // The sweep and its gap shrink with the label, not beside it.
+  expect(boxes.some((box) => box.props.flexShrink === 1 && box.props.minWidth === 0 && box.text === `${SWEEP_1}  ${long.label}`)).toBe(true)
   expect(boxes.some((box) => box.props.flexShrink === 0 && box.text === 'user · 7 tools')).toBe(true)
 })
 
@@ -129,6 +176,22 @@ test('folded, a tally of the states present, each in its role, in state order', 
   // A state with no servers has no term, so the terms sum to the listed servers.
   expect(await summary(ROWS.filter((row) => row.state === 'ok'))).toBe(`${OK}  2`)
   expect(await summary([])).toBe('none')
+
+  // Folded, the busy term leads in `warning` however the busy servers' own
+  // states differ, drawing the frozen frame; a busy server leaves its state
+  // term, so the terms still sum to the server count.
+  const working = ROWS.map((row) => (row.state === 'ok' || row.state === 'down' ? { ...row, busy: true as const } : row))
+  expect(await summary(working)).toBe(
+    `${SWEEP_6}  3  ${OK}  2  ${AUTH}  1  ${CONNECTING}  1  ${DOWN}  1  ${OFF}  1`,
+  )
+  expect((await pane.findAll({ type: 'Text', text: /^\S {2}\d$/u })).map((term) => term.props.color)).toEqual([
+    'warning',
+    'success',
+    'warning',
+    'warning',
+    'error',
+    'subtle',
+  ])
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.
@@ -416,4 +479,180 @@ test('▸ N more lights main under the pointer, not accent', async ($, on) => {
   expect(await color()).toBe('inactive')
   await pane.pointer({ type: 'enter', x: 0, y: 0, in: 'more-mcp' })
   expect(await color()).toBe('text')
+})
+
+// Busy through register.tsx's hooks: a `tool.call` to a server is bracketed,
+// so the row sweeps while a call is in flight and settles the instant the last
+// one ends (`docs/spec/working-now.md`, "`mcp`: when a server is in progress").
+
+// A held call's answer, so a test can keep one in flight and release it.
+type Answer = (result: { result: string }) => void
+const OK_RESULT = { result: 'ok' }
+
+// One server's row as the docked Sidebar draws it. A sweeping row's glyph
+// lives inside its own `Client`, so the row's own text starts at the gap. The
+// busy write is queued behind the hook, so the first redraw lets it land.
+async function sentryRow(pane: Awaited<ReturnType<typeof draw>>) {
+  await pane.redraw()
+  await pane.redraw()
+  const boxes = await pane.findAll({ type: 'Box' })
+  const row = boxes.find((box) => box.props.justifyContent === 'space-between' && /sentry/.test(box.text))
+  const sweep = await pane.find({ type: 'Client', key: 'spinner-sentry' })
+  return { text: row?.text, sweep: sweep?.props.props as { frames: string[]; ms: number; color: string } | undefined }
+}
+
+test('two overlapping calls leave the row busy until the second ends', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  mock.env(on, { HOME, MCP_TIMEOUT: '10000' })
+  host(on, { tools: tools('sentry', 1), json: '{}', mtimeMs: 1 })
+  const answers: Answer[] = []
+  on('tool.call', { tool: 'mcp__sentry__t0' }, () => new Promise<{ result: string }>((resolve) => answers.push(resolve)))
+  await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
+  await clock.advance(1000)
+  const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
+  expect(await sentryRow(pane)).toEqual({ text: `${OK}  sentrydynamic · 1 tool`, sweep: undefined })
+
+  const first = $.tool.call({ tool: 'mcp__sentry__t0', tool_use_id: 'toolu_1' })
+  const second = $.tool.call({ tool: 'mcp__sentry__t0', tool_use_id: 'toolu_2' })
+  // The row sweeps as the calls cross the wire, without waiting for a tick:
+  // the glyph cell is the Client's, so the row's own text starts at the gap.
+  expect(await sentryRow(pane)).toEqual({
+    text: '  sentrydynamic · 1 tool',
+    sweep: { frames: SWEEP_FRAMES, ms: 100, color: 'success' },
+  })
+  answers[0]?.(OK_RESULT)
+  await first
+  expect((await sentryRow(pane)).text).toBe('  sentrydynamic · 1 tool')
+  answers[1]?.(OK_RESULT)
+  await second
+  // It settles the instant the last call ends: no hold, no floor.
+  expect(await sentryRow(pane)).toEqual({ text: `${OK}  sentrydynamic · 1 tool`, sweep: undefined })
+})
+
+test('a call that throws releases the count, so the row still settles', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  mock.env(on, { HOME, MCP_TIMEOUT: '10000' })
+  host(on, { tools: tools('sentry', 2), json: '{}', mtimeMs: 1 })
+  let answer: Answer | undefined
+  on('tool.call', { tool: 'mcp__sentry__t0' }, () => new Promise<{ result: string }>((resolve) => (answer = resolve)))
+  on('tool.call', { tool: 'mcp__sentry__t1' }, () => {
+    throw new Error('the server hung up')
+  })
+  await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
+  await clock.advance(1000)
+  const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
+  const held = $.tool.call({ tool: 'mcp__sentry__t0', tool_use_id: 'toolu_1' })
+  expect((await sentryRow(pane)).text).toBe('  sentrydynamic · 2 tools')
+  // A second call to the same server fails. Its own count goes with it, so the
+  // row turns on the call that is left and settles when that one ends.
+  await $.tool.call({ tool: 'mcp__sentry__t1', tool_use_id: 'toolu_2' }).catch(() => undefined)
+  expect((await sentryRow(pane)).text).toBe('  sentrydynamic · 2 tools')
+  answer?.(OK_RESULT)
+  await held
+  expect(await sentryRow(pane)).toEqual({ text: `${OK}  sentrydynamic · 2 tools`, sweep: undefined })
+})
+
+test('a call to a down server sweeps in error without changing its state text', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  mock.env(on, { HOME, MCP_TIMEOUT: '1000' })
+  const world = { tools: tools('sentry', 1), json: '{}', mtimeMs: 1 }
+  host(on, world)
+  let answer: Answer | undefined
+  on('tool.call', { tool: 'mcp__sentry__t0' }, () => new Promise<{ result: string }>((resolve) => (answer = resolve)))
+  await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
+  await clock.advance(1000)
+  const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
+  // Its tools go, so the row connects and then reads down.
+  world.tools = []
+  await clock.advance(1000)
+  await clock.advance(1000)
+  expect((await sentryRow(pane)).text).toBe(`${DOWN}  sentrydynamic · down`)
+
+  const held = $.tool.call({ tool: 'mcp__sentry__t0', tool_use_id: 'toolu_1' })
+  // Busy outranks the state in the glyph cell alone: the right-hand text keeps
+  // saying "the last read said down", and the sweep takes the row's own role.
+  expect(await sentryRow(pane)).toEqual({
+    text: '  sentrydynamic · down',
+    sweep: { frames: SWEEP_FRAMES, ms: 100, color: 'error' },
+  })
+  // The header count is about reachability, not work.
+  expect(await pane.find({ type: 'Text', text: '0/1', in: 'foldrow-mcp' })).toBeDefined()
+  answer?.(OK_RESULT)
+  await held
+})
+
+// The tick and the bracket write the same rows, so both go through one queue
+// that re-reads the in-flight count at write time. Without that, a tick whose
+// write is already in flight when the last call ends puts the count back as it
+// stood and the row sweeps on with nothing running until the next tick — the
+// stale-hot read `docs/spec/working-now.md` rules out ("The count lives in a
+// module variable", "It settles at once").
+test('a release landing while a tick writes still leaves the row settled', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  mock.env(on, { HOME, MCP_TIMEOUT: '10000' })
+  const world = { tools: tools('sentry', 1), json: '{}', mtimeMs: 1 }
+  host(on, world)
+  let answer: Answer | undefined
+  on('tool.call', { tool: 'mcp__sentry__t0' }, () => new Promise<{ result: string }>((resolve) => (answer = resolve)))
+  // Holds the next write of the rows open, which is the window a second
+  // writer could overwrite.
+  let hold: (() => void) | undefined
+  let holding = false
+  on('state.set', async ($, e, next) => {
+    if (e.key === 'mcp' && holding) {
+      holding = false
+      await new Promise<void>((resolve) => (hold = resolve))
+    }
+    return next(e)
+  })
+  await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
+  await clock.advance(1000)
+  const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
+  const held = $.tool.call({ tool: 'mcp__sentry__t0', tool_use_id: 'toolu_1' })
+  expect((await sentryRow(pane)).sweep?.color).toBe('success')
+
+  // A tick with something of its own to write — the server gained a tool —
+  // caught mid-write, and the call ends inside that window.
+  world.tools = tools('sentry', 2)
+  holding = true
+  await clock.advance(1000)
+  answer?.(OK_RESULT)
+  await held
+  hold?.()
+  await clock.settle()
+  // The tick's own change lands, and the row settles with it: no sweep left
+  // over for the next second.
+  expect(await sentryRow(pane)).toEqual({ text: `${OK}  sentrydynamic · 2 tools`, sweep: undefined })
+})
+
+// The spec asks for this through the hooks as well as per view: with a call in
+// flight, the folded tally's busy term leads and a busy server keeps its state
+// term, so the state terms still sum to the server count.
+test('folded with a busy server, the busy term leads and the terms sum to the server count', async ($, on) => {
+  const clock = mock.clock(on, { now: 0 })
+  mock.env(on, { HOME, MCP_TIMEOUT: '10000' })
+  host(on, { tools: [...tools('sentry', 1), ...tools('docs', 1)], json: claudeJson(['github']), mtimeMs: 1 })
+  let answer: Answer | undefined
+  on('tool.call', { tool: 'mcp__sentry__t0' }, () => new Promise<{ result: string }>((resolve) => (answer = resolve)))
+  await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
+  await clock.advance(1000)
+  const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
+  // Three servers listed: two reachable, one disabled.
+  expect(await pane.find({ type: 'Text', text: '2/3', in: 'foldrow-mcp' })).toBeDefined()
+  const held = $.tool.call({ tool: 'mcp__sentry__t0', tool_use_id: 'toolu_1' })
+  expect((await sentryRow(pane)).sweep?.color).toBe('success')
+
+  // A click on the title row folds it; the tally is that row's own Client.
+  await pane.pointer({ type: 'down', x: 2, y: 0, button: 'left', in: 'foldrow-mcp' })
+  const terms = await pane.findAll({ type: 'Text', text: /^\S {2}\d$/u, in: 'foldrow-mcp' })
+  expect(terms.map((term) => [term.text, term.props.color])).toEqual([
+    [`${SWEEP_6}  1`, 'warning'],
+    [`${OK}  2`, 'success'],
+    [`${OFF}  1`, 'subtle'],
+  ])
+  // The busy term leads and claims only that something is working; the state
+  // terms after it still sum to the three servers the header counted.
+  expect(terms.slice(1).reduce((sum, term) => sum + Number(term.text.slice(-1)), 0)).toBe(3)
+  answer?.(OK_RESULT)
+  await held
 })

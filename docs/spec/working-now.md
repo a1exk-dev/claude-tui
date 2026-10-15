@@ -102,8 +102,10 @@ the 1 s tick derives from live tools and config, and **busy**, true while at lea
 is in flight. Busy is not a sixth connection state.
 
 - **Bracket the call in the `tool.call` hook**: start before `next(e)`, end in its `finally`, so an error
-  and an abort both release it. `serverName(e.tool, e.provider.plugin)` and `segmentOf` already name the
-  server from the tool, so a call is attributed exactly and bounded at both ends.
+  and an abort both release it. A `tool.call` event carries no `provider`, so the server comes from
+  the tool name alone: the second `__` segment of `mcp__<server>__<tool>`, which is the segment the tick
+  already groups its rows by (`serverOfTool()` in `hooks/mcp.ts`). So a call is attributed exactly and
+  bounded at both ends.
 - **The glyph cell is the row's live cell.** While busy, the glyph sweeps; the right-hand
   `<source> · <state text>` is untouched. A busy row still reads `plugin · 23 tools`, and a busy row whose
   last read failed still reads `user · needs auth`. The right-hand slot never changes meaning mid-session.

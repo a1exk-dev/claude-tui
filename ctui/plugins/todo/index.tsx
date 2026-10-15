@@ -53,7 +53,7 @@ const plugin: SidebarPlugin = {
     return todo.items.map((item, index) => {
       // The item in progress sweeps, the shared motion lead (`plugins/marks.tsx`).
       if (item.status === 'in_progress')
-        return <Box flexDirection="row">{sweeping(ui, `spinner-${item.id ?? index}`, textOf(item), c)}</Box>
+        return <Box flexDirection="row">{sweeping(ui, `spinner-${item.id ?? index}`, textOf(item), c, SWEEP_ROLE)}</Box>
       const { mark, textRole } = STATUSES[item.status]
       return (
         <Text wrap="truncate-end">
