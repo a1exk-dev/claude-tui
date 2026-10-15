@@ -6,11 +6,11 @@ disable-model-invocation: true
 
 # Live checks
 
-31 **checks** over 7 **scenarios**. A scenario is one seeded config dir and one engine boot — the unit that
+32 **checks** over 7 **scenarios**. A scenario is one seeded config dir and one engine boot — the unit that
 costs — so every resize, `/theme`, `setopt` and fold happens inside its session. You are the **lead**: run the
 gate, spawn one subagent per scenario, merge the rows they return into one report, print its path.
 
-One run spends 7 boots, 5 model turns and about 550 MB of temp churn. The model and effort it runs on, and
+One run spends 7 boots, 6 model turns and about 550 MB of temp churn. The model and effort it runs on, and
 which pull request runs it, are the operator's call: `CONTRIBUTING.md` holds both, and the report's version
 block records what this run used.
 
@@ -75,17 +75,18 @@ Group the rows by the prefix of their check ids — the prefix *is* the report s
 | `themes/` | Themes | 10 |
 | `menu/` | The `/ctui` menu | 2 |
 | `todo/` | Todo | 5 |
+| `agents/` | Agents & shells | 1 |
 | `cost/` | Cost | 2 |
 
 Write `$RUN/report.md` in this shape and print its path as the last thing you say:
 
 ```markdown
-## ctui live checks — PASS (31/31)
+## ctui live checks — PASS (32/32)
 
 plugin ctui 0.5.0 (95e5d10)
 engine @anthropic-ai/claude-code 2.1.292
 node scripts/check.ts  PASS  332 tests, 41 s
-run 2026-10-13T09:14Z  Sonnet, medium effort, 5 model turns
+run 2026-10-13T09:14Z  Sonnet, medium effort, 6 model turns
 run dir /tmp/ctui-live-checks-7Qa1Zx
 
 ### Sidebar docking
@@ -100,7 +101,7 @@ run dir /tmp/ctui-live-checks-7Qa1Zx
 ```
 
 The heading counts the passes. Under the sections, list each kept config dir as `scenario <name>: <path>` so a
-FAIL's config, transcript and settings are still readable at a named path. All 31 rows appear in every report,
+FAIL's config, transcript and settings are still readable at a named path. All 32 rows appear in every report,
 whatever the run found: one shape, always complete, is what makes it attachable.
 
 ## Driving a scenario
@@ -121,7 +122,7 @@ scenario. Finish with `printf 'quit\n' | … send $S/fifo $S/out 2`, and `rm -rf
 A step that throws prints `!! …` and leaves the session up, so a mistyped step costs no boot. `pkill -f
 'harness.ts serve'` is the fallback when a session will not quit.
 
-## Scenario 1: `default-150` — 8 checks, 1 model turn
+## Scenario 1: `default-150` — 9 checks, 2 model turns
 
 Seed a scratch repo in `$S/repo` first — `git init`, a bare repo as `origin` with an upstream branch, one staged,
 one modified and one untracked file, one stash — then seed with `--trust $S/repo --mcp` and boot with
@@ -134,6 +135,7 @@ session does start as well as what it does not.
 | `docking/width-53-at-170` | `resize 170 45`, `dumpbg` | the run at cols 117–169, 53 columns |
 | `docking/close-attempts-ignored` | `resize 150 45`; `grep ✕` for the glyph's cell, `click` it; `key \x18x`; `key \x18\t` then `key \e`; `grep claude cli:` after each | the footer row still present after all three presses |
 | `layout/git-glyph-columns` | `grep` the branch row, then `cells <row> 110 114` on the three git rows | each glyph's codepoint at content column 0, its text at column 2, and the `fg` of each |
+| `agents/glyph-columns` | one prompt asking Claude to start a background Explore agent that lists the folder; `watch 30 Agents`, `grep` the agent's own row, then `cells <row> 110 116` over it | the `circle_slice` codepoint at content column 0 (or `checkbox_marked_circle` once the agent has ended), its `fg`, the two gap cells, and the agent's name at content column 3 |
 | `layout/frame-and-footer` | `grep claude cli:`, `runs` the footer rows and the `│` column, at 53 and again at 42 | one footer row at 53 and two at 42, the `│` on every body row at the dock's left edge with the colours its cells carry, no update icon |
 | `layout/no-child-processes` | `sh for i in $(seq 10); do pstree -a -p $(pgrep -n -f 'claude --plugin-dir'); sleep 1; done \| sort -u` | the distinct child commands seen over the 10 s: the seeded `ctuistub` server and short `git` runs, and no `claude -p` or `claude mcp list` |
 | `rewrites/rule-gutter` | one prompt: a wrapped several-line ask for a reply that ends with a 200-character unbroken token, plus a long `Bash` run; then `dump` | the rightmost text column the prompt panel, the reply and the `$ Bash` row each reach, none of them at 105 or right of it, with the reply's forced token wrapping at 104 and cols 105–106 blank; and, as the control, the rightmost column the prompt box's own border rule reaches, which ctui does not pad |

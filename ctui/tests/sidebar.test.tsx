@@ -368,7 +368,7 @@ test("#85's busy data at 34 body rows: 40 section rows overflow 22 free rows", a
 test("#85's busy data scrolled to the end", async ($, on) => {
   const window = windowOf(layout((await busy($, on, 99)).tree))
   expect(window.slice(0, 2)).toEqual(['↑ more', '● server 2user · 3 tools'])
-  expect(window.at(-1)).toBe('◐ Plan · plan0s')
+  expect(window.at(-1)).toBe('󰪞  planPlan · 0s')
   expect(height(window)).toBe(22)
 })
 
