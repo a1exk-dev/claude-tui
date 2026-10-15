@@ -6,11 +6,11 @@ disable-model-invocation: true
 
 # Live checks
 
-38 **checks** over 7 **scenarios**. A scenario is one seeded config dir and one engine boot — the unit that
+37 **checks** over 7 **scenarios**. A scenario is one seeded config dir and one engine boot — the unit that
 costs — so every resize, `/theme`, `setopt` and fold happens inside its session. You are the **lead**: run the
 gate, spawn one subagent per scenario, merge the rows they return into one report, print its path.
 
-One run spends 7 boots, 10 model turns and about 550 MB of temp churn. The model and effort it runs on, and
+One run spends 7 boots, 10 model turns (a floor, not an estimate: a pass has spent 14) and about 550 MB of temp churn. The model and effort it runs on, and
 which pull request runs it, are the operator's call: `CONTRIBUTING.md` holds both, and the report's version
 block records what this run used.
 
@@ -23,15 +23,23 @@ theme facts the checks compare against. Every scenario drives the harness throug
 node scripts/check.ts
 ```
 
-Record its result, test count and duration. On a non-zero exit, stop and name what failed: the boots are too
+The gate prints one summary line. Copy that line's verdict, test count and duration into the version block, not a
+figure from the output above it: the suite runs several hundred tests, so a count in the tens means you copied
+a tail. Run it every time, including when the session that launched you just did, so the block records a result
+measured at the commit about to be checked. On a non-zero exit, stop and name what failed: the boots are too
 expensive to spend on a checkout that does not pass.
 
-Then collect the version block's facts and the run dir:
+Then collect the version block's facts:
 
 ```bash
 node -p "require('./ctui/.claude-plugin/plugin.json').version"
 git rev-parse --short HEAD
 node -p "require('./package.json').devDependencies['@anthropic-ai/claude-code']"
+```
+
+`$RUN` is the run dir. Use the one your invocation named (`RUN=<path>`); only when it named none, mint one:
+
+```bash
 RUN=$(mktemp -d -t ctui-live-checks-XXXXXX)
 ```
 
@@ -75,7 +83,7 @@ Group the rows by the prefix of their check ids — the prefix *is* the report s
 | `mcp/` | MCP | 3 |
 | `rewrites/` | Render-site rewrites | 2 |
 | `toasts/` | Toasts | 1 |
-| `themes/` | Themes | 10 |
+| `themes/` | Themes | 9 |
 | `menu/` | The `/ctui` menu | 2 |
 | `skills/` | Skills | 1 |
 | `todo/` | Todo | 6 |
@@ -85,12 +93,13 @@ Group the rows by the prefix of their check ids — the prefix *is* the report s
 Write `$RUN/report.md` in this shape and print its path as the last thing you say:
 
 ```markdown
-## ctui live checks — PASS (38/38)
+## ctui live checks — PASS (37/37)
 
-plugin ctui 0.5.0 (95e5d10)
-engine @anthropic-ai/claude-code 2.1.292
-node scripts/check.ts  PASS  332 tests, 41 s
-run 2026-10-13T09:14Z  Sonnet, medium effort, 7 model turns
+plugin ctui 0.6.0 (da270ab)
+engine @anthropic-ai/claude-code 2.1.300
+node scripts/check.ts  PASS  360 tests, 9 s
+run 2026-10-15T09:14Z  Sonnet, medium effort
+cost —  wall —
 run dir /tmp/ctui-live-checks-7Qa1Zx
 
 ### Sidebar docking
@@ -101,11 +110,17 @@ run dir /tmp/ctui-live-checks-7Qa1Zx
 ### Themes
 | check | expected | measured | |
 |---|---|---|---|
-| themes/hover-underline | engine underlines every hovered cell | u=1 on cols 110-147 | PASS |
+| themes/hover-colors | arrow and title in `suggestion` on hover | suggestion on cols 110-147 | PASS |
 ```
 
+Write `cost` and `wall` as `—`: you can measure neither, since the cost lives in the result your caller reads and
+the wall clock is the caller's timing. The caller fills them; in an operator's own run the dashes stay and say
+nobody measured them. The `run` line's model and effort are the ones your invocation named, else your own
+session's. The block carries no turn count: `num_turns` counts only your own turns and no result field carries
+the pass's, so write none.
+
 The heading counts the passes. Under the sections, list each kept config dir as `scenario <name>: <path>` so a
-FAIL's config, transcript and settings are still readable at a named path. All 38 rows appear in every report,
+FAIL's config, transcript and settings are still readable at a named path. All 37 rows appear in every report,
 whatever the run found: one shape, always complete, is what makes it attachable.
 
 ## Driving a scenario
@@ -116,6 +131,7 @@ Each subagent owns one scenario end to end:
 CFG=$(node .claude/skills/live-checks/harness/harness.ts seed <scenario> [--settings '<json>'])
 S=$RUN/<scenario>; mkdir -p $S; rm -f $S/fifo $S/out
 node .claude/skills/live-checks/harness/harness.ts serve $CFG 150 45 $S/fifo $S/out [options] &
+SERVE=$!
 printf 'wait 20\ngrep claude cli:\n' | node .claude/skills/live-checks/harness/harness.ts send $S/fifo $S/out 4
 ```
 
@@ -123,8 +139,10 @@ The `grep` confirms the Sidebar is up before the first check reads it. Then driv
 a few steps per `send`, reading each batch's output before choosing the next: one boot carries every check of the
 scenario. Finish with `printf 'quit\n' | … send $S/fifo $S/out 2`, and `rm -rf "$CFG"` once every row passed.
 
-A step that throws prints `!! …` and leaves the session up, so a mistyped step costs no boot. `pkill -f
-'harness.ts serve'` is the fallback when a session will not quit.
+A step that throws prints `!! …` and leaves the session up, so a mistyped step costs no boot. When a session
+will not quit, kill only your own: start `serve` with `&` and keep its pid (`SERVE=$!`), then `kill $SERVE`.
+The pattern `pkill -f 'harness.ts serve'` matches every concurrent scenario's serve, so it is the one way a
+scenario costs another its boot.
 
 ## Scenario 1: `default-150` — 14 checks, 5 model turns
 
@@ -179,7 +197,7 @@ and read back what the engine wrote into `$CFG/.claude.json`.
 |---|---|---|
 | `docking/dock-columns-override` | boot at 150×45, `dumpbg` a body row | the dock's column range under the override, against the 42 the Sidebar asks for at that width |
 
-## Scenario 4: `themes` — 11 checks
+## Scenario 4: `themes` — 10 checks
 
 Seed default (`theme: dark`) and boot at 150×45. `setopt theme=<slug>` picks a ctui Theme, `/theme` picks the
 engine's. The seed writes `$CFG/themes/fixture.json` from `harness/fixtures/theme.json`, which `/theme` lists as
@@ -194,7 +212,6 @@ never run `omarchy theme set`** — nothing here assumes the operator's desktop,
 | `themes/inherit-no-paint` | `setopt theme="inherit"` with `/theme` on `dark`; `dumpbg` the body and the frame | the same color on body and frame |
 | `themes/omarchy-mix` | `/theme` → `Live Check Fixture` under `inherit`; `dumpbg` | the body's flat color against the fixture's `inverseText` `#2d353b` mixed 6% toward its `text` `#d3c6aa`, which is `#373e42`. The id keeps its name because the rule exists for Omarchy's template, which writes a theme's background to `inverseText` |
 | `themes/hover-colors` | `setopt theme="flexoki-light"`; `move` onto a title row's blank middle, `runs` that row; `move` off the Sidebar, `runs` again | the arrow, title and `:` in `suggestion` on the row; `inactive` and bold `text` off it |
-| `themes/hover-underline` | the hovered `runs`/`cells` from the row above | `u=1` on every hovered cell. Engine-pinned, not a ctui defect: see MEMORY.md, "Engine-pinned expectations hold only on the pinned Claude Code version" |
 | `themes/focus-arrows` | `key \x18\t`, `runs` an arrow row; `key \t`; `key \r`; `key \e`, `runs` again | the arrows in the `/theme`'s grey while focused, the first inverted after Tab, its section folded after Enter, `#706e69` after Esc |
 | `themes/theme-list-from-ctui` | `type /theme`, `wait 2`, `dump` (scroll the list) | the 22 ctui Themes A–Z from `Catppuccin` to `White`, each tagged `from ctui`. The seeded `Live Check Fixture` is a custom theme, not one of the 22 |
 | `themes/dock-tint` | pick `Everforest`, then `Catppuccin Latte` in `/theme`; `dumpbg` the whole screen each time | the transcript and dock recolored in one step, the dock one flat `#363d41` then `#e5e7ed` |
@@ -218,8 +235,11 @@ report is the same shape. Ask the first explicitly — `plan three steps with yo
 The three motion checks need an item **held** in progress, and that first turn does not give them one: it
 marks a step done and the next one in progress in separate calls, so the list reads all-pending between
 steps and runs 0/3 to 3/3 in seconds. Spend a turn of its own on the hold — `create three new tasks, mark
-the second one in progress, then run "sleep 300" with Bash in the foreground and wait for it` — which parks
-one sweeping row for as long as the sleep runs, and drive `todo/spinner-animates`,
+the second one in progress, then run "timeout 60 tail -f /dev/null" with Bash in the foreground and wait for
+it` — which parks one sweeping row for 60 s, longer than any hold the scenario takes (the longest sample pair
+is ~36 s in). The engine refuses a standalone foreground `sleep`, so the hold is never a bare `sleep`. Check the
+hold took before sampling: a refused hold shows as a Bash row reading `interrupted` with the turn ending in
+seconds instead of parking a sweeping row. On seeing that, re-drive the same turn. Drive `todo/spinner-animates`,
 `todo/fold-line-still` and `todo/spinner-focused` inside that window.
 
 | Check | Drive | `measured` carries |
