@@ -12,7 +12,7 @@ The files, all under `.claude/skills/live-checks/harness/`:
 | `screen.ts` | `dump`, `dumpbg`, `cells`, `runs`, `grep` over the parsed screen |
 | `steps.ts` | the step vocabulary below |
 | `config.ts` | seeds a signed-in `CLAUDE_CONFIG_DIR` under `$TMPDIR` |
-| `fixtures/mcp-server.ts` | a stdio MCP server with a named tool count and a startup delay |
+| `fixtures/mcp-server.ts` | a stdio MCP server with a named tool count, a startup delay and a per-call delay |
 | `fixtures/theme.json` | the custom `/theme` every seeded dir gets, for the inherit-glass check |
 | `tsconfig.json` | this folder's own `tsc` project, the one with the Node types |
 
@@ -31,7 +31,8 @@ Prints the new dir. It holds the operator's own sign-in copied at mode 0600, a `
 foreground are committed here, so the check runs on any machine and its expected mix is known. `--mcp` adds
 `fixtures/mcp-server.ts` as a
 local-scope stdio server named `ctuistub` with two tools, so a session has one MCP server and one child process
-to read: a stub, with no network and no real server behind it. **Nothing signed-in is ever written into the
+to read: a stub, with no network and no real server behind it. It answers each `tools/call` after **10 s**, so a
+call to it stays in flight long enough for a check to sample the row twice. **Nothing signed-in is ever written into the
 repo**; the dir lives under `$TMPDIR` and grows to about 24 MB. Delete it on pass (`rm -rf`), keep it on failure
 and name its path in the report.
 

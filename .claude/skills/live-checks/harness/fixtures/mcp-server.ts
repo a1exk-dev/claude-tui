@@ -1,8 +1,9 @@
-// A stdio MCP server for the mcp Sidebar plugin's checks: node mcp-server.ts <name> <tool-count> [startup-delay-ms]
-// It answers initialize after the delay, so a check can watch a server come up with a known tool count.
+// A stdio MCP server for the mcp Sidebar plugin's checks: node mcp-server.ts <name> <tool-count> [startup-delay-ms] [call-delay-ms]
+// It answers initialize after the first delay, so a check can watch a server come up with a known tool count,
+// and a tools/call after the second, so a check can read the row while a call is still in flight.
 import process from 'node:process'
 
-const [name = 'srv', count = '1', delay = '0'] = process.argv.slice(2)
+const [name = 'srv', count = '1', delay = '0', callDelay = '0'] = process.argv.slice(2)
 const tools = Array.from({ length: Number(count) }, (_, index) => ({
   name: `${name}_tool_${index + 1}`,
   description: `tool ${index + 1} of ${name}`,
@@ -37,7 +38,8 @@ process.stdin.on('data', (chunk: Buffer) => {
         Number(delay),
       )
     } else if (message.method === 'tools/list') reply({ tools })
-    else if (message.method === 'tools/call') reply({ content: [{ type: 'text', text: `${name} ok` }] })
+    else if (message.method === 'tools/call')
+      setTimeout(() => reply({ content: [{ type: 'text', text: `${name} ok` }] }), Number(callDelay))
     else if (message.method === 'ping') reply({})
     else if (!message.method?.startsWith('notifications/')) reply({})
   }

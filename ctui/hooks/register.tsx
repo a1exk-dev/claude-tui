@@ -6,7 +6,7 @@ import type { GitSnapshot, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } f
 import { type Config, readConfig } from './config'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
-import { type McpSources, mcpRows, segmentOf, serverName } from './mcp'
+import { type McpSources, mcpRows, segmentOf, serverName, serverOfTool, withBusy } from './mcp'
 import {
   type Cached,
   COST_PREFIX,
@@ -107,6 +107,16 @@ let mcpFiles: Pick<McpSources, 'project' | 'managed' | 'enterprise'> = { project
 // The sources tool runs reported, by segment, also kept in `$.state`: a reload
 // resets this, `/clear` and `/resume` empty that, and the servers outlive both.
 let mcpObserved: Record<string, string> = {}
+// Calls in flight per server segment, and the busy writes queued behind each
+// other. Module state, never `$.state`: a settings change reloads the mod
+// mid-session, so a call can start under one module and end under its
+// replacement, whose `finally` never runs. Here that reload drops the count
+// and the row settles at once — busy reads stale-cold for the rest of the
+// call and never stale-hot, where in `$.state` nothing would be left to
+// decrement it and the row would sweep forever (`docs/spec/working-now.md`,
+// "The count lives in a module variable").
+let mcpCalls: Record<string, number> = {}
+let mcpBusyChain: Promise<unknown> = Promise.resolve()
 let cwdMoved = false // since the last MCP tick: drop the old project's off rows
 let themeSeen: { path?: string; mtimeMs?: number } = {} // the active custom /theme file, last read
 let themeNames: ThemeName[] | undefined // every Theme's slug and name, read once
@@ -413,11 +423,27 @@ async function refreshMcp($: EngineInterface) {
     ])
     const kept = moved ? rows.filter((row) => row.state !== 'off') : rows
     const sources = { ...mcpFiles, user: file.user, local: file.local, observed: { ...mcpObserved, ...observed } }
-    const next = mcpRows({ rows: kept, tools, disabled: file.disabled, names: mcpNames, now, timeoutMs: mcpTimeout, sources })
+    const next = mcpRows({ rows: kept, tools, disabled: file.disabled, names: mcpNames, now, timeoutMs: mcpTimeout, sources, busy: mcpCalls })
     if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
   } finally {
     mcpRunning = false
   }
+}
+
+// The busy flag reaches the Sidebar through the rows the tick left in
+// `$.state`, so the row redraws and the sweep starts. It is written on each
+// start and each release rather than on the next tick, so the row turns as the
+// call crosses the wire and settles the instant the last one ends. The writes
+// queue, each reading the count as it then stands, so the last write is the
+// last release's.
+function writeMcpBusy($: EngineInterface) {
+  mcpBusyChain = mcpBusyChain
+    .then(async () => {
+      const { value: rows = [] } = await $.state.get(MCP)
+      const next = withBusy(rows, mcpCalls)
+      if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
+    })
+    .catch(() => undefined)
 }
 
 // MEMORY.md "The `todo` Sidebar plugin turns the task tools on by default":
@@ -908,9 +934,22 @@ export const register: Register = (on, options) => {
   })
 
   on('tool.call', async ($, e, next) => {
+    // A call to an MCP server is bracketed here — counted before `next`,
+    // released in the `finally`, so an error and an abort both release it —
+    // and its row sweeps while the count is above zero. The event carries no
+    // provider, so the server comes from the tool name.
+    const server = needs.has('mcp') ? serverOfTool(e.tool) : undefined
+    if (server) {
+      mcpCalls = { ...mcpCalls, [server]: (mcpCalls[server] ?? 0) + 1 }
+      writeMcpBusy($)
+    }
     try {
       return await next(e)
     } finally {
+      if (server) {
+        mcpCalls = { ...mcpCalls, [server]: Math.max((mcpCalls[server] ?? 1) - 1, 0) }
+        writeMcpBusy($)
+      }
       if (needs.has('git') && GIT_TOOLS.has(e.tool)) void refreshGit($)
     }
   })

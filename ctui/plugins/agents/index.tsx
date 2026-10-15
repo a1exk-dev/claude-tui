@@ -53,7 +53,7 @@ const plugin: SidebarPlugin = {
       // reason muted after it. A running row leads with the shared sweep
       // (`plugins/marks.tsx`) in place of a still mark.
       const name = isRunning(task)
-        ? sweeping(ui, `spinner-${task.id}`, task.label, c)
+        ? sweeping(ui, `spinner-${task.id}`, task.label, c, SWEEP_ROLE)
         : [
             <Text color={c.main} wrap="truncate-end">
               {lead(Text, ended(task.status), c)}

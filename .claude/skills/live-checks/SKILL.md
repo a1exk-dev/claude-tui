@@ -6,11 +6,11 @@ disable-model-invocation: true
 
 # Live checks
 
-34 **checks** over 7 **scenarios**. A scenario is one seeded config dir and one engine boot — the unit that
+35 **checks** over 7 **scenarios**. A scenario is one seeded config dir and one engine boot — the unit that
 costs — so every resize, `/theme`, `setopt` and fold happens inside its session. You are the **lead**: run the
 gate, spawn one subagent per scenario, merge the rows they return into one report, print its path.
 
-One run spends 7 boots, 7 model turns and about 550 MB of temp churn. The model and effort it runs on, and
+One run spends 7 boots, 8 model turns and about 550 MB of temp churn. The model and effort it runs on, and
 which pull request runs it, are the operator's call: `CONTRIBUTING.md` holds both, and the report's version
 block records what this run used.
 
@@ -70,7 +70,7 @@ Group the rows by the prefix of their check ids — the prefix *is* the report s
 |---|---|---|
 | `docking/` | Sidebar docking | 6 |
 | `layout/` | Sidebar layout and scroll | 3 |
-| `mcp/` | MCP | 1 |
+| `mcp/` | MCP | 2 |
 | `rewrites/` | Render-site rewrites | 2 |
 | `toasts/` | Toasts | 1 |
 | `themes/` | Themes | 10 |
@@ -83,7 +83,7 @@ Group the rows by the prefix of their check ids — the prefix *is* the report s
 Write `$RUN/report.md` in this shape and print its path as the last thing you say:
 
 ```markdown
-## ctui live checks — PASS (34/34)
+## ctui live checks — PASS (35/35)
 
 plugin ctui 0.5.0 (95e5d10)
 engine @anthropic-ai/claude-code 2.1.292
@@ -103,7 +103,7 @@ run dir /tmp/ctui-live-checks-7Qa1Zx
 ```
 
 The heading counts the passes. Under the sections, list each kept config dir as `scenario <name>: <path>` so a
-FAIL's config, transcript and settings are still readable at a named path. All 34 rows appear in every report,
+FAIL's config, transcript and settings are still readable at a named path. All 35 rows appear in every report,
 whatever the run found: one shape, always complete, is what makes it attachable.
 
 ## Driving a scenario
@@ -124,7 +124,7 @@ scenario. Finish with `printf 'quit\n' | … send $S/fifo $S/out 2`, and `rm -rf
 A step that throws prints `!! …` and leaves the session up, so a mistyped step costs no boot. `pkill -f
 'harness.ts serve'` is the fallback when a session will not quit.
 
-## Scenario 1: `default-150` — 11 checks, 3 model turns
+## Scenario 1: `default-150` — 12 checks, 4 model turns
 
 Seed a scratch repo in `$S/repo` first — `git init`, a bare repo as `origin` with an upstream branch, one staged,
 one modified and one untracked file, one stash, and a project skill at `$S/repo/.claude/skills/ctuicheck/SKILL.md`
@@ -140,6 +140,7 @@ session does start as well as what it does not.
 | `docking/close-attempts-ignored` | `resize 150 45`; `grep ✕` for the glyph's cell, `click` it; `key \x18x`; `key \x18\t` then `key \e`; `grep claude cli:` after each | the footer row still present after all three presses |
 | `layout/git-glyph-columns` | `grep` the branch row, then `cells <row> 110 114` on the three git rows | each glyph's codepoint at content column 0, its text at column 2, and the `fg` of each |
 | `mcp/glyph-columns` | `grep` the stub server's label for its row, then `cells <row> 112 118` over that row | the `check_circle_outline` codepoint at content column 0, its `fg`, the two gap cells, and the label's first text cell at content column 3 |
+| `mcp/busy-animates` | one prompt asking Claude to call the `ctuistub_tool_1` tool; `watch 30 ctuistub_tool_1`, then `anim 2 0.3 ctuistub` while the stub holds the call | the `ctuistub` row's glyph in each of the two samples, ~300 ms apart. The stub answers a call after 10 s (HARNESS.md), so the row is busy for both; the check asserts the glyph differs, never which frame |
 | `agents/glyph-columns` | one prompt asking Claude to start a background Explore agent that lists the folder; `watch 30 Agents`, `grep` the agent's own row, then `cells <row> 112 118` over it | the `circle_slice` codepoint at content column 0 (or `checkbox_marked_circle` once the agent has ended), its `fg`, the two gap cells, and the agent's name at content column 3 |
 | `layout/frame-and-footer` | `grep claude cli:`, `runs` the footer rows and the `│` column, at 53 and again at 42 | one footer row at 53 and two at 42, the `│` on every body row at the dock's left edge with the colours its cells carry, no update icon |
 | `layout/no-child-processes` | `sh for i in $(seq 10); do pstree -a -p $(pgrep -n -f 'claude --plugin-dir'); sleep 1; done \| sort -u` | the distinct child commands seen over the 10 s: the seeded `ctuistub` server and short `git` runs, and no `claude -p` or `claude mcp list` |

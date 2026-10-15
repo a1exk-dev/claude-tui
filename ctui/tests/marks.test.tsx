@@ -1,9 +1,10 @@
 import type { On, RenderNode } from 'claude-code'
 import { type Engine, expect, test } from 'claude-code/testing'
 
+import type { SidebarInput } from '../hooks/sidebar'
 import { colors } from '../plugins/colors'
-import { frozenSweep, lead, MARKS, SWEEP, tally } from '../plugins/marks'
-import type { SidebarUi } from '../plugins/plugin'
+import { frozenSweep, lead, MARKS, SWEEP, sweeping, tally } from '../plugins/marks'
+import { clientsAsTrees } from './clients'
 
 // The Sidebar's shared circle vocabulary (`docs/spec/sidebar-icons.md`): each
 // mark's codepoint and its one colour role, the sweep's frames, and the two
@@ -56,10 +57,11 @@ const PANE = {
   },
 } as const
 
-// Draws `node(ui)` in a test Pane and returns it for reading.
-async function draw($: Engine, on: On, node: (ui: Pick<SidebarUi, 'Box' | 'Text'>) => RenderNode | undefined) {
+// Draws `node(ui)` in a test Pane and returns it for reading. A `Client` draws
+// as the tree its module draws at rest, so the sweep reads as its first frame.
+async function draw($: Engine, on: On, node: (ui: SidebarInput['ui']) => RenderNode | undefined) {
   on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
-    const ui = $.ui.resolve(e)
+    const ui = clientsAsTrees($.ui.resolve(e))
     return <ui.Box flexDirection="column">{node(ui) ?? null}</ui.Box>
   })
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
@@ -75,6 +77,16 @@ test('a row lead is the mark in its role and two spaces before the text', async 
   ))
   expect((await pane.find({ type: 'Text', text: /parser/ }))?.text).toBe('󰄳  Write the parser')
   expect((await pane.find({ type: 'Text', text: /^󰄳$/ }))?.props.color).toBe('success')
+})
+
+// Motion is the one exception to "one glyph, one colour": the sweep takes the
+// role its row is in, so the caller hands it one.
+test('a sweeping lead turns in the role it is handed, then the gap and the label', async ($, on) => {
+  const c = colors()
+  const pane = await draw($, on, (ui) => <ui.Box flexDirection="row">{sweeping(ui, 'spinner-x', 'sentry', c, 'error')}</ui.Box>)
+  const frame = new RegExp(`^${SWEEP.frames[0]}$`, 'u')
+  expect((await pane.find({ type: 'Text', text: frame }))?.props.color).toBe('error')
+  expect((await pane.find({ type: 'Text', text: /sentry/ }))?.text).toBe('  sentry')
 })
 
 test('a fold line’s working term freezes the sweep at circle_slice_6 in the row’s own role', () => {
