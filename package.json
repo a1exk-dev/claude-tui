@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Dev tooling for the ctui plugin. Not published; the plugin's own manifest is ctui/package.json.",
   "devDependencies": {
-    "@anthropic-ai/claude-code": "2.1.292",
+    "@anthropic-ai/claude-code": "2.1.300",
     "@types/node": "^26.6.5",
     "@xterm/headless": "6.0.0",
     "node-pty": "1.1.0",
