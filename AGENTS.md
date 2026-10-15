@@ -21,3 +21,17 @@
 - Merging: Pull requests into `develop` opened under the human's account (`a1exk-dev`) merge automatically once every required check passes (`.github/workflows/auto-merge.yml`); do not merge them by hand. Once one merges, close each issue it refs with a comment linking the pull request, and remove the issue's `ready-for-agent` label. Merge each `bugfix/<name>` pull request into the `release/<semver>` it was cut from yourself with `gh pr merge --merge` once every required check passes, then close its issues the same way. Leave pull requests into `main` for the human to merge.
 - Commits: Before creating a commit or proposing or using a commit message, read and follow [`docs/agents/commit-policy.md`](docs/agents/commit-policy.md).
 - Checks: Before each commit, run `node scripts/check.ts`. Done when it exits 0; fix every error it reports.
+
+# Agent skills
+
+## Issue tracker
+
+GitHub Issues on a1exk-dev/claude-tui, tracked in the private "claude-tui" project. See `docs/agents/issue-tracker.md`.
+
+## Triage labels
+
+Default labels: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+## Domain docs
+
+Single-context: `CONTEXT.md` and `MEMORY.md` at the repo root. See `docs/agents/domain.md`.
