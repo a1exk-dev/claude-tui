@@ -21,7 +21,7 @@ One Markdown file, always the same shape: a heading counting the passes against 
 - The version block names the plugin version and commit, the engine pin, the `node scripts/check.ts` result, and the model, effort and model turns the run spent. A pin that isn't `package.json`'s pin measured a different engine, so the report doesn't apply to this one.
 - Each row's `measured` cell carries the evidence — the cell color, the column range, the glyph, the milliseconds — so a PASS states what it saw and you can audit it instead of trusting it. An empty `measured` cell means the row is unfinished.
 - A FAIL's `measured` cell says what the screen showed instead, and its scenario's config dir is listed under the sections at a named path, left on disk with its transcript and settings.
-- A few checks assert Claude Code's own behaviour rather than ctui's — `themes/hover-underline`, and the three `fold-line-still` checks that hold the engine drawing no nested `Client`: no ctui change can regress one and a FAIL there means the engine moved. `MEMORY.md`, "Engine-pinned expectations hold only on the pinned Claude Code version", holds that class and every member.
+- Three checks assert Claude Code's own behaviour rather than ctui's, the `fold-line-still` checks that hold the engine drawing no nested `Client`: no ctui change can regress one and a FAIL there means the engine moved. `MEMORY.md`, "Engine-pinned expectations hold only on the pinned Claude Code version", holds that class and every member.
 
 ## What ctui promises
 
