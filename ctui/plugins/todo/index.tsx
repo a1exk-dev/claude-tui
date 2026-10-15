@@ -1,6 +1,6 @@
 import type { Todo, TodoItem } from '../../types'
 import type { Role } from '../colors'
-import { GAP, lead, type Mark, MARKS, SWEEP, tally, working } from '../marks'
+import { frozenSweep, lead, type Mark, MARKS, SWEEP_ROLE, sweeping, tally } from '../marks'
 import type { SidebarPlugin } from '../plugin'
 
 // A done or waiting item's mark from the Sidebar's shared circle vocabulary
@@ -9,10 +9,6 @@ const STATUSES: Record<Exclude<TodoItem['status'], 'in_progress'>, { mark: Mark;
   completed: { mark: MARKS.checkbox_marked_circle, textRole: 'muted' },
   pending: { mark: MARKS.checkbox_blank_circle_outline, textRole: 'muted' },
 }
-
-// The item in progress sweeps in `warning`, its own role, one frame every
-// `SWEEP.ms` (`spinner.tsx`); folded, that term freezes at the same role.
-const WORKING: Role = 'warning'
 
 const textOf = (item: TodoItem) => (item.status === 'in_progress' ? (item.activeForm ?? item.subject) : item.subject)
 
@@ -35,7 +31,8 @@ const plugin: SidebarPlugin = {
   needs: ['todo'],
   list: true,
   cap: 8, // a typical plan shows whole (#209)
-  view: ({ todo }, { Box, Text, Client }, cfg, _width, c) => {
+  view: ({ todo }, ui, cfg, _width, c) => {
+    const { Box, Text } = ui
     if (!todo) return []
     if (todo.tools === 'none') {
       const hints = cfg.tools
@@ -54,25 +51,9 @@ const plugin: SidebarPlugin = {
         </Text>,
       ]
     return todo.items.map((item, index) => {
-      // The spinner turns on its own surface, outside the focus ring, so it
-      // stays a Client while the Pane is focused. It draws the glyph's cell;
-      // the gap after it leads the text, as `lead` writes it elsewhere.
+      // The item in progress sweeps, the shared motion lead (`plugins/marks.tsx`).
       if (item.status === 'in_progress')
-        return (
-          <Box flexDirection="row">
-            <Box width={1} flexShrink={0}>
-              <Client
-                key={`spinner-${item.id ?? index}`}
-                module="./spinner.tsx"
-                props={{ ...SWEEP, color: c[WORKING] }}
-              />
-            </Box>
-            <Text color={c.main} wrap="truncate-end">
-              {GAP}
-              {textOf(item)}
-            </Text>
-          </Box>
-        )
+        return <Box flexDirection="row">{sweeping(ui, `spinner-${item.id ?? index}`, textOf(item), c)}</Box>
       const { mark, textRole } = STATUSES[item.status]
       return (
         <Text wrap="truncate-end">
@@ -94,7 +75,7 @@ const plugin: SidebarPlugin = {
       Text,
       [
         { mark: STATUSES.completed.mark, count: count('completed') },
-        { mark: working(WORKING), count: count('in_progress') },
+        { mark: frozenSweep(SWEEP_ROLE), count: count('in_progress') },
         { mark: STATUSES.pending.mark, count: count('pending') },
       ],
       c,

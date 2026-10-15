@@ -27,11 +27,15 @@ export const MARKS = {
 // colour": the sweep takes its row's own role, so it carries none here.
 export const SWEEP = { frames: Array.from({ length: 8 }, (_, i) => String.fromCodePoint(0xf0a9e + i)), ms: 100 }
 
+// The sweep's role, named once for every section that draws motion: a working
+// row turns in `warning` and its folded term freezes at the same role.
+export const SWEEP_ROLE: Role = 'warning'
+
 // The frozen sweep frame a fold line's working term draws, nf-md-circle_slice_6
-// (MEMORY.md: a fold line never animates). Part-filled is the shape no static
-// state uses, so it reads as "working" wherever it appears; its role is the
-// section's own call.
-export const working = (role: Role): Mark => ({ glyph: SWEEP.frames[5]!, role })
+// (MEMORY.md: a fold line never animates). It is a still frame, not the
+// animation. Part-filled is the shape no static state uses, so it reads as
+// "working" wherever it appears; its role is the section's own call.
+export const frozenSweep = (role: Role): Mark => ({ glyph: SWEEP.frames[5]!, role })
 
 // Two spaces follow every row glyph: the engine counts the glyph as one cell,
 // the terminal draws it two cells wide, so the first space takes the overflow
@@ -46,6 +50,21 @@ export const lead = (Text: SidebarUi['Text'], { glyph, role }: Mark, c: Colors):
   GAP,
 ]
 
+// `lead`'s motion counterpart: a working row's sweep and the gap leading its
+// label. The sweep turns on its own surface, outside the focus ring, so it
+// stays a `Client` while the Pane is focused; it draws the glyph's cell, and
+// the gap after it leads the text exactly as `lead` writes it. `key` is the
+// row's own, so a row keeps its frame clock across redraws.
+export const sweeping = ({ Box, Text, Client }: SidebarUi, key: string, label: string, c: Colors): RenderNode[] => [
+  <Box width={1} flexShrink={0}>
+    <Client key={key} module="./todo/spinner.tsx" props={{ ...SWEEP, color: c[SWEEP_ROLE] }} />
+  </Box>,
+  <Text color={c.main} wrap="truncate-end">
+    {GAP}
+    {label}
+  </Text>,
+]
+
 // One term of a fold line's tally: a state's mark and how many rows are in it.
 export type Term = { mark: Mark; count: number }
 
@@ -57,7 +76,7 @@ export const tally = (Text: SidebarUi['Text'], terms: readonly Term[], c: Colors
   const drawn = terms.filter((term) => term.count > 0)
   if (!drawn.length) return undefined
   return (
-    <Text>
+    <Text color={c.main}>
       {drawn.flatMap(({ mark, count }, index) => [
         ...(index ? [GAP] : []),
         <Text color={c[mark.role]}>

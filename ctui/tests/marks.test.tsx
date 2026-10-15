@@ -2,7 +2,7 @@ import type { On, RenderNode } from 'claude-code'
 import { type Engine, expect, test } from 'claude-code/testing'
 
 import { colors } from '../plugins/colors'
-import { lead, MARKS, SWEEP, tally, working } from '../plugins/marks'
+import { frozenSweep, lead, MARKS, SWEEP, tally } from '../plugins/marks'
 import type { SidebarUi } from '../plugins/plugin'
 
 // The Sidebar's shared circle vocabulary (`docs/spec/sidebar-icons.md`): each
@@ -78,8 +78,8 @@ test('a row lead is the mark in its role and two spaces before the text', async 
 })
 
 test('a fold line’s working term freezes the sweep at circle_slice_6 in the row’s own role', () => {
-  expect(working('error')).toEqual({ glyph: '\u{f0aa3}', role: 'error' })
-  expect(SWEEP.frames[5]).toBe(working('warning').glyph)
+  expect(frozenSweep('error')).toEqual({ glyph: '\u{f0aa3}', role: 'error' })
+  expect(SWEEP.frames[5]).toBe(frozenSweep('warning').glyph)
 })
 
 test('a tally draws each term’s mark, two spaces, its count, and two between terms', async ($, on) => {
@@ -89,7 +89,7 @@ test('a tally draws each term’s mark, two spaces, its count, and two between t
       Text,
       [
         { mark: MARKS.checkbox_marked_circle, count: 3 },
-        { mark: working('warning'), count: 1 },
+        { mark: frozenSweep('warning'), count: 1 },
         { mark: MARKS.checkbox_blank_circle_outline, count: 4 },
       ],
       c,

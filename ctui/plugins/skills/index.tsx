@@ -6,13 +6,11 @@ import type { SidebarPlugin } from '../plugin'
 // Sidebar's shared circle vocabulary (`plugins/marks.tsx`), then its name in
 // main, truncating, and its source muted at the right, never truncating.
 //
-// Skills draws no motion, in any case, and the section has no second mark:
-// it is a cumulative session log — a row is added on first use, one per name
-// and source, and never leaves — so it has no present tense for motion to
-// attach to. The silence here is the design, not an oversight (MEMORY.md
-// "no-skill-for-a-call": no event or `$` call names the skill in force while
-// a call runs, so there is no "running now" state to sweep and none to settle
-// out of). A later reader holding that research adds no sweep back.
+// Skills draws no motion, and the section has no second mark: it is a
+// cumulative session log — a row is added on first use, one per name and
+// source, and never leaves — so it has no present tense for motion to attach
+// to. The engine's half of that, and why no later reader should add a sweep
+// back, is MEMORY.md "no-skill-for-a-call".
 const plugin: SidebarPlugin = {
   id: 'skills',
   title: 'Skills',
@@ -23,7 +21,7 @@ const plugin: SidebarPlugin = {
     skills.length
       ? sortedSkills(skills).map((row) => (
           <Box flexGrow={1} justifyContent="space-between" columnGap={1}>
-            <Text wrap="truncate-end">
+            <Text color={c.main} wrap="truncate-end">
               {lead(Text, MARKS.asterisk_circle_outline, c)}
               <Text color={c.main}>{skillName(row.name)}</Text>
             </Text>
