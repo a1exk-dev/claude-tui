@@ -146,7 +146,10 @@ test('seated inline, the Sidebar draws nothing and closes', async ($, on) => {
     return { value: undefined }
   })
   const pane = await $.ui.mount({ ...PANE, props: paneProps('inline') })
-  expect(await pane.drawn()).toEqual({ type: 'Box' })
+  // Not the whole node: the engine stamps its own `part` on a hook's returned root.
+  const drawn = await pane.drawn()
+  expect(drawn).toMatchObject({ type: 'Box' })
+  expect('children' in drawn).toBe(false)
   await clock.settle()
   expect(closes).toEqual([{ id: 'sidebar', origin: { kind: 'plugin' } }])
 })
