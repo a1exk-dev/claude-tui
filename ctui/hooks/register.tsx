@@ -2,7 +2,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import { plugins, sections } from '../plugins'
 import { colors } from '../plugins/colors'
-import type { GitSnapshot, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
+import type { GitSnapshot, McpRow, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { type Config, readConfig } from './config'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
@@ -107,8 +107,8 @@ let mcpFiles: Pick<McpSources, 'project' | 'managed' | 'enterprise'> = { project
 // The sources tool runs reported, by segment, also kept in `$.state`: a reload
 // resets this, `/clear` and `/resume` empty that, and the servers outlive both.
 let mcpObserved: Record<string, string> = {}
-// Calls in flight per server segment, and the busy writes queued behind each
-// other. Module state, never `$.state`: a settings change reloads the mod
+// Calls in flight per server segment, and every write of the MCP rows queued
+// behind the one before it (`writeMcpRows`). Module state, never `$.state`: a settings change reloads the mod
 // mid-session, so a call can start under one module and end under its
 // replacement, whose `finally` never runs. Here that reload drops the count
 // and the row settles at once — busy reads stale-cold for the rest of the
@@ -116,7 +116,7 @@ let mcpObserved: Record<string, string> = {}
 // decrement it and the row would sweep forever (`docs/spec/working-now.md`,
 // "The count lives in a module variable").
 let mcpCalls: Record<string, number> = {}
-let mcpBusyChain: Promise<unknown> = Promise.resolve()
+let mcpWrites: Promise<unknown> = Promise.resolve()
 let cwdMoved = false // since the last MCP tick: drop the old project's off rows
 let themeSeen: { path?: string; mtimeMs?: number } = {} // the active custom /theme file, last read
 let themeNames: ThemeName[] | undefined // every Theme's slug and name, read once
@@ -412,38 +412,57 @@ async function refreshMcp($: EngineInterface) {
   mcpRunning = true
   try {
     mcpTimeout ??= Number(await $.env.get('MCP_TIMEOUT')) || 30_000
+    const timeoutMs = mcpTimeout // the closure below reads it after an await
     const moved = cwdMoved
     cwdMoved = false
-    const [tools, file, now, { value: rows = [] }, { value: observed = {} }] = await Promise.all([
+    const [tools, file, now, { value: observed = {} }] = await Promise.all([
       $.tool.list(),
       readClaudeJson($),
       $.clock.now(),
-      $.state.get(MCP),
       $.state.get(MCP_OBSERVED),
     ])
-    const kept = moved ? rows.filter((row) => row.state !== 'off') : rows
     const sources = { ...mcpFiles, user: file.user, local: file.local, observed: { ...mcpObserved, ...observed } }
-    const next = mcpRows({ rows: kept, tools, disabled: file.disabled, names: mcpNames, now, timeoutMs: mcpTimeout, sources, busy: mcpCalls })
-    if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
+    await writeMcpRows($, (rows) =>
+      mcpRows({
+        rows: moved ? rows.filter((row) => row.state !== 'off') : rows,
+        tools,
+        disabled: file.disabled,
+        names: mcpNames,
+        now,
+        timeoutMs,
+        sources,
+        busy: mcpCalls,
+      }),
+    )
   } finally {
     mcpRunning = false
   }
 }
 
-// The busy flag reaches the Sidebar through the rows the tick left in
-// `$.state`, so the row redraws and the sweep starts. It is written on each
-// start and each release rather than on the next tick, so the row turns as the
-// call crosses the wire and settles the instant the last one ends. The writes
-// queue, each reading the count as it then stands, so the last write is the
-// last release's.
-function writeMcpBusy($: EngineInterface) {
-  mcpBusyChain = mcpBusyChain
-    .then(async () => {
-      const { value: rows = [] } = await $.state.get(MCP)
-      const next = withBusy(rows, mcpCalls)
-      if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
-    })
-    .catch(() => undefined)
+// The one writer of the MCP rows: both the 1 s tick and the `tool.call`
+// bracket go through it, one write at a time. It reads the rows `$.state`
+// holds, hands them to `derive` (the tick's own rows, or the rows as they
+// stand), applies the in-flight count **here**, and compares against the rows
+// it read itself.
+//
+// Doing all of that inside the queued callback is what keeps the row honest.
+// A write that computed its rows earlier and set them later would put back the
+// count as it stood then: a release landing in between would be overwritten
+// and the row would keep sweeping until the next tick — up to a second of a
+// row that says working when nothing is (`docs/spec/working-now.md`: busy
+// "can read stale-cold ... and never stale-hot", and "It settles at once").
+//
+// The busy flag reaches the Sidebar through these rows, so the row redraws and
+// the sweep starts as the call crosses the wire and stops the instant the last
+// one ends, without waiting for a tick.
+function writeMcpRows($: EngineInterface, derive?: (rows: readonly McpRow[]) => readonly McpRow[]) {
+  const write = mcpWrites.then(async () => {
+    const { value: rows = [] } = await $.state.get(MCP)
+    const next = withBusy(derive ? derive(rows) : rows, mcpCalls)
+    if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
+  })
+  mcpWrites = write.catch(() => undefined)
+  return write
 }
 
 // MEMORY.md "The `todo` Sidebar plugin turns the task tools on by default":
@@ -941,14 +960,14 @@ export const register: Register = (on, options) => {
     const server = needs.has('mcp') ? serverOfTool(e.tool) : undefined
     if (server) {
       mcpCalls = { ...mcpCalls, [server]: (mcpCalls[server] ?? 0) + 1 }
-      writeMcpBusy($)
+      void writeMcpRows($)
     }
     try {
       return await next(e)
     } finally {
       if (server) {
         mcpCalls = { ...mcpCalls, [server]: Math.max((mcpCalls[server] ?? 1) - 1, 0) }
-        writeMcpBusy($)
+        void writeMcpRows($)
       }
       if (needs.has('git') && GIT_TOOLS.has(e.tool)) void refreshGit($)
     }
