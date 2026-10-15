@@ -95,7 +95,9 @@ Measured on the pin at 45 rows, with no dragged or keyed `dockColumns`:
 | 150 cols | col 107 | cols 108–149 | 42 | cols 110–147 |
 | 170 cols | col 116 | cols 117–169 | 53 | cols 117–167 |
 
-Content sits 2 columns inside the body, so a count or a folded summary ends 2 columns before the frame. The
+Content sits 2 columns inside the body, so a count or a folded summary ends 2 columns before the frame. A
+section's rows are indented 2 further than the git header's, so at 150 columns a header glyph sits at col 110
+and a section row's glyph at col 112 — the column each `glyph-columns` check reads as its content column 0. The
 Sidebar asks for 42 columns from 144 and 53 from 160; below 110 it does not dock. `dockColumns` in `.claude.json`
 overrides both. Read the body off the cell grid with `dumpbg` or `cells`, never from ctui's request.
 
