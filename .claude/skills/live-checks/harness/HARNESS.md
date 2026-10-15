@@ -102,6 +102,10 @@ and a section row's glyph at col 112 — the column each `glyph-columns` check r
 Sidebar asks for 42 columns from 144 and 53 from 160; below 110 it does not dock. `dockColumns` in `.claude.json`
 overrides both. Read the body off the cell grid with `dumpbg` or `cells`, never from ctui's request.
 
+A section's title row is one click target across its whole width — the fold arrow at col 110, the title's own
+text from col 112 — so a `click` anywhere on it folds the section and a second one unfolds it. The checks that
+drive a fold `grep` the title for its row and click col 113 at 150 columns.
+
 ## Theme facts
 
 - Built-in `dark`: `text` `#ffffff`, `inactive` `#999999`, `subtle` `#505050`, `success` `#4eba65`,
