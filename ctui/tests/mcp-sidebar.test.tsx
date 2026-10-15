@@ -44,30 +44,37 @@ async function draw($: Engine, on: On, part: 'view' | 'summary', rows: McpRow[])
   return $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
 }
 
-// The text of each MCP row: a Box spreading the label and the state.
+// Every connection state's mark, from the Sidebar's shared circle vocabulary.
+const OK = '\u{f05e1}' // nf-md-check_circle_outline
+const AUTH = '\u{f0028}' // nf-md-alert_circle
+const CONNECTING = '\u{f043e}' // nf-md-radiobox_marked
+const DOWN = '\u{f0159}' // nf-md-close_circle
+const OFF = '\u{f0377}' // nf-md-minus_circle_outline
+const CIRCLES = new RegExp(`^[${OK}${AUTH}${CONNECTING}${DOWN}${OFF}]`, 'u')
+
+// The text of each MCP row: a Box spreading the label and the state. The two
+// spaces after the glyph are part of the row, so they are kept as drawn.
 async function rowsOf(pane: Awaited<ReturnType<typeof draw>>) {
   const boxes = await pane.findAll({ type: 'Box' })
-  return boxes
-    .filter((box) => box.props.justifyContent === 'space-between' && /^[●!◐✕○]/.test(box.text))
-    .map((box) => box.text.replace(/\s+/g, ' '))
+  return boxes.filter((box) => box.props.justifyContent === 'space-between' && CIRCLES.test(box.text)).map((box) => box.text)
 }
 
-test('each row: the glyph in its color, the label, the state at the right', async ($, on) => {
+test('each row: the mark in its role, two spaces, the label, the state at the right', async ($, on) => {
   const pane = await draw($, on, 'view', ROWS)
   expect(await rowsOf(pane)).toEqual([
-    '● playwrightuser · 22 tools',
-    '○ githubuser · off',
-    '● Claude Docsclaude.ai · 1 tool',
-    '✕ sentryproject · down',
-    '! authylocal · needs auth',
-    '◐ lineardynamic · connecting',
+    `${OK}  playwrightuser · 22 tools`,
+    `${OFF}  githubuser · off`,
+    `${OK}  Claude Docsclaude.ai · 1 tool`,
+    `${DOWN}  sentryproject · down`,
+    `${AUTH}  authylocal · needs auth`,
+    `${CONNECTING}  lineardynamic · connecting`,
   ])
   const color = async (text: string) => {
     // A string query matches inside a longer text: match it whole.
-    const found = await pane.find({ type: 'Text', text: new RegExp(`^${text}$`) })
+    const found = await pane.find({ type: 'Text', text: new RegExp(`^${text}$`, 'u') })
     return found?.props.color
   }
-  expect(await Promise.all(['●', '!', '◐', '✕', '○'].map(color))).toEqual([
+  expect(await Promise.all([OK, AUTH, CONNECTING, DOWN, OFF].map(color))).toEqual([
     'success',
     'warning',
     'warning',
@@ -82,26 +89,46 @@ test('each row: the glyph in its color, the label, the state at the right', asyn
     'inactive',
   ])
   // The label is main text, drawn with the theme's `text`.
-  expect((await pane.find({ type: 'Text', text: /^● playwright$/ }))?.props.color).toBe('text')
+  expect((await pane.find({ type: 'Text', text: new RegExp(`^${OK} {2}playwright$`, 'u') }))?.props.color).toBe('text')
 })
 
-test('the header counts ● rows over listed rows', () => {
+// The gap costs the label a column, so at the 42-column dock the label is the
+// half that gives way and `<source> · <state text>` keeps its room.
+test('at the 42-column dock the glyph and gap sit in the truncating half', async ($, on) => {
+  const long = { server: 'l', label: 'a-very-long-mcp-server-name-that-cannot-fit', source: 'user', state: 'ok' as const, tools: 7 }
+  const pane = await draw($, on, 'view', [long])
+  const label = await pane.find({ type: 'Text', text: new RegExp(`^${OK} {2}${long.label}$`, 'u') })
+  expect(label?.props.wrap).toBe('truncate-end')
+  const boxes = await pane.findAll({ type: 'Box' })
+  expect(boxes.some((box) => box.props.flexShrink === 0 && box.text === 'user · 7 tools')).toBe(true)
+})
+
+test('the header counts ok rows over listed rows', () => {
   const ui = {} as never
   expect(mcp.count?.({ mcp: ROWS }, ui, { enable: true }, 36, colors())).toBe('2/6')
   expect(mcp.count?.({ mcp: [] }, ui, { enable: true }, 36, colors())).toBe('0/0')
 })
 
-test('folded, each state present with its count, in its color, in glyph order', async ($, on) => {
-  const pane = await draw($, on, 'summary', [...ROWS, { server: 'x', label: 'x', source: 'dynamic', state: 'ok', tools: 3 }])
-  const parts = await pane.findAll({ type: 'Text', text: /^ ?[●!◐✕○] \d$/ })
-  expect(parts.map((part) => [part.text.trim(), part.props.color])).toEqual([
-    ['● 3', 'success'],
-    ['! 1', 'warning'],
-    ['◐ 1', 'warning'],
-    ['✕ 1', 'error'],
-    ['○ 1', 'subtle'],
-  ])
-  expect(mcp.summary?.({ mcp: [] }, {} as never, { enable: true }, 36, colors())).toBeUndefined()
+// Folded, the shared tally: each state's mark, two spaces, its count, two
+// spaces between terms, in the same state order the rows keep.
+test('folded, a tally of the states present, each in its role, in state order', async ($, on) => {
+  let rows: McpRow[] = [...ROWS, { server: 'x', label: 'x', source: 'dynamic', state: 'ok', tools: 3 }]
+  on('ui.render', { component: 'Pane', requestId: 'unit' }, async ($, e) => {
+    const ui = clientsAsTrees($.ui.resolve(e))
+    return <ui.Box>{mcp.summary?.({ mcp: rows }, ui, { enable: true }, 36, colors()) ?? <ui.Text>none</ui.Text>}</ui.Box>
+  })
+  const pane = await $.ui.mount({ ...PANE, plugin: 'test', requestId: 'unit' })
+  const summary = async (next: McpRow[]) => {
+    rows = next
+    await pane.redraw()
+    return (await pane.find({ type: 'Text' }))?.text
+  }
+  expect(await summary(rows)).toBe(`${OK}  3  ${AUTH}  1  ${CONNECTING}  1  ${DOWN}  1  ${OFF}  1`)
+  const terms = await pane.findAll({ type: 'Text', text: /^\S {2}\d$/u })
+  expect(terms.map((term) => term.props.color)).toEqual(['success', 'warning', 'warning', 'error', 'subtle'])
+  // A state with no servers has no term, so the terms sum to the listed servers.
+  expect(await summary(ROWS.filter((row) => row.state === 'ok'))).toBe(`${OK}  2`)
+  expect(await summary([])).toBe('none')
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.
@@ -184,7 +211,7 @@ test('/mcp disable and enable follow within a second, labels as /mcp names them'
   await clock.advance(1000)
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
   const rows = () => rowsOf(pane)
-  expect(await rows()).toEqual(['● Claude Docsclaude.ai · 2 tools', '● playwrightdynamic · 22 tools', '○ githubdynamic · off'])
+  expect(await rows()).toEqual([`${OK}  Claude Docsclaude.ai · 2 tools`, `${OK}  playwrightdynamic · 22 tools`, `${OFF}  githubdynamic · off`])
   expect(await pane.find({ type: 'Text', text: '2/3', in: 'foldrow-mcp' })).toBeDefined()
 
   // `/mcp disable playwright`: its tools go and the file lists it.
@@ -193,35 +220,35 @@ test('/mcp disable and enable follow within a second, labels as /mcp names them'
   world.mtimeMs = 2
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rows()).toEqual(['● Claude Docsclaude.ai · 2 tools', '○ githubdynamic · off', '○ playwrightdynamic · off'])
+  expect(await rows()).toEqual([`${OK}  Claude Docsclaude.ai · 2 tools`, `${OFF}  githubdynamic · off`, `${OFF}  playwrightdynamic · off`])
 
   // `/mcp enable playwright`: it connects until its tools come back.
   world.json = claudeJson(['github'])
   world.mtimeMs = 3
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rows()).toEqual(['● Claude Docsclaude.ai · 2 tools', '◐ playwrightdynamic · connecting', '○ githubdynamic · off'])
+  expect(await rows()).toEqual([`${OK}  Claude Docsclaude.ai · 2 tools`, `${CONNECTING}  playwrightdynamic · connecting`, `${OFF}  githubdynamic · off`])
   world.tools = [...tools('playwright', 22), ...tools('claude_ai_Claude_Docs', 2)]
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rows()).toEqual(['● Claude Docsclaude.ai · 2 tools', '● playwrightdynamic · 22 tools', '○ githubdynamic · off'])
+  expect(await rows()).toEqual([`${OK}  Claude Docsclaude.ai · 2 tools`, `${OK}  playwrightdynamic · 22 tools`, `${OFF}  githubdynamic · off`])
 
   // A server that drops its tools reads down after MCP_TIMEOUT.
   world.tools = tools('playwright', 22)
   await clock.advance(1000)
   await pane.redraw()
-  expect((await rows())[0]).toBe('◐ Claude Docsclaude.ai · connecting')
+  expect((await rows())[0]).toBe(`${CONNECTING}  Claude Docsclaude.ai · connecting`)
   await clock.advance(10_000)
   await pane.redraw()
-  expect((await rows())[0]).toBe('✕ Claude Docsclaude.ai · down')
+  expect((await rows())[0]).toBe(`${DOWN}  Claude Docsclaude.ai · down`)
 
   // A click on the title row folds it; the summary keeps its colors inside the row's Client.
   await pane.pointer({ type: 'down', x: 2, y: 0, button: 'left', in: 'foldrow-mcp' })
-  const summary = await pane.findAll({ type: 'Text', text: /^ ?[●✕○] \d$/, in: 'foldrow-mcp' })
-  expect(summary.map((part) => [part.text.trim(), part.props.color])).toEqual([
-    ['● 1', 'success'],
-    ['✕ 1', 'error'],
-    ['○ 1', 'subtle'],
+  const summary = await pane.findAll({ type: 'Text', text: /^\S {2}\d$/u, in: 'foldrow-mcp' })
+  expect(summary.map((part) => [part.text, part.props.color])).toEqual([
+    [`${OK}  1`, 'success'],
+    [`${DOWN}  1`, 'error'],
+    [`${OFF}  1`, 'subtle'],
   ])
 })
 
@@ -237,7 +264,7 @@ test("a plugin's server is labelled by its server name, its plugin name holding 
   })
   await clock.advance(1000)
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
-  expect(await rowsOf(pane)).toEqual(['● linearmy_kit · 2 tools'])
+  expect(await rowsOf(pane)).toEqual([`${OK}  linearmy_kit · 2 tools`])
 })
 
 test('after /cd to another project, off rows follow that project', async ($, on) => {
@@ -251,14 +278,14 @@ test('after /cd to another project, off rows follow that project', async ($, on)
   await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
   await clock.advance(1000)
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
-  expect(await rowsOf(pane)).toEqual(['○ githubdynamic · off'])
+  expect(await rowsOf(pane)).toEqual([`${OFF}  githubdynamic · off`])
 
   // `/cd /srv/y`: the file is unchanged, the project key isn't.
   world.cwd = '/srv/y'
   await $.classic.CwdChanged({ old_cwd: '/srv/x/app', new_cwd: '/srv/y' })
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rowsOf(pane)).toEqual(['○ sentrydynamic · off'])
+  expect(await rowsOf(pane)).toEqual([`${OFF}  sentrydynamic · off`])
 })
 
 // Sources (#174), as `~/.claude.json`, `.mcp.json` files and the policy name them.
@@ -285,13 +312,13 @@ test('each row reads its source · status, from the config files in Claude Code�
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
   await pane.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'more-mcp' })
   expect(await rowsOf(pane)).toEqual([
-    '● clidynamic · 1 tool',
-    '● linearlocal · 1 tool',
+    `${OK}  clidynamic · 1 tool`,
+    `${OK}  linearlocal · 1 tool`,
     // Unapproved in this project: it can't shadow, so it reads as nothing holds it.
-    '● pendingdynamic · 1 tool',
-    '● playwrightuser · 1 tool',
-    '● policymanaged · 1 tool',
-    '● sentryproject · 1 tool',
+    `${OK}  pendingdynamic · 1 tool`,
+    `${OK}  playwrightuser · 1 tool`,
+    `${OK}  policymanaged · 1 tool`,
+    `${OK}  sentryproject · 1 tool`,
   ])
   // The source and its `·` are muted; the status keeps its role.
   expect((await pane.find({ type: 'Text', text: /^dynamic · / }))?.props.color).toBe('inactive')
@@ -309,7 +336,7 @@ test('a tool run’s reported source corrects the guess', async ($, on) => {
   await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
   await clock.advance(1000)
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
-  expect(await rowsOf(pane)).toEqual(['● dupuser · 1 tool'])
+  expect(await rowsOf(pane)).toEqual([`${OK}  dupuser · 1 tool`])
   // `--mcp-config` overrode the user server of that name.
   await $.classic.PostToolUse({
     tool_name: 'mcp__dup__t0',
@@ -320,13 +347,13 @@ test('a tool run’s reported source corrects the guess', async ($, on) => {
   })
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rowsOf(pane)).toEqual(['● dupdynamic · 1 tool'])
+  expect(await rowsOf(pane)).toEqual([`${OK}  dupdynamic · 1 tool`])
 
   // `/clear` empties $.state, not the servers: the correction holds.
   cleared = true
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rowsOf(pane)).toEqual(['● dupdynamic · 1 tool'])
+  expect(await rowsOf(pane)).toEqual([`${OK}  dupdynamic · 1 tool`])
 })
 
 test('after /cd the project servers are the new directory’s', async ($, on) => {
@@ -344,12 +371,12 @@ test('after /cd the project servers are the new directory’s', async ($, on) =>
   await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
   await clock.advance(1000)
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
-  expect(await rowsOf(pane)).toEqual(['● docsdynamic · 1 tool'])
+  expect(await rowsOf(pane)).toEqual([`${OK}  docsdynamic · 1 tool`])
   world.cwd = '/srv/y'
   await $.classic.CwdChanged({ old_cwd: '/srv/x/app', new_cwd: '/srv/y' })
   await clock.advance(1000)
   await pane.redraw()
-  expect(await rowsOf(pane)).toEqual(['● docsproject · 1 tool'])
+  expect(await rowsOf(pane)).toEqual([`${OK}  docsproject · 1 tool`])
 })
 
 test('with CLAUDE_CONFIG_DIR set, the disabled list comes from the .claude.json there', async ($, on) => {
@@ -359,7 +386,7 @@ test('with CLAUDE_CONFIG_DIR set, the disabled list comes from the .claude.json 
   await $.session.start({ cwd: '/srv/x/app', surface: 'terminal', isInteractive: true })
   await clock.advance(1000)
   const pane = await $.ui.mount({ ...PANE, plugin: 'ctui', requestId: 'sidebar' })
-  expect(await rowsOf(pane)).toEqual(['○ githubdynamic · off'])
+  expect(await rowsOf(pane)).toEqual([`${OFF}  githubdynamic · off`])
 })
 
 test('a click on ▸ N more lists every server, and ▾ show less caps them again', async ($, on) => {
