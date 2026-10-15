@@ -342,7 +342,7 @@ Reason: The human chose this in #109: the renders show ctui's own design as it s
 
 Applies when: drawing a Nerd Font icon (a private-use glyph such as `U+F06E`) before text.
 
-Guidance: Follow the icon with two spaces. The engine counts it as one cell, but the terminal draws it two cells wide: the first space takes the overflow and the second shows as the gap. It holds for every Sidebar row glyph as well as the `/ctui` rows; `plugins/marks.tsx` writes it once, as `lead` and `GAP`, and a converted row's label loses that column, so check the 42-column dock.
+Guidance: Follow the icon with two spaces. The engine counts it as one cell, but the terminal draws it two cells wide: the first space takes the overflow and the second shows as the gap. It holds for every Sidebar row glyph as well as the `/ctui` rows; `plugins/marks.tsx` writes it once, as `lead` and `GAP`, and a converted row's label loses that column, so check the 42-column dock. The git header's Devicons are the one exception: each draws one cell wide, so it takes one space and its text sits at column 2 (`layout/git-glyph-columns`). `docs/design/sidebar.html` writes whatever the row writes — two spaces after a section row's mark, one after a Devicon — so a render's columns match the terminal's.
 
 Reason: Checked live on 2.1.292 (2026-10-09, #201) on the `/ctui` Plugins rows. With one space the eye touched the title; with none the terminal shrank the eye and it still touched; with two it drew full size, one space from the title.
 
