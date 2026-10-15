@@ -114,7 +114,6 @@ drive a fold `grep` the title for its row and click col 113 at 150 columns.
   the `/theme`'s dock color, so no frame shows. Under `inherit` on the seeded `custom:fixture` it is that
   theme's background `#2d353b` mixed 6% toward its foreground `#d3c6aa`, which is `#373e42`.
 - Flexoki Light draws fold arrows in `#706e69` and a hovered arrow in `#205ea6`.
-- The engine adds SGR underline (`u=1`) to every hovered cell. ctui neither asks for it nor can suppress it.
 
 ## Cost and care
 
