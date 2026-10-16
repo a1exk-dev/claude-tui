@@ -1,5 +1,5 @@
 // The support floor: the lowest Claude Code version ctui runs on (CONTEXT.md
-// "Support floor"). `node scripts/check.ts` ties it to ctui/README.md and to
+// "Support floor"). `node scripts/check.ts` ties it to README.md, ctui/README.md and
 // the types in vendor/claude-code-types-floor/.
 export const FLOOR = '2.1.292'
 
