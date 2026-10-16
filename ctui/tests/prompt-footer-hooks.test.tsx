@@ -16,7 +16,7 @@ function host(on: On, world: World) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.end', (_, e) => ({ sessionId: e.sessionId }))
   on('session.cwd', () => ({ value: '/srv/x' }))
-  on('session.version', () => ({ value: { version: '2.1.288' } }))
+  on('session.version', () => ({ value: { version: '2.1.300' } }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('session.model', () => ({ value: world.model }))
   on('settings.read', () => ({ value: world.settings }))

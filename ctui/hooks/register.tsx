@@ -4,6 +4,7 @@ import { plugins, sections } from '../plugins'
 import { colors } from '../plugins/colors'
 import type { GitSnapshot, McpRow, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { type Config, readConfig } from './config'
+import { belowFloor, floorToast } from './floor'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
 import { type McpSources, mcpRows, segmentOf, serverName, serverOfTool, withBusy } from './mcp'
@@ -71,6 +72,9 @@ const widthFor = (terminalColumns: number) => (terminalColumns >= 160 ? 53 : 42)
 const MENU_PANE = 'ctui'
 const MENU = { plugin: 'ctui', key: 'menu' } as const
 const MENU_TAKEN = { plugin: 'ctui', key: 'menuTaken' } as const
+
+// Whether this session already toasted an engine below the support floor.
+const FLOOR_TOASTED = { plugin: 'ctui', key: 'floorToasted' } as const
 
 // The enterprise MCP file on Linux and macOS.
 const ENTERPRISE_MCP = ['/etc/claude-code/managed-mcp.json', '/Library/Application Support/ClaudeCode/managed-mcp.json']
@@ -687,6 +691,15 @@ async function registerMenu($: EngineInterface) {
   }
 }
 
+// CONTEXT.md "Support floor": one toast per session on an older engine. On
+// 2.1.284 and older the hooks module never loads, so this reaches 2.1.285 to 2.1.291.
+async function checkFloor($: EngineInterface) {
+  const { version } = await $.session.version()
+  if (!belowFloor(version) || (await $.state.get(FLOOR_TOASTED)).value) return
+  await $.state.set(FLOOR_TOASTED, true)
+  showToast($, { id: 'floor', end: true, text: floorToast(version) }, true)
+}
+
 // Opens the menu with the keys: a first open, or one taking them back after Esc's deny.
 async function openMenu($: EngineInterface) {
   // As wide as the Sidebar it docks over; inline ignores it, and fits the
@@ -861,6 +874,7 @@ export const register: Register = (on, options) => {
   let look: ReturnType<typeof themeLook> | undefined // read once per load: a `theme` change reloads
 
   on('session.start', async ($, e, next) => {
+    void checkFloor($).catch(() => undefined)
     void registerMenu($).catch(() => undefined)
     // A reload from elsewhere (`/config`) drops the order timer: start it again.
     const { pending, ...menu } = await menuOf($)
