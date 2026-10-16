@@ -481,11 +481,17 @@ async function setTodoEnv($: EngineInterface, tools: boolean) {
 // The task tools `todo_tools` keeps out of ToolSearch; TaskList, TaskGet and TaskStop stay deferred.
 const PINNED_TASK_TOOLS = new Set(['TaskCreate', 'TaskUpdate', 'TodoWrite'])
 
+// The tools that start a list carry the 2+ outcomes rule in their own description, where
+// Sonnet 5.5 decides whether to call one: the section alone left it listing 6 of 9.
+const LIST_STARTERS = new Set(['TaskCreate', 'TodoWrite'])
+const LIST_RULE = 'Use this for any request with 2 or more outcomes the user named, even when one command or edit could do several of them; make the list before the first tool call. A request for one outcome gets no list.'
+
 // The `ctui:todo` section, as tested live in #220 and narrowed in #294, naming the
-// tools the request offers. It denies the list before it asks for one, because a
-// weak model counted a one-line fix's read, edit and check as three steps.
+// tools the request offers. It counts outcomes the user named, not the model's own
+// moves, because a weak model counted a one-line fix's read, edit and check as
+// three steps and Sonnet 5.5 read a three-outcome job as one piece (#358).
 const taskSection = (create: string, update: string) => `# Task list
-The user follows your progress in a task list shown beside the conversation. Make no list when the whole request is one piece of work — one file's edit, one command, one question answered — however many moves it takes you: reading, searching, editing and checking the same piece are not separate steps. For a request that needs 2 or more distinct pieces of work (several files or fixes, a delegated agent, a build and then its tests), your first action is to create one task per piece with ${create}, before reading files or delegating. Set each task in_progress with ${update} when you start it and completed as soon as it is done.`
+The user follows your progress in a task list shown beside the conversation. Count what the user asked for, not your own moves: reading, searching, editing and checking one change are not separate steps, so a request for one outcome — one file's edit, one command, one question answered — gets no list. A request for 2 or more outcomes the user named, even a short one (a rename, then a README, then a line count; several files or fixes; a delegated agent; a build and then its tests), gets one task per outcome as your first action, created with ${create} before reading files or delegating. Set each task in_progress with ${update} when you start it and completed as soon as it is done.`
 
 const TODO_STATUSES = new Set<string>(['pending', 'in_progress', 'completed'])
 
@@ -909,7 +915,10 @@ export const register: Register = (on, options) => {
   on('tool.describe', async ($, e, next) => {
     const [segment, name] = serverName(e.tool, e.provider.plugin) ?? []
     if (segment && name) mcpNames[segment] = name
-    if (config.todo.tools && PINNED_TASK_TOOLS.has(e.tool)) return { ...(await next(e)), isDeferred: false }
+    if (config.todo.tools && PINNED_TASK_TOOLS.has(e.tool)) {
+      const described = { ...(await next(e)), isDeferred: false }
+      return LIST_STARTERS.has(e.tool) ? { ...described, description: `${described.description}\n\n${LIST_RULE}` } : described
+    }
     return next(e)
   })
 
