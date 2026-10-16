@@ -1,9 +1,8 @@
 import type { On, RenderComponent, RenderPropsOf } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
-// Scenario: the transcript rewrites (docs/spec/v0.1.md slice 8) through
-// `$.ui.mount`, with this test's own hooks beneath ctui standing in for the
-// engine's drawing.
+// Scenario: the transcript rewrites through `$.ui.mount`, with this test's own
+// hooks beneath ctui standing in for the engine's drawing.
 
 // Records the props each component reached the engine with, and draws it as
 // the Text `engine`.

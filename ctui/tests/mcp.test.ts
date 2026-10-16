@@ -160,7 +160,7 @@ test('a source a tool run reported wins over the guess', () => {
 
 // Busy is an overlay on the glyph cell, not a sixth connection state: a call
 // in flight is fresher evidence than the tick that set the state, so the row
-// keeps its state and goes busy too (`docs/spec/working-now.md`).
+// keeps its state and goes busy too.
 test('a call in flight makes its row busy, whatever its connection state', () => {
   const rows = mcpRows(input({ tools: [...PLAYWRIGHT, ...AUTHY], disabled: ['github'], busy: { playwright: 2, authy: 1, github: 1 } }))
   expect(rows.map((row) => [row.server, row.state, row.busy])).toEqual([

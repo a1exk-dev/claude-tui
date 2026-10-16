@@ -29,7 +29,7 @@ const AUTH_TOOLS = new Set(['authenticate', 'complete_authentication'])
 
 // Busy over the rows as they stand: a row is busy while at least one call to
 // that server is in flight, and the flag goes the moment the count is back at
-// zero — no hold, no floor (`docs/spec/working-now.md`, "It settles at once").
+// zero — no hold, no floor.
 // The row says nothing about how many are running.
 export const withBusy = (rows: readonly McpRow[], busy: Readonly<Record<string, number>>): McpRow[] =>
   rows.map(({ busy: _was, ...row }) => ((busy[row.server] ?? 0) > 0 ? { ...row, busy: true } : row))

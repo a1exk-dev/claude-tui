@@ -3,14 +3,14 @@ import type { RenderElement, RenderNode } from 'claude-code'
 import type { Colors, Role } from './colors'
 import type { SidebarUi } from './plugin'
 
-// The Sidebar's shared circle vocabulary (`docs/spec/sidebar-icons.md`): one
-// rounded Material Design mark per state, drawn from the person's JetBrains
-// Mono Nerd Font. A mark carries its codepoint *and* its colour role together,
+// The Sidebar's shared circle vocabulary: one rounded Material Design mark per
+// state, drawn from the person's JetBrains Mono Nerd Font
+// (`docs/adr/0003-one-glyph-one-colour.md`). A mark carries its codepoint *and* its colour role together,
 // so a mark two sections draw cannot take two colours. Each section maps its
 // own states onto these marks; none of that mapping lives here.
 export type Mark = { glyph: string; role: Role }
 
-// Every static mark in the spec's table, by its `nf-md-` name.
+// Every static mark, by its `nf-md-` name.
 export const MARKS = {
   checkbox_marked_circle: { glyph: '\u{f0133}', role: 'success' },
   checkbox_blank_circle_outline: { glyph: '\u{f0130}', role: 'faint' },
@@ -57,7 +57,7 @@ export const lead = (Text: SidebarUi['Text'], { glyph, role }: Mark, c: Colors):
 // the gap after it leads the text exactly as `lead` writes it. `key` is the
 // row's own, so a row keeps its frame clock across redraws. `role` is the
 // row's own: shape says in progress, colour keeps saying which state the row
-// is in (`docs/spec/working-now.md`, "The motion").
+// is in (`docs/adr/0003-one-glyph-one-colour.md`).
 export const sweeping = (
   { Box, Text, Client }: SidebarUi,
   key: string,

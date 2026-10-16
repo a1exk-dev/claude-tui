@@ -1,5 +1,4 @@
-// ctui's $.state contract (docs/spec/v0.1.md). It survives a reload; /clear
-// and /resume empty it.
+// ctui's $.state contract. It survives a reload; /clear and /resume empty it.
 
 // The git header's rows from a repo; `ahead` and `behind` only with an upstream.
 export type GitRepo = {

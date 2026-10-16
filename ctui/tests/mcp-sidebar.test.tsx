@@ -99,7 +99,7 @@ test('each row: the mark in its role, two spaces, the label, the state at the ri
 
 // Busy is an overlay on the glyph cell, not a sixth state: the sweep replaces
 // whatever the connection state would draw, in that state's own role, and the
-// right-hand `<source> · <state text>` is untouched (`docs/spec/working-now.md`).
+// right-hand `<source> · <state text>` is untouched.
 test('a busy row sweeps in its own state’s role, its state text unchanged', async ($, on) => {
   const busy = ROWS.filter((row) => row.state !== 'connecting').map((row) => ({ ...row, busy: true as const }))
   const pane = await draw($, on, 'view', [
@@ -483,7 +483,7 @@ test('▸ N more lights main under the pointer, not accent', async ($, on) => {
 
 // Busy through register.tsx's hooks: a `tool.call` to a server is bracketed,
 // so the row sweeps while a call is in flight and settles the instant the last
-// one ends (`docs/spec/working-now.md`, "`mcp`: when a server is in progress").
+// one ends.
 
 // A held call's answer, so a test can keep one in flight and release it.
 type Answer = (result: { result: string }) => void
@@ -585,8 +585,8 @@ test('a call to a down server sweeps in error without changing its state text', 
 // that re-reads the in-flight count at write time. Without that, a tick whose
 // write is already in flight when the last call ends puts the count back as it
 // stood and the row sweeps on with nothing running until the next tick — the
-// stale-hot read `docs/spec/working-now.md` rules out ("The count lives in a
-// module variable", "It settles at once").
+// stale-hot read MEMORY.md rules out ("The `mcp` Sidebar plugin reads live tools and MCP config
+// names; it never probes").
 test('a release landing while a tick writes still leaves the row settled', async ($, on) => {
   const clock = mock.clock(on, { now: 0 })
   mock.env(on, { HOME, MCP_TIMEOUT: '10000' })
@@ -625,7 +625,7 @@ test('a release landing while a tick writes still leaves the row settled', async
   expect(await sentryRow(pane)).toEqual({ text: `${OK}  sentrydynamic · 2 tools`, sweep: undefined })
 })
 
-// The spec asks for this through the hooks as well as per view: with a call in
+// This holds through the hooks as well as per view: with a call in
 // flight, the folded tally's busy term leads and a busy server keeps its state
 // term, so the state terms still sum to the server count.
 test('folded with a busy server, the busy term leads and the terms sum to the server count', async ($, on) => {
