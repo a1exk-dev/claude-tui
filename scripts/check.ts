@@ -10,7 +10,6 @@ import { outputs } from './themes.ts'
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'))
 
 let failed = false
-const warn = (message: string) => console.warn(`warning: ${message}`)
 const error = (message: string) => {
   console.error(`error: ${message}`)
   failed = true
@@ -30,8 +29,9 @@ const subfolders = (dir: string) =>
 
 const tsc = 'node_modules/.bin/tsc'
 const claude = 'node_modules/.bin/claude'
-if (!existsSync(tsc) || !existsSync(claude)) {
-  console.error('error: tsc or claude is not installed, run npm ci')
+const cspell = 'node_modules/.bin/cspell'
+if (![tsc, claude, cspell].every(existsSync)) {
+  console.error('error: tsc, claude or cspell is not installed, run npm ci')
   process.exit(1)
 }
 
@@ -112,7 +112,7 @@ for (const file of readdirSync('ctui/themes')) {
   if (!generated.has(`ctui/themes/${file}`)) error(`ctui/themes/${file} is not a generated Theme`)
 }
 
-if (spawnSync('typos', ['--version'], { stdio: 'ignore' }).error) warn('typos not installed, skipping spell check')
-else run('typos', [])
+// Spelling, against cspell.json's words. A new name that is spelled right goes in its `words`.
+run(cspell, ['lint', '--no-progress', '--no-summary', '**'])
 
 process.exit(failed ? 1 : 0)

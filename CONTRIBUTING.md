@@ -2,13 +2,13 @@
 
 ## Setup
 
-Use Node 22.18 or newer, which runs `.ts` files without a flag. Run `npm ci`. It installs the Claude Code version ctui is tested against (the exact `@anthropic-ai/claude-code` devDependency) and TypeScript. Install [`typos`](https://github.com/crate-ci/typos) for the spell check; the runner warns and skips it when it's missing.
+Use Node 22.18 or newer, which runs `.ts` files without a flag. Run `npm ci`. It installs the Claude Code version ctui is tested against (the exact `@anthropic-ai/claude-code` devDependency), TypeScript and [cspell](https://cspell.org/) for the spell check.
 
 `npm ci` also builds node-pty's native binding, because `package.json`'s `allowScripts` allows its build script: the live-check harness loads that binding and nothing else in the repo does. A checkout that only runs `node scripts/check.ts` carries it unused, the gate never starting the harness.
 
 ## Checks
 
-Run `node scripts/check.ts` before each commit. It runs `tsc` (against the pin's types and, for ctui's production code, the support floor's), `claude plugin validate ctui --strict` and `validate . --strict`, `claude plugin test ctui`, the consistency checks (Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; versions; both READMEs, `ctui/hooks/floor.ts` and the floor types against the pin and the floor; the root README's `/plugin` lines against `ctui/README.md`'s), the Theme generator's tests in `scripts/themes.test.ts`, the cost live check's fixture generator's tests in `scripts/cost-fixture.test.ts`, a check that `node scripts/themes.ts` would change no Theme and no `docs/configuration.md` table, and `typos`. It exits 1 when `node_modules/.bin/claude` is missing. CI runs the same command. The whole run stays under the 2-minute ceiling in the `MEMORY.md` entry "Tests cover real usage"; nothing asserts it, so watch it as the suite grows.
+Run `node scripts/check.ts` before each commit. It runs `tsc` (against the pin's types and, for ctui's production code, the support floor's), `claude plugin validate ctui --strict` and `validate . --strict`, `claude plugin test ctui`, the consistency checks (Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; versions; both READMEs, `ctui/hooks/floor.ts` and the floor types against the pin and the floor; the root README's `/plugin` lines against `ctui/README.md`'s), the Theme generator's tests in `scripts/themes.test.ts`, the cost live check's fixture generator's tests in `scripts/cost-fixture.test.ts`, a check that `node scripts/themes.ts` would change no Theme and no `docs/configuration.md` table, and `cspell`. A word it flags that is spelled right, such as a new name, goes in `cspell.json`'s `words`. It exits 1 when `node_modules/.bin/claude` or `cspell` is missing. CI runs the same command. The whole run stays under the 2-minute ceiling in the `MEMORY.md` entry "Tests cover real usage"; nothing asserts it, so watch it as the suite grows.
 
 ## Tests
 
