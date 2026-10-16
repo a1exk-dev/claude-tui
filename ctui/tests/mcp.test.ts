@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { type McpInput, mcpRows, NO_SOURCES, serverName } from '../hooks/mcp'
+import { type McpInput, mcpRows, NO_SOURCES, serverName, serverOfTool, withBusy } from '../hooks/mcp'
 import type { McpRow } from '../types'
 
 // Tool names as `$.tool.list()` gave them on 2.1.288 (MEMORY.md "The `mcp`
@@ -21,6 +21,7 @@ const input = (over: Partial<McpInput>): McpInput => ({
   now: 0,
   timeoutMs: TIMEOUT,
   sources: NO_SOURCES,
+  busy: {},
   ...over,
 })
 
@@ -155,6 +156,47 @@ test('a source a tool run reported wins over the guess', () => {
   const sources = { ...NO_SOURCES, user: ['dup'], observed: { dup: 'dynamic', claude_ai_Claude_Docs: 'claudeai' } }
   const rows = mcpRows(input({ tools: [...tools('dup', 't'), ...DOCS], sources }))
   expect(rows.map((row) => row.source)).toEqual(['claude.ai', 'dynamic'])
+})
+
+// Busy is an overlay on the glyph cell, not a sixth connection state: a call
+// in flight is fresher evidence than the tick that set the state, so the row
+// keeps its state and goes busy too.
+test('a call in flight makes its row busy, whatever its connection state', () => {
+  const rows = mcpRows(input({ tools: [...PLAYWRIGHT, ...AUTHY], disabled: ['github'], busy: { playwright: 2, authy: 1, github: 1 } }))
+  expect(rows.map((row) => [row.server, row.state, row.busy])).toEqual([
+    ['authy', 'auth', true],
+    ['playwright', 'ok', true],
+    ['github', 'off', true],
+  ])
+})
+
+test('a count back at zero leaves no busy flag behind', () => {
+  expect(mcpRows(input({ tools: PLAYWRIGHT, busy: { playwright: 0 } }))).toEqual([
+    { server: 'playwright', label: 'playwright', source: 'dynamic', state: 'ok', tools: 2 },
+  ])
+})
+
+// register.tsx writes busy the instant a call starts or ends, over the rows the
+// tick last left in `$.state`, so the sweep neither waits for a tick nor outlasts
+// the call by one.
+test('withBusy sets and clears busy over the rows already drawn', () => {
+  const rows: McpRow[] = [
+    { server: 'playwright', label: 'playwright', source: 'user', state: 'ok', tools: 2 },
+    { server: 'sentry', label: 'sentry', source: 'user', state: 'down', busy: true },
+  ]
+  expect(withBusy(rows, { playwright: 1 })).toEqual([
+    { server: 'playwright', label: 'playwright', source: 'user', state: 'ok', tools: 2, busy: true },
+    { server: 'sentry', label: 'sentry', source: 'user', state: 'down' },
+  ])
+})
+
+// A `tool.call` carries no provider, so the server comes from the tool name the
+// way the tick's rows do: the second `__` segment of an `mcp__<server>__<tool>` name.
+test('serverOfTool reads the server segment of an MCP tool name, and nothing else', () => {
+  expect(serverOfTool('mcp__claude_ai_Claude_Docs__read')).toBe('claude_ai_Claude_Docs')
+  expect(serverOfTool('mcp__playwright__browser_click')).toBe('playwright')
+  expect(serverOfTool('Bash')).toBeUndefined()
+  expect(serverOfTool('mcp__playwright')).toBeUndefined()
 })
 
 test('an off server gets its source too', () => {

@@ -1,4 +1,4 @@
-// Pure formatters for the Sidebar's rows (docs/spec/v0.1.md).
+// Pure formatters for the Sidebar's rows.
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE

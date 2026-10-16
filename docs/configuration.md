@@ -165,4 +165,22 @@ background=0a0a0a
 
 ## Known differences from the renders
 
-Claude Code draws some parts itself, and the mods API can't reach others: the Sidebar's frame, the prompt box, the mode pill and a few tool rows. The full list is in [the build spec](spec/v0.1.md#known-differences-from-the-renders).
+Claude Code draws these, or the mods API can't reach them.
+
+| Render | ctui | Source |
+|---|---|---|
+| Borderless Sidebar, full height | Claude Code's `│` rule, the `✕` row above the body and the row below it. The dock stops above the prompt. | #8 |
+| Sidebar panel `#141414` | The dock's color is the `/theme` theme's `composerSidebarBackground` (`#262626` on the built-in dark). A ctui Theme paints the body, but Claude Code's frame keeps the `/theme` color until you pick the same theme there. | #8, #12, #77 |
+| Sidebar always shown | Shown only in fullscreen at 110+ columns. Below 144 columns, a first session docks it only at the first prompt. | #9 |
+| Footer `claude-tui 0.1.1`, `opencode 1.0`, `claude-cli` | `claude cli: <version>` and `ctui: <version>, <Theme>`, with no update icon. | #17 |
+| MCP `✕ … failed`; every configured server listed | `down`. A server that never connected this session isn't listed, unless you turned it off. | #11 |
+| Round prompt box with "Ask anything" | Claude Code's `─` rules and `❯`. | #20 |
+| Main background `#0a0a0a` | The terminal's background. [Main background](#main-background) shows how to set it. | #20 |
+| `claude-opus-5-5 · high effort` on the left, `▸▸ accept edits` on the right | Claude Code's mode pill and hint on the left, and ctui's `model · effort` on the right (or on its own row when it doesn't fit). With a status line, the label sits on the status-line row. Effort is stale after a session-only `/effort` pick or `--effort` until the next request. | #35 |
+| `┃` bar and running `◐` in the permission mode's color | `┃` in `promptBorder`; a running agent or shell in `warning`. | #43 |
+| `* Grep "parseFlags" · 3 matches` | No row: Claude Code has no Grep tool, so searches show as `$ Bash`. | #34 |
+| `$ Bash … · 14 passed` | `N lines`. | #34 |
+| Edit diff indented, without a header | Claude Code's `ToolResult`, with its `⎿ Added N lines, removed M lines` line, at full width. | #34 |
+| Tools other than Read, Edit, Write, Bash | Claude Code's `● Name(args)` rows. | #34 |
+| `⊡ accept edits · claude-opus-5-5 · 12.3s` | `✻ accept edits · claude-opus-5-5 · Baked for 12s · done 8:57 PM`. Lines from an earlier process stay plain. | #36 |
+| Pinned prompt at the top while scrolling (fullscreen) | Claude Code's own sticky header, without the `┃` bar. | #19 |

@@ -4,12 +4,12 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { FLOOR as floor } from '../ctui/hooks/floor.ts'
 import { outputs } from './themes.ts'
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'))
 
 let failed = false
-const warn = (message: string) => console.warn(`warning: ${message}`)
 const error = (message: string) => {
   console.error(`error: ${message}`)
   failed = true
@@ -29,8 +29,9 @@ const subfolders = (dir: string) =>
 
 const tsc = 'node_modules/.bin/tsc'
 const claude = 'node_modules/.bin/claude'
-if (!existsSync(tsc) || !existsSync(claude)) {
-  console.error('error: tsc or claude is not installed, run npm ci')
+const cspell = 'node_modules/.bin/cspell'
+if (![tsc, claude, cspell].every(existsSync)) {
+  console.error('error: tsc, claude or cspell is not installed, run npm ci')
   process.exit(1)
 }
 
@@ -38,6 +39,8 @@ if (!existsSync(tsc) || !existsSync(claude)) {
 // Two projects: ctui runs in the engine with no Node globals, the live-check harness runs on Node.
 run(tsc, ['-p', '.'])
 run(tsc, ['-p', '.claude/skills/live-checks/harness'])
+// ctui's production code against the support floor's types: a change that needs a newer engine fails here.
+run(tsc, ['-p', 'tsconfig.floor.json'])
 run(claude, ['plugin', 'validate', 'ctui', '--strict'])
 run(claude, ['plugin', 'validate', '.', '--strict'])
 run(claude, ['plugin', 'test', 'ctui'])
@@ -69,23 +72,24 @@ const themes = readdirSync('ctui/themes')
 same('inherit plus the ctui/themes/*.json slugs A–Z and the theme options', ['inherit', ...themes].join(' '), manifest.userConfig.theme.options.join(' '))
 same('plugin.json and ctui/package.json versions', manifest.version, json('ctui/package.json').version)
 
-// The pin: README and COMPATIBILITY.md follow package.json.
+// The pin and the support floor: both READMEs name them, the toast's constant
+// and the floor's vendored types name the floor.
 const pin: string = json('package.json').devDependencies['@anthropic-ai/claude-code']
 if (!/^\d+\.\d+\.\d+$/.test(pin)) error(`the Claude Code pin must be an exact version, got [${pin}]`)
-const tested = `Tested with Claude Code ${pin} ([all tested versions](COMPATIBILITY.md)).`
-if (!readFileSync('ctui/README.md', 'utf8').split('\n').includes(tested)) {
-  error(`ctui/README.md has no line "${tested}"`)
+// The engine heads the types it writes with its version; claude-code-tools has no such line.
+const floorWritten = /^\/\/ Written by Claude Code (\S+)\.$/m.exec(readFileSync('vendor/claude-code-types-floor/claude-code/index.d.ts', 'utf8'))?.[1] ?? ''
+same('the floor in ctui/hooks/floor.ts and the version that wrote vendor/claude-code-types-floor', floor, floorWritten)
+const supported = `Needs Claude Code ${floor} or later. Tested with ${pin}.`
+const readmeLines = (path: string) => readFileSync(path, 'utf8').split('\n')
+for (const readme of ['README.md', 'ctui/README.md']) {
+  if (!readmeLines(readme).includes(supported)) error(`${readme} has no line "${supported}"`)
 }
-// The first table row after the `---` separator is the newest tested pair.
-const rows = readFileSync('ctui/COMPATIBILITY.md', 'utf8')
-  .split('\n')
-  .filter((line) => line.startsWith('|'))
-  .slice(2)
-if (rows[0]) {
-  const [version, claudeVersion] = rows[0].split('|').slice(1).map((cell) => cell.trim())
-  same('COMPATIBILITY.md top row and plugin.json versions', version ?? '', manifest.version)
-  same('COMPATIBILITY.md top row and the pin', claudeVersion ?? '', pin)
-}
+
+// The root README repeats ctui/README.md's install commands, so they cannot drift.
+const pluginCommands = (path: string) => readmeLines(path).filter((line) => line.startsWith('/plugin '))
+const ctuiInstall = pluginCommands('ctui/README.md')
+if (ctuiInstall.length === 0) error('ctui/README.md has no /plugin install lines')
+same('the /plugin lines in README.md and ctui/README.md', pluginCommands('README.md').join(' | '), ctuiInstall.join(' | '))
 
 // The engine-pinned expectations hold on one engine, so their MEMORY.md entry names the pin.
 const PINNED = 'Engine-pinned expectations hold only on the pinned Claude Code version'
@@ -108,7 +112,7 @@ for (const file of readdirSync('ctui/themes')) {
   if (!generated.has(`ctui/themes/${file}`)) error(`ctui/themes/${file} is not a generated Theme`)
 }
 
-if (spawnSync('typos', ['--version'], { stdio: 'ignore' }).error) warn('typos not installed, skipping spell check')
-else run('typos', [])
+// Spelling, against cspell.json's words. A new name that is spelled right goes in its `words`.
+run(cspell, ['lint', '--no-progress', '--no-summary', '**'])
 
 process.exit(failed ? 1 : 0)

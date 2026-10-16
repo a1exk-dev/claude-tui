@@ -1,6 +1,6 @@
 # Live checks
 
-Checks that mocks can't reach: docking, engine chrome, toast drawing, the Themes' paint, the Todo spinner and the fullscreen and main-screen looks. An agent drives them against a real, signed-in Claude Code on the pinned version (`@anthropic-ai/claude-code` in the root `package.json`) through the pty harness in `.claude/skills/live-checks/`, which is where the scenarios, the checks and the report's shape live. `CONTEXT.md` defines the term; this page is the operator's, for starting a run and reading what comes back. `CONTRIBUTING.md` says which pull request runs one.
+Checks that mocks can't reach: docking, engine chrome, toast drawing, the Themes' paint, the Todo spinner and a busy MCP row's sweep, a folded section's fold line holding still while the rows under it sweep, the column a Sidebar row's text lands in once the terminal has drawn its Nerd Font glyph two cells wide, and the fullscreen and main-screen looks. An agent drives them against a real, signed-in Claude Code on the pinned version (`@anthropic-ai/claude-code` in the root `package.json`) through the pty harness in `.claude/skills/live-checks/`, which is where the scenarios, the checks and the report's shape live. `CONTEXT.md` defines the term; this page is the operator's, for starting a run and reading what comes back. `CONTRIBUTING.md` says which pull request runs one.
 
 ## Running them
 
@@ -18,10 +18,10 @@ Nothing signed-in is ever written into the repo: each scenario seeds its own `CL
 One Markdown file, always the same shape: a heading counting the passes against the total, a version block, then a table per section with one row per check.
 
 - Every check comes back in every report, whatever the run found. A report missing rows is a broken run, not a partial one.
-- The version block names the plugin version and commit, the engine pin, the `node scripts/check.ts` result, and the model, effort and model turns the run spent. A pin that isn't `package.json`'s pin measured a different engine, so the report doesn't apply to this one.
+- The version block names the plugin version and commit, the engine pin, the `node scripts/check.ts` result, and and the model and effort the run used. A pin that isn't `package.json`'s pin measured a different engine, so the report doesn't apply to this one.
 - Each row's `measured` cell carries the evidence — the cell color, the column range, the glyph, the milliseconds — so a PASS states what it saw and you can audit it instead of trusting it. An empty `measured` cell means the row is unfinished.
 - A FAIL's `measured` cell says what the screen showed instead, and its scenario's config dir is listed under the sections at a named path, left on disk with its transcript and settings.
-- A few checks assert Claude Code's own behaviour rather than ctui's, `themes/hover-underline` among them: no ctui change can regress one and a FAIL there means the engine moved. `MEMORY.md`, "Engine-pinned expectations hold only on the pinned Claude Code version", holds that class and every member.
+- Three checks assert Claude Code's own behaviour rather than ctui's, the `fold-line-still` checks that hold the engine drawing no nested `Client`: no ctui change can regress one and a FAIL there means the engine moved. `MEMORY.md`, "Engine-pinned expectations hold only on the pinned Claude Code version", holds that class and every member.
 
 ## What ctui promises
 

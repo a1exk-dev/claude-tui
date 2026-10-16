@@ -10,6 +10,7 @@ export type McpInput = {
   now: number
   timeoutMs: number // MCP_TIMEOUT
   sources: McpSources
+  busy: Readonly<Record<string, number>> // calls in flight per segment, from register.tsx's module variable
 }
 
 // The `/mcp` names each config source holds (names only: an entry can hold
@@ -25,6 +26,21 @@ export const NO_SOURCES: McpSources = { enterprise: [], managed: [], local: [], 
 
 // The tools a server offers before its sign-in.
 const AUTH_TOOLS = new Set(['authenticate', 'complete_authentication'])
+
+// Busy over the rows as they stand: a row is busy while at least one call to
+// that server is in flight, and the flag goes the moment the count is back at
+// zero — no hold, no floor.
+// The row says nothing about how many are running.
+export const withBusy = (rows: readonly McpRow[], busy: Readonly<Record<string, number>>): McpRow[] =>
+  rows.map(({ busy: _was, ...row }) => ((busy[row.server] ?? 0) > 0 ? { ...row, busy: true } : row))
+
+// The server a `tool.call` names. That event carries no provider, so the
+// segment comes from the tool name the way the tick's rows do: the second
+// `__` segment of an `mcp__<server>__<tool>` name, and nothing for any other tool.
+export function serverOfTool(tool: string): string | undefined {
+  const [mcp, server, name] = tool.split('__')
+  return mcp === 'mcp' && server && name !== undefined ? server : undefined
+}
 
 // A /mcp name as it shows in tool names: `claude.ai Claude Docs` → `claude_ai_Claude_Docs`.
 export const segmentOf = (name: string) => name.replace(/[^A-Za-z0-9_-]/g, '_')
@@ -61,7 +77,7 @@ const labelOfSegment = (segment: string) => segment.replace(/^claude_ai_/, '').r
 // The rows A–Z by label, off rows last: servers seen with tools this session
 // plus disabled ones. A listed server with no tools connects for `timeoutMs` from
 // the tick it lost them or left the disabled list, then reads down.
-export function mcpRows({ rows, tools, disabled, names, now, timeoutMs, sources }: McpInput): McpRow[] {
+export function mcpRows({ rows, tools, disabled, names, now, timeoutMs, sources, busy }: McpInput): McpRow[] {
   const offered = new Map<string, string[]>()
   for (const tool of tools) {
     const [, server, name = ''] = tool.mcp ? tool.name.split('__') : []
@@ -85,8 +101,9 @@ export function mcpRows({ rows, tools, disabled, names, now, timeoutMs, sources 
     const since = before?.state === 'connecting' ? (before.since ?? now) : now
     return now - since >= timeoutMs ? { ...row, state: 'down' } : { ...row, state: 'connecting', since }
   })
-  return all.sort(
+  const sorted = all.sort(
     (a, b) =>
       +(a.state === 'off') - +(b.state === 'off') || a.label.localeCompare(b.label) || a.server.localeCompare(b.server),
   )
+  return withBusy(sorted, busy)
 }

@@ -2,11 +2,12 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import { plugins, sections } from '../plugins'
 import { colors } from '../plugins/colors'
-import type { GitSnapshot, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
+import type { GitSnapshot, McpRow, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { type Config, readConfig } from './config'
+import { belowFloor, floorToast } from './floor'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
-import { type McpSources, mcpRows, segmentOf, serverName } from './mcp'
+import { type McpSources, mcpRows, segmentOf, serverName, serverOfTool, withBusy } from './mcp'
 import {
   type Cached,
   COST_PREFIX,
@@ -72,6 +73,9 @@ const MENU_PANE = 'ctui'
 const MENU = { plugin: 'ctui', key: 'menu' } as const
 const MENU_TAKEN = { plugin: 'ctui', key: 'menuTaken' } as const
 
+// Whether this session already toasted an engine below the support floor.
+const FLOOR_TOASTED = { plugin: 'ctui', key: 'floorToasted' } as const
+
 // The enterprise MCP file on Linux and macOS.
 const ENTERPRISE_MCP = ['/etc/claude-code/managed-mcp.json', '/Library/Application Support/ClaudeCode/managed-mcp.json']
 
@@ -107,6 +111,15 @@ let mcpFiles: Pick<McpSources, 'project' | 'managed' | 'enterprise'> = { project
 // The sources tool runs reported, by segment, also kept in `$.state`: a reload
 // resets this, `/clear` and `/resume` empty that, and the servers outlive both.
 let mcpObserved: Record<string, string> = {}
+// Calls in flight per server segment, and every write of the MCP rows queued
+// behind the one before it (`writeMcpRows`). Module state, never `$.state`: a settings change reloads the mod
+// mid-session, so a call can start under one module and end under its
+// replacement, whose `finally` never runs. Here that reload drops the count
+// and the row settles at once — busy reads stale-cold for the rest of the
+// call and never stale-hot, where in `$.state` nothing would be left to
+// decrement it and the row would sweep forever.
+let mcpCalls: Record<string, number> = {}
+let mcpWrites: Promise<unknown> = Promise.resolve()
 let cwdMoved = false // since the last MCP tick: drop the old project's off rows
 let themeSeen: { path?: string; mtimeMs?: number } = {} // the active custom /theme file, last read
 let themeNames: ThemeName[] | undefined // every Theme's slug and name, read once
@@ -402,22 +415,57 @@ async function refreshMcp($: EngineInterface) {
   mcpRunning = true
   try {
     mcpTimeout ??= Number(await $.env.get('MCP_TIMEOUT')) || 30_000
+    const timeoutMs = mcpTimeout // the closure below reads it after an await
     const moved = cwdMoved
     cwdMoved = false
-    const [tools, file, now, { value: rows = [] }, { value: observed = {} }] = await Promise.all([
+    const [tools, file, now, { value: observed = {} }] = await Promise.all([
       $.tool.list(),
       readClaudeJson($),
       $.clock.now(),
-      $.state.get(MCP),
       $.state.get(MCP_OBSERVED),
     ])
-    const kept = moved ? rows.filter((row) => row.state !== 'off') : rows
     const sources = { ...mcpFiles, user: file.user, local: file.local, observed: { ...mcpObserved, ...observed } }
-    const next = mcpRows({ rows: kept, tools, disabled: file.disabled, names: mcpNames, now, timeoutMs: mcpTimeout, sources })
-    if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
+    await writeMcpRows($, (rows) =>
+      mcpRows({
+        rows: moved ? rows.filter((row) => row.state !== 'off') : rows,
+        tools,
+        disabled: file.disabled,
+        names: mcpNames,
+        now,
+        timeoutMs,
+        sources,
+        busy: mcpCalls,
+      }),
+    )
   } finally {
     mcpRunning = false
   }
+}
+
+// The one writer of the MCP rows: both the 1 s tick and the `tool.call`
+// bracket go through it, one write at a time. It reads the rows `$.state`
+// holds, hands them to `derive` (the tick's own rows, or the rows as they
+// stand), applies the in-flight count **here**, and compares against the rows
+// it read itself.
+//
+// Doing all of that inside the queued callback is what keeps the row honest.
+// A write that computed its rows earlier and set them later would put back the
+// count as it stood then: a release landing in between would be overwritten
+// and the row would keep sweeping until the next tick — up to a second of a
+// row that says working when nothing is. Busy may read stale-cold, never
+// stale-hot, and it settles at once.
+//
+// The busy flag reaches the Sidebar through these rows, so the row redraws and
+// the sweep starts as the call crosses the wire and stops the instant the last
+// one ends, without waiting for a tick.
+function writeMcpRows($: EngineInterface, derive?: (rows: readonly McpRow[]) => readonly McpRow[]) {
+  const write = mcpWrites.then(async () => {
+    const { value: rows = [] } = await $.state.get(MCP)
+    const next = withBusy(derive ? derive(rows) : rows, mcpCalls)
+    if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
+  })
+  mcpWrites = write.catch(() => undefined)
+  return write
 }
 
 // MEMORY.md "The `todo` Sidebar plugin turns the task tools on by default":
@@ -436,11 +484,17 @@ async function setTodoEnv($: EngineInterface, tools: boolean) {
 // The task tools `todo_tools` keeps out of ToolSearch; TaskList, TaskGet and TaskStop stay deferred.
 const PINNED_TASK_TOOLS = new Set(['TaskCreate', 'TaskUpdate', 'TodoWrite'])
 
+// The tools that start a list carry the 2+ outcomes rule in their own description, where
+// Sonnet 5.5 decides whether to call one: the section alone left it listing 6 of 9.
+const LIST_STARTERS = new Set(['TaskCreate', 'TodoWrite'])
+const LIST_RULE = 'Use this for any request with 2 or more outcomes the user named, even when one command or edit could do several of them; make the list before the first tool call. A request for one outcome gets no list.'
+
 // The `ctui:todo` section, as tested live in #220 and narrowed in #294, naming the
-// tools the request offers. It denies the list before it asks for one, because a
-// weak model counted a one-line fix's read, edit and check as three steps.
+// tools the request offers. It counts outcomes the user named, not the model's own
+// moves, because a weak model counted a one-line fix's read, edit and check as
+// three steps and Sonnet 5.5 read a three-outcome job as one piece (#358).
 const taskSection = (create: string, update: string) => `# Task list
-The user follows your progress in a task list shown beside the conversation. Make no list when the whole request is one piece of work — one file's edit, one command, one question answered — however many moves it takes you: reading, searching, editing and checking the same piece are not separate steps. For a request that needs 2 or more distinct pieces of work (several files or fixes, a delegated agent, a build and then its tests), your first action is to create one task per piece with ${create}, before reading files or delegating. Set each task in_progress with ${update} when you start it and completed as soon as it is done.`
+The user follows your progress in a task list shown beside the conversation. Count what the user asked for, not your own moves: reading, searching, editing and checking one change are not separate steps, so a request for one outcome — one file's edit, one command, one question answered — gets no list. A request for 2 or more outcomes the user named, even a short one (a rename, then a README, then a line count; several files or fixes; a delegated agent; a build and then its tests), gets one task per outcome as your first action, created with ${create} before reading files or delegating. Set each task in_progress with ${update} when you start it and completed as soon as it is done.`
 
 const TODO_STATUSES = new Set<string>(['pending', 'in_progress', 'completed'])
 
@@ -637,6 +691,15 @@ async function registerMenu($: EngineInterface) {
   }
 }
 
+// CONTEXT.md "Support floor": one toast per session on an older engine. On
+// 2.1.284 and older the hooks module never loads, so this reaches 2.1.285 to 2.1.291.
+async function checkFloor($: EngineInterface) {
+  const { version } = await $.session.version()
+  if (!belowFloor(version) || (await $.state.get(FLOOR_TOASTED)).value) return
+  await $.state.set(FLOOR_TOASTED, true)
+  showToast($, { id: 'floor', end: true, text: floorToast(version) }, true)
+}
+
 // Opens the menu with the keys: a first open, or one taking them back after Esc's deny.
 async function openMenu($: EngineInterface) {
   // As wide as the Sidebar it docks over; inline ignores it, and fits the
@@ -811,6 +874,7 @@ export const register: Register = (on, options) => {
   let look: ReturnType<typeof themeLook> | undefined // read once per load: a `theme` change reloads
 
   on('session.start', async ($, e, next) => {
+    void checkFloor($).catch(() => undefined)
     void registerMenu($).catch(() => undefined)
     // A reload from elsewhere (`/config`) drops the order timer: start it again.
     const { pending, ...menu } = await menuOf($)
@@ -864,7 +928,10 @@ export const register: Register = (on, options) => {
   on('tool.describe', async ($, e, next) => {
     const [segment, name] = serverName(e.tool, e.provider.plugin) ?? []
     if (segment && name) mcpNames[segment] = name
-    if (config.todo.tools && PINNED_TASK_TOOLS.has(e.tool)) return { ...(await next(e)), isDeferred: false }
+    if (config.todo.tools && PINNED_TASK_TOOLS.has(e.tool)) {
+      const described = { ...(await next(e)), isDeferred: false }
+      return LIST_STARTERS.has(e.tool) ? { ...described, description: `${described.description}\n\n${LIST_RULE}` } : described
+    }
     return next(e)
   })
 
@@ -908,9 +975,22 @@ export const register: Register = (on, options) => {
   })
 
   on('tool.call', async ($, e, next) => {
+    // A call to an MCP server is bracketed here — counted before `next`,
+    // released in the `finally`, so an error and an abort both release it —
+    // and its row sweeps while the count is above zero. The event carries no
+    // provider, so the server comes from the tool name.
+    const server = needs.has('mcp') ? serverOfTool(e.tool) : undefined
+    if (server) {
+      mcpCalls = { ...mcpCalls, [server]: (mcpCalls[server] ?? 0) + 1 }
+      void writeMcpRows($)
+    }
     try {
       return await next(e)
     } finally {
+      if (server) {
+        mcpCalls = { ...mcpCalls, [server]: Math.max((mcpCalls[server] ?? 1) - 1, 0) }
+        void writeMcpRows($)
+      }
       if (needs.has('git') && GIT_TOOLS.has(e.tool)) void refreshGit($)
     }
   })
@@ -1227,7 +1307,7 @@ export const register: Register = (on, options) => {
     if (offset !== value) await $.state.set(SCROLL, offset)
     return {}
   })
-  // Transcript rewrites (docs/spec/v0.1.md slice 8). `ToolResult` stays the engine's.
+  // Transcript rewrites. `ToolResult` stays the engine's.
   // While the Sidebar is docked, the rows ctui draws end `GAP` columns before its rule.
   const dockGap = () => (dockColumns ? GAP : 0)
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) =>

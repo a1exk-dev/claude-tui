@@ -20,7 +20,14 @@
   expanded section before the rule, none after a folded one. A faint `═` rule
   with 1 blank row on each side parts the git header from the sections. In
   the header, 1 blank row parts the path from the git rows, each led by its
-  Devicons glyph in muted: U+E725 branch, U+E702 changeset, U+E728 lines.
+  Devicons glyph in muted and one space: U+E725 branch, U+E702 changeset,
+  U+E728 lines. The header keeps those Devicons by the exemption in
+  `docs/adr/0003-one-glyph-one-colour.md`; every section row draws the
+  shared circle vocabulary of `ctui/plugins/marks.tsx` instead, each mark
+  followed by the two spaces a Nerd Font icon takes, so a row's text starts
+  at column 3 and its label truncates a column earlier. A fold line draws the
+  same marks as a tally, mark then count, both in the mark's role, two spaces
+  between terms.
   At the Sidebar's 42 columns the footer takes two rows: `claude cli: <v>`,
   then `ctui: <v>, <Theme name>`.
 
@@ -132,7 +139,7 @@
   // screen. `file` is the PNG it exports to.
   const RENDERS = {
     1: { file: 'sidebar-1-all-folded', expanded: [] },
-    2: { file: 'sidebar-2-some-folded', expanded: ['skills', 'mcp'] },
+    2: { file: 'sidebar-2-some-folded', expanded: ['skills', 'agents'] },
     3: { file: 'sidebar-3-all-expanded', expanded: ['context', 'limits', 'todo', 'skills', 'mcp', 'agents'], more: true },
     4: { file: 'menu-1-top', menu: 'top' },
     5: { file: 'menu-2-plugins', menu: 'plugins' },
@@ -147,6 +154,24 @@
     const filled = Math.round((percent / 100) * cells)
     return span(color, '━'.repeat(filled)) + span('f', '─'.repeat(cells - filled))
   }
+
+  // The Sidebar's shared circle vocabulary, as `ctui/plugins/marks.tsx` draws
+  // it, by the `nf-md-` name of each glyph.
+  const DONE = '\u{f0133}' // checkbox_marked_circle: a todo done, a task completed
+  const WAITING = '\u{f0130}' // checkbox_blank_circle_outline: a todo still waiting
+  const OK = '\u{f05e1}' // check_circle_outline: an MCP server with tools
+  const GONE = '\u{f0159}' // close_circle: an MCP server down, a task ended any other way
+  const OFF = '\u{f0377}' // minus_circle_outline: an MCP server disabled
+  const REST = '\u{f1a27}' // asterisk_circle_outline: a skills row, the one state it has
+  const SWEEP = '\u{f0aa1}' // circle_slice_4: one frame of a working row's sweep
+  const FROZEN = '\u{f0aa3}' // circle_slice_6: the frame a fold line's working term freezes at
+
+  // A row's lead: the mark in its colour role, then the two spaces every Nerd
+  // Font icon takes, so the row's text starts at column 3.
+  const mark = (cls, glyph) => span(cls, glyph) + '  '
+  // A fold line's tally: each term's mark, two spaces, its count, all in the
+  // mark's own role, with two spaces between terms.
+  const tally = (terms) => terms.map(([cls, glyph, count]) => span(cls, `${glyph}  ${count}`)).join('  ')
 
   // Each section: its title, the right side folded (summary) and expanded
   // (count), and its body rows. A list shows its first `cap` rows (4 unless
@@ -174,58 +199,70 @@
     },
     {
       id: 'todo', title: 'Todo',
-      summary: `${span('m', '2/8 · ')}write the test`,
+      // Folded, a tally of the three states: how much is done, not what is
+      // happening, so the current task's `activeForm` goes.
+      summary: tally([['g', DONE, 2], ['o', FROZEN, 1], ['f', WAITING, 5]]),
       count: span('m', '2/8'),
       cap: 8,
       list: [
-        row(`${span('m', '\u{f0133}')} ${span('m', 'read sync command')}`),
-        row(`${span('m', '\u{f0133}')} ${span('m', 'add the flag')}`),
-        row(`${span('o', '\u{f0aa1}')} write the test`),
-        row(`${span('f', '\u{f0130}')} ${span('m', 'update README')}`),
-        row(`${span('f', '\u{f0130}')} ${span('m', 'add --dry-run to help text')}`),
-        row(`${span('f', '\u{f0130}')} ${span('m', 'check Windows paths')}`),
-        row(`${span('f', '\u{f0130}')} ${span('m', 'run full test suite')}`),
-        row(`${span('f', '\u{f0130}')} ${span('m', 'write changelog entry')}`),
+        row(`${mark('g', DONE)}${span('m', 'read sync command')}`),
+        row(`${mark('g', DONE)}${span('m', 'add the flag')}`),
+        row(`${mark('o', SWEEP)}write the test`),
+        row(`${mark('f', WAITING)}${span('m', 'update README')}`),
+        row(`${mark('f', WAITING)}${span('m', 'add --dry-run to help text')}`),
+        row(`${mark('f', WAITING)}${span('m', 'check Windows paths')}`),
+        row(`${mark('f', WAITING)}${span('m', 'run full test suite')}`),
+        row(`${mark('f', WAITING)}${span('m', 'write changelog entry')}`),
       ],
     },
     {
       id: 'skills', title: 'Skills',
-      summary: span('m', '5'),
+      // One state, so one term before the count.
+      summary: tally([['m', REST, 5]]),
       count: span('m', '5'),
       // A–Z by name, then source; a long name truncates, the source never does.
       list: [
-        split('artifact-capabilit…', span('m', 'anthropic-skills')),
-        split('git-guardrails-claude-code', span('m', 'user')),
-        split('review', span('m', 'code-tools')),
-        split('review', span('m', 'pr-kit')),
-        split('tdd', span('m', 'user')),
+        split(`${mark('m', REST)}artifact-capabi…`, span('m', 'anthropic-skills')),
+        split(`${mark('m', REST)}git-guardrails-claude-code`, span('m', 'user')),
+        split(`${mark('m', REST)}review`, span('m', 'code-tools')),
+        split(`${mark('m', REST)}review`, span('m', 'pr-kit')),
+        split(`${mark('m', REST)}tdd`, span('m', 'user')),
       ],
     },
     {
       id: 'mcp', title: 'MCP',
-      summary: `${span('g', '●')}${span('m', ' 5 ')}${span('r', '✕')}${span('m', ' 1 ○ 1')}`,
+      // Folded, a tally in the states' own order, so the terms sum to the
+      // listed servers.
+      summary: tally([['g', OK, 5], ['r', GONE, 1], ['f', OFF, 1]]),
       count: span('m', '5/7'),
       // A–Z, off rows last; the source and its · muted, the status in its role.
       list: [
-        split(`${span('g', '●')} Claude Docs`, span('m', 'claude.ai · 9 tools')),
-        split(`${span('g', '●')} context7`, span('m', 'context7 · 2 tools')),
-        split(`${span('g', '●')} linear`, span('m', 'claude.ai · 31 tools')),
-        split(`${span('g', '●')} playwright`, span('m', 'user · 22 tools')),
-        split(`${span('g', '●')} postgres`, span('m', 'project · 6 tools')),
-        split(`${span('r', '✕')} sentry`, `${span('m', 'user · ')}${span('r', 'down')}`),
-        split(`${span('m', '○')} github`, span('m', 'user · off')),
+        split(`${mark('g', OK)}Claude Docs`, span('m', 'claude.ai · 9 tools')),
+        split(`${mark('g', OK)}context7`, span('m', 'context7 · 2 tools')),
+        split(`${mark('g', OK)}linear`, span('m', 'claude.ai · 31 tools')),
+        split(`${mark('g', OK)}playwright`, span('m', 'user · 22 tools')),
+        split(`${mark('g', OK)}postgres`, span('m', 'project · 6 tools')),
+        split(`${mark('r', GONE)}sentry`, `${span('m', 'user · ')}${span('r', 'down')}`),
+        split(`${mark('f', OFF)}github`, span('m', 'user · off')),
       ],
     },
     {
       id: 'agents', title: 'Agents &amp; shells',
-      summary: `${span('g', '◖')}${span('m', ' 5 running')}`,
-      count: span('m', '5 running'),
+      // Folded, every state the section holds, its running term the frozen
+      // sweep frame, because a fold line never animates.
+      summary: tally([['o', FROZEN, 3], ['g', DONE, 1], ['r', GONE, 1]]),
+      count: span('m', '3 running'),
+      // One mark, and it means state. The kind is a muted word at the right
+      // beside the elapsed time, in the half that never shrinks, so the name
+      // takes the bright truncating slot at the left and an ended row's
+      // reason follows it there. Rows in start order, each held task under
+      // its parent.
       list: [
-        split(`${span('g', '◖')} Explore ${span('m', '· map the auth fl…')}`, span('m', '1m 15s')),
-        split(`  ${span('m', '└')} ${span('g', '◖')} general-purpose ${span('m', '· read M…')}`, span('m', '21s')),
-        split('$ bun test --watch', span('m', '5m 03s')),
-        split('$ bun run dev --port 3000', span('m', '15m 03s')),
-        row(span('m', '○ bun run typecheck --watch')),
+        split(`${mark('g', DONE)}glyph sweep`, span('m', 'workflow · 3m 11s')),
+        split(`${mark('r', GONE)}npm test${span('m', ' · killed')}`, span('m', 'shell · 41s')),
+        split(`${mark('o', SWEEP)}map the auth fl…`, span('m', 'Explore · 1m 15s')),
+        split(`  ${span('m', '└ ')}${mark('o', SWEEP)}read M…`, span('m', 'general-purpose · 21s')),
+        split(`${mark('o', SWEEP)}bun test --watch`, span('m', 'shell · 5m 03s')),
       ],
     },
   ]

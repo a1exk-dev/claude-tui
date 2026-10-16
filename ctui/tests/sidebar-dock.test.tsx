@@ -146,7 +146,10 @@ test('seated inline, the Sidebar draws nothing and closes', async ($, on) => {
     return { value: undefined }
   })
   const pane = await $.ui.mount({ ...PANE, props: paneProps('inline') })
-  expect(await pane.drawn()).toEqual({ type: 'Box' })
+  // Not the whole node: the engine stamps its own `part` on a hook's returned root.
+  const drawn = await pane.drawn()
+  expect(drawn).toMatchObject({ type: 'Box' })
+  expect('children' in drawn).toBe(false)
   await clock.settle()
   expect(closes).toEqual([{ id: 'sidebar', origin: { kind: 'plugin' } }])
 })
@@ -313,7 +316,7 @@ function host(on: On, git: { runs: string[][]; status: string; exitCode?: number
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/home/a/Projects/x' }))
   on('env.get', () => ({ value: '/home/a' }))
-  on('session.version', () => ({ value: { version: '2.1.288' } }))
+  on('session.version', () => ({ value: { version: '2.1.300' } }))
   on('agent.list', () => ({ value: [] }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
@@ -348,7 +351,7 @@ test('git refreshes at session start, every 5 s and after a file-changing tool',
   expect(await pane.find({ text: '~/Projects/x' })).toBeDefined()
   expect(await pane.find({ text: `${BRANCH} main` })).toBeDefined()
   expect(await pane.find({ text: 'ctui: 0.0.0, inherit' })).toBeDefined()
-  expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
+  expect(await pane.find({ text: 'claude cli: 2.1.300' })).toBeDefined()
 
   await clock.advance(4000)
   expect(statusRuns(git.runs)).toBe(1)
@@ -377,7 +380,7 @@ test(
     await clock.settle()
     const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
     expect(await pane.find({ text: `${BRANCH} main` })).toBeDefined()
-    expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
+    expect(await pane.find({ text: 'claude cli: 2.1.300' })).toBeDefined()
   },
 )
 

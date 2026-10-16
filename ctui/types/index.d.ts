@@ -1,5 +1,4 @@
-// ctui's $.state contract (docs/spec/v0.1.md). It survives a reload; /clear
-// and /resume empty it.
+// ctui's $.state contract. It survives a reload; /clear and /resume empty it.
 
 // The git header's rows from a repo; `ahead` and `behind` only with an upstream.
 export type GitRepo = {
@@ -34,6 +33,7 @@ export type McpRow = {
   label: string
   source: string // `user`, `project`, `local`, `claude.ai`, a plugin's name, `managed`, `enterprise`, `dynamic`
   state: 'ok' | 'auth' | 'connecting' | 'down' | 'off'
+  busy?: true // at least one call to the server is in flight; an overlay on the glyph cell, not a sixth state
   tools?: number
   since?: number
 }
@@ -109,6 +109,7 @@ declare module 'claude-code' {
       glass?: string | null // under `inherit`, the active custom /theme's glass; null or unset paints nothing
       menu?: Menu // the open `/ctui` menu: it outlives each settings reload
       menuTaken?: boolean // this session toasted that `/ctui` is taken
+      floorToasted?: boolean // this session toasted an engine below the support floor
     }
   }
 }

@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": ["vendor/claude-code-types-floor"]
+  },
+  "include": ["ctui/hooks", "ctui/plugins", "ctui/types"]
+}

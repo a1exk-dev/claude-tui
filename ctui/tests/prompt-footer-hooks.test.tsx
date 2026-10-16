@@ -1,9 +1,9 @@
 import type { On, RenderPropsOf, TurnStepInput } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
-// Scenario: the line under the prompt and the turn footer (docs/spec/v0.1.md
-// slice 9) through register.tsx's hooks, with this test's own hooks beneath
-// ctui standing in for the engine.
+// Scenario: the line under the prompt and the turn footer through
+// register.tsx's hooks, with this test's own hooks beneath ctui standing in
+// for the engine.
 
 type World = { model: string; settings: Record<string, unknown> }
 
@@ -16,7 +16,7 @@ function host(on: On, world: World) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.end', (_, e) => ({ sessionId: e.sessionId }))
   on('session.cwd', () => ({ value: '/srv/x' }))
-  on('session.version', () => ({ value: { version: '2.1.288' } }))
+  on('session.version', () => ({ value: { version: '2.1.300' } }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('session.model', () => ({ value: world.model }))
   on('settings.read', () => ({ value: world.settings }))

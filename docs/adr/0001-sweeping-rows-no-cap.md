@@ -1,0 +1,3 @@
+# Sweeping rows: no cap, no shared clock
+
+Every **in progress** row in the Sidebar sweeps, however many there are: seven moving rows (one task, two subagents, four servers with calls in flight) read as alive rather than as noise when the human saw them live, so no cap was wanted. Two facts make that hold. No two rows share a phase, because each row's clock starts when its `Client` mounts, and lockstep sweeps read as a machine rather than as work. Nothing redraws the Sidebar, because every moving glyph turns on its own surface (`ctui/plugins/todo/spinner.tsx`), so the tenth moving row costs a tenth surface, not a tenth Sidebar render. A cap, a global clock or a shared phase reopens both reasons.

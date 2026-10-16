@@ -2,7 +2,7 @@
 
 ctui is a skin for the Claude Code terminal UI. It docks a sidebar beside the transcript with git, context, limits, todo, skills, MCP, and agents-and-shells sections, and it restyles the lines under the prompt input. It also raises short toasts when a subagent or a background shell starts, finishes, or fails.
 
-Tested with Claude Code 2.1.292 ([all tested versions](COMPATIBILITY.md)).
+Needs Claude Code 2.1.292 or later. Tested with 2.1.300.
 
 ## Install
 
@@ -54,7 +54,7 @@ ctui runs as a mod in every Claude Code session where the plugin is enabled. It 
 
 ## Known differences
 
-Some parts of the design renders are Claude Code's own and stay as Claude Code draws them: the sidebar's frame and close button, the prompt box, the permission-mode pill, the main background, and the rows of tools other than Read, Edit, Write and Bash. See [the full list](https://github.com/a1exk-dev/claude-tui/blob/main/docs/spec/v0.1.md#known-differences-from-the-renders).
+Some parts of the design renders are Claude Code's own and stay as Claude Code draws them: the sidebar's frame and close button, the prompt box, the permission-mode pill, the main background, and the rows of tools other than Read, Edit, Write and Bash. See [the full list](https://github.com/a1exk-dev/claude-tui/blob/main/docs/configuration.md#known-differences-from-the-renders).
 
 ## License
 

@@ -333,7 +333,7 @@ function host(on: On, usage: SessionUsage, world: World = { transcripts: {}, gre
     return { value: undefined }
   })
   on('store.keys', () => ({ value: Object.keys(store) }))
-  on('session.version', () => ({ value: { version: '2.1.288' } }))
+  on('session.version', () => ({ value: { version: '2.1.300' } }))
   on('agent.list', () => ({ value: [] }))
   // The manifest, and one Theme as `themes/<slug>.json` holds it, trimmed.
   on('fs.read', (_, e) => ({
@@ -442,7 +442,7 @@ test('after /clear empties $.state, the next redraw reloads the usage and the ve
   await clock.settle()
   const pane = await $.ui.mount(SIDEBAR)
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()
-  expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
+  expect(await pane.find({ text: 'claude cli: 2.1.300' })).toBeDefined()
 
   cleared.add('usage').add('versions')
   await pane.redraw()
@@ -450,7 +450,7 @@ test('after /clear empties $.state, the next redraw reloads the usage and the ve
   expect(await pane.find({ text: /claude cli/ })).toBeUndefined()
   await clock.settle()
   await pane.redraw()
-  expect(await pane.find({ text: 'claude cli: 2.1.288' })).toBeDefined()
+  expect(await pane.find({ text: 'claude cli: 2.1.300' })).toBeDefined()
   expect(await pane.find({ text: '18,402 / 200k tokens' })).toBeDefined()
 })
 

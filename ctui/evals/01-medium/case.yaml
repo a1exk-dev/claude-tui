@@ -12,7 +12,7 @@ execution:
   model: claude-haiku-5-5
   max_turns: 30
   timeout_seconds: 600
-  # No Write: it keeps "the first Edit or Write" of the spec's grader to Edit,
+  # No Write: it keeps "the first Edit or Write" of the grader to Edit,
   # which is all a tool_order grader can name.
   allowed_tools: [Read, Glob, Grep, Edit, Agent, TaskCreate, TaskList, TaskUpdate]
   prompt: |
