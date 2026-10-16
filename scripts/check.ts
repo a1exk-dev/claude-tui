@@ -72,7 +72,7 @@ const themes = readdirSync('ctui/themes')
 same('inherit plus the ctui/themes/*.json slugs A–Z and the theme options', ['inherit', ...themes].join(' '), manifest.userConfig.theme.options.join(' '))
 same('plugin.json and ctui/package.json versions', manifest.version, json('ctui/package.json').version)
 
-// The pin and the support floor: the README names both, the toast's constant
+// The pin and the support floor: both READMEs name them, the toast's constant
 // and the floor's vendored types name the floor.
 const pin: string = json('package.json').devDependencies['@anthropic-ai/claude-code']
 if (!/^\d+\.\d+\.\d+$/.test(pin)) error(`the Claude Code pin must be an exact version, got [${pin}]`)
@@ -80,9 +80,16 @@ if (!/^\d+\.\d+\.\d+$/.test(pin)) error(`the Claude Code pin must be an exact ve
 const floorWritten = /^\/\/ Written by Claude Code (\S+)\.$/m.exec(readFileSync('vendor/claude-code-types-floor/claude-code/index.d.ts', 'utf8'))?.[1] ?? ''
 same('the floor in ctui/hooks/floor.ts and the version that wrote vendor/claude-code-types-floor', floor, floorWritten)
 const supported = `Needs Claude Code ${floor} or later. Tested with ${pin}.`
-if (!readFileSync('ctui/README.md', 'utf8').split('\n').includes(supported)) {
-  error(`ctui/README.md has no line "${supported}"`)
+const readmeLines = (path: string) => readFileSync(path, 'utf8').split('\n')
+for (const readme of ['README.md', 'ctui/README.md']) {
+  if (!readmeLines(readme).includes(supported)) error(`${readme} has no line "${supported}"`)
 }
+
+// The root README repeats ctui/README.md's install commands, so they cannot drift.
+const pluginCommands = (path: string) => readmeLines(path).filter((line) => line.startsWith('/plugin '))
+const ctuiInstall = pluginCommands('ctui/README.md')
+if (ctuiInstall.length === 0) error('ctui/README.md has no /plugin install lines')
+same('the /plugin lines in README.md and ctui/README.md', pluginCommands('README.md').join(' | '), ctuiInstall.join(' | '))
 
 // The engine-pinned expectations hold on one engine, so their MEMORY.md entry names the pin.
 const PINNED = 'Engine-pinned expectations hold only on the pinned Claude Code version'
