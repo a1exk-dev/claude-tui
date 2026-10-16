@@ -109,6 +109,7 @@ declare module 'claude-code' {
       glass?: string | null // under `inherit`, the active custom /theme's glass; null or unset paints nothing
       menu?: Menu // the open `/ctui` menu: it outlives each settings reload
       menuTaken?: boolean // this session toasted that `/ctui` is taken
+      floorToasted?: boolean // this session toasted an engine below the support floor
     }
   }
 }

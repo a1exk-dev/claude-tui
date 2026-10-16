@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { FLOOR as floor } from '../ctui/hooks/floor.ts'
 import { outputs } from './themes.ts'
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'))
@@ -38,6 +39,8 @@ if (!existsSync(tsc) || !existsSync(claude)) {
 // Two projects: ctui runs in the engine with no Node globals, the live-check harness runs on Node.
 run(tsc, ['-p', '.'])
 run(tsc, ['-p', '.claude/skills/live-checks/harness'])
+// ctui's production code against the support floor's types: a change that needs a newer engine fails here.
+run(tsc, ['-p', 'tsconfig.floor.json'])
 run(claude, ['plugin', 'validate', 'ctui', '--strict'])
 run(claude, ['plugin', 'validate', '.', '--strict'])
 run(claude, ['plugin', 'test', 'ctui'])
@@ -69,22 +72,16 @@ const themes = readdirSync('ctui/themes')
 same('inherit plus the ctui/themes/*.json slugs A–Z and the theme options', ['inherit', ...themes].join(' '), manifest.userConfig.theme.options.join(' '))
 same('plugin.json and ctui/package.json versions', manifest.version, json('ctui/package.json').version)
 
-// The pin: README and COMPATIBILITY.md follow package.json.
+// The pin and the support floor: the README names both, the toast's constant
+// and the floor's vendored types name the floor.
 const pin: string = json('package.json').devDependencies['@anthropic-ai/claude-code']
 if (!/^\d+\.\d+\.\d+$/.test(pin)) error(`the Claude Code pin must be an exact version, got [${pin}]`)
-const tested = `Tested with Claude Code ${pin} ([all tested versions](COMPATIBILITY.md)).`
-if (!readFileSync('ctui/README.md', 'utf8').split('\n').includes(tested)) {
-  error(`ctui/README.md has no line "${tested}"`)
-}
-// The first table row after the `---` separator is the newest tested pair.
-const rows = readFileSync('ctui/COMPATIBILITY.md', 'utf8')
-  .split('\n')
-  .filter((line) => line.startsWith('|'))
-  .slice(2)
-if (rows[0]) {
-  const [version, claudeVersion] = rows[0].split('|').slice(1).map((cell) => cell.trim())
-  same('COMPATIBILITY.md top row and plugin.json versions', version ?? '', manifest.version)
-  same('COMPATIBILITY.md top row and the pin', claudeVersion ?? '', pin)
+// The engine heads the types it writes with its version; claude-code-tools has no such line.
+const floorWritten = /^\/\/ Written by Claude Code (\S+)\.$/m.exec(readFileSync('vendor/claude-code-types-floor/claude-code/index.d.ts', 'utf8'))?.[1] ?? ''
+same('the floor in ctui/hooks/floor.ts and the version that wrote vendor/claude-code-types-floor', floor, floorWritten)
+const supported = `Needs Claude Code ${floor} or later. Tested with ${pin}.`
+if (!readFileSync('ctui/README.md', 'utf8').split('\n').includes(supported)) {
+  error(`ctui/README.md has no line "${supported}"`)
 }
 
 // The engine-pinned expectations hold on one engine, so their MEMORY.md entry names the pin.

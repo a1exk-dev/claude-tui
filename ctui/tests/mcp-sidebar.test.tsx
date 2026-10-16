@@ -216,7 +216,7 @@ type World = {
 function host(on: On, world: World, path = CLAUDE_JSON) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: world.cwd ?? '/srv/x/app' }))
-  on('session.version', () => ({ value: { version: '2.1.288' } }))
+  on('session.version', () => ({ value: { version: '2.1.300' } }))
   on('agent.list', () => ({ value: [] }))
   on('session.usage', () => ({
     value: { startedAt: 0, context: { window: 200000 }, rateLimits: [], cost: { usd: 0 } },

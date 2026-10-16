@@ -8,7 +8,7 @@ Use Node 22.18 or newer, which runs `.ts` files without a flag. Run `npm ci`. It
 
 ## Checks
 
-Run `node scripts/check.ts` before each commit. It runs `tsc`, `claude plugin validate ctui --strict` and `validate . --strict`, `claude plugin test ctui`, the consistency checks (Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; versions; the README and `COMPATIBILITY.md` against the pin), the Theme generator's tests in `scripts/themes.test.ts`, the cost live check's fixture generator's tests in `scripts/cost-fixture.test.ts`, a check that `node scripts/themes.ts` would change no Theme and no `docs/configuration.md` table, and `typos`. It exits 1 when `node_modules/.bin/claude` is missing. CI runs the same command. The whole run stays under the 2-minute ceiling in the `MEMORY.md` entry "Tests cover real usage"; nothing asserts it, so watch it as the suite grows.
+Run `node scripts/check.ts` before each commit. It runs `tsc` (against the pin's types and, for ctui's production code, the support floor's), `claude plugin validate ctui --strict` and `validate . --strict`, `claude plugin test ctui`, the consistency checks (Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; versions; the README, `ctui/hooks/floor.ts` and the floor types against the pin and the floor), the Theme generator's tests in `scripts/themes.test.ts`, the cost live check's fixture generator's tests in `scripts/cost-fixture.test.ts`, a check that `node scripts/themes.ts` would change no Theme and no `docs/configuration.md` table, and `typos`. It exits 1 when `node_modules/.bin/claude` is missing. CI runs the same command. The whole run stays under the 2-minute ceiling in the `MEMORY.md` entry "Tests cover real usage"; nothing asserts it, so watch it as the suite grows.
 
 ## Tests
 
@@ -58,4 +58,4 @@ A release's pull request into `main` pastes both reports whole, a live-check run
 
 ## Pull requests and pin bumps
 
-AGENTS.md sets the Git Flow branches and the commit format. The `MEMORY.md` entry "One pinned Claude Code version" lists the steps for moving to a new Claude Code version.
+AGENTS.md sets the Git Flow branches and the commit format. The `MEMORY.md` entry "Support floor, no ceiling; the pin is the tested version only" lists the steps for moving the pin or the floor.
