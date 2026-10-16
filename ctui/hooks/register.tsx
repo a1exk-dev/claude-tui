@@ -113,8 +113,7 @@ let mcpObserved: Record<string, string> = {}
 // replacement, whose `finally` never runs. Here that reload drops the count
 // and the row settles at once — busy reads stale-cold for the rest of the
 // call and never stale-hot, where in `$.state` nothing would be left to
-// decrement it and the row would sweep forever (`docs/spec/working-now.md`,
-// "The count lives in a module variable").
+// decrement it and the row would sweep forever.
 let mcpCalls: Record<string, number> = {}
 let mcpWrites: Promise<unknown> = Promise.resolve()
 let cwdMoved = false // since the last MCP tick: drop the old project's off rows
@@ -449,8 +448,8 @@ async function refreshMcp($: EngineInterface) {
 // A write that computed its rows earlier and set them later would put back the
 // count as it stood then: a release landing in between would be overwritten
 // and the row would keep sweeping until the next tick — up to a second of a
-// row that says working when nothing is (`docs/spec/working-now.md`: busy
-// "can read stale-cold ... and never stale-hot", and "It settles at once").
+// row that says working when nothing is. Busy may read stale-cold, never
+// stale-hot, and it settles at once.
 //
 // The busy flag reaches the Sidebar through these rows, so the row redraws and
 // the sweep starts as the call crosses the wire and stops the instant the last
@@ -1294,7 +1293,7 @@ export const register: Register = (on, options) => {
     if (offset !== value) await $.state.set(SCROLL, offset)
     return {}
   })
-  // Transcript rewrites (docs/spec/v0.1.md slice 8). `ToolResult` stays the engine's.
+  // Transcript rewrites. `ToolResult` stays the engine's.
   // While the Sidebar is docked, the rows ctui draws end `GAP` columns before its rule.
   const dockGap = () => (dockColumns ? GAP : 0)
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) =>

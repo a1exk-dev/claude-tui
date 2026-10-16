@@ -36,6 +36,10 @@ Reason: <durable rationale>
 
 Keep the file curated as current guidance by replacing stale entries and leaving task narration in the originating ticket. A memory update is complete when every newly established durable item is represented, its applicability and rationale are explicit, and stale conflicting guidance is removed.
 
+## docs/adr/: the human's decision record
+
+`docs/adr/` holds the human's recap of the decisions behind ctui, where `MEMORY.md` holds the agent's lessons. Before writing an ADR, load the `domain-modeling` skill and follow its ADR format and its test for when a decision earns one. A decision that changes what an agent must do also gets its `MEMORY.md` entry; the ADR keeps the why for the human.
+
 ## Apply and preserve
 
 Use `CONTEXT.md` vocabulary in tickets, proposals, hypotheses, and tests. Apply relevant `MEMORY.md` guidance before changing files.

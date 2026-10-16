@@ -6,12 +6,12 @@ import { colors } from '../plugins/colors'
 import { frozenSweep, lead, MARKS, SWEEP, sweeping, tally } from '../plugins/marks'
 import { clientsAsTrees } from './clients'
 
-// The Sidebar's shared circle vocabulary (`docs/spec/sidebar-icons.md`): each
-// mark's codepoint and its one colour role, the sweep's frames, and the two
-// helpers every section draws its rows and its fold line with.
+// The Sidebar's shared circle vocabulary: each mark's codepoint and its one
+// colour role, the sweep's frames, and the two helpers every section draws its
+// rows and its fold line with.
 
-// The spec's table, as codepoints, so a changed glyph shows as a number.
-test('every mark carries the spec’s codepoint and its one role', () => {
+// The marks, as codepoints, so a changed glyph shows as a number.
+test('every mark carries its codepoint and its one role', () => {
   const table = Object.fromEntries(
     Object.entries(MARKS).map(([name, { glyph, role }]) => [name, [glyph.codePointAt(0)?.toString(16), role]]),
   )

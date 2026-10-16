@@ -63,9 +63,9 @@ const plugin: SidebarPlugin = {
           ]
       // The kind and the elapsed time muted at the right, in the Box that
       // never shrinks, so a wordy reason gives way before they do. The row's
-      // one glyph is spent on state (`docs/spec/sidebar-icons.md`, "`agents`:
-      // no kind glyph at all"), so what ran is a word here, not a second mark:
-      // a subagent says its type, a shell and a Workflow run say what they are.
+      // one glyph is spent on state, so what ran is a word here, not a second
+      // mark: a subagent says its type, a shell and a Workflow run say what
+      // they are.
       return (
         <Box flexGrow={1} justifyContent="space-between" columnGap={1} paddingLeft={depth ? 2 * depth : 0}>
           <Box flexShrink={1} minWidth={0}>

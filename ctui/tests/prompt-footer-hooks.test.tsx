@@ -1,9 +1,9 @@
 import type { On, RenderPropsOf, TurnStepInput } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
-// Scenario: the line under the prompt and the turn footer (docs/spec/v0.1.md
-// slice 9) through register.tsx's hooks, with this test's own hooks beneath
-// ctui standing in for the engine.
+// Scenario: the line under the prompt and the turn footer through
+// register.tsx's hooks, with this test's own hooks beneath ctui standing in
+// for the engine.
 
 type World = { model: string; settings: Record<string, unknown> }
 

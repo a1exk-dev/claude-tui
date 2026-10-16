@@ -10,7 +10,7 @@ A pure module in `ctui/plugins/<id>/` that draws one foldable block of the **Sid
 
 ## In progress
 
-The one state the **Sidebar** draws motion for: a `todo` item the task list marks in progress, an `agents` task whose status is `running`, and an `mcp` server with at least one call in flight. Everything else draws a still glyph, a connecting server included — a connecting server is waiting, not working. It retires "working" and "busy" as names for the same thing: busy is only the name of the `mcp` row's half of it. The `skills` section holds no such state at all, being a cumulative session log rather than a live list. The motion itself is specified in `docs/spec/working-now.md`, the marks in `docs/spec/sidebar-icons.md`.
+The one state the **Sidebar** draws motion for: a `todo` item the task list marks in progress, an `agents` task whose status is `running`, and an `mcp` server with at least one call in flight. Everything else draws a still glyph, a connecting server included — a connecting server is waiting, not working. It retires "working" and "busy" as names for the same thing: busy is only the name of the `mcp` row's half of it. The `skills` section holds no such state at all, being a cumulative session log rather than a live list. The marks and the sweep are in `ctui/plugins/marks.tsx`; why every such row sweeps, and why `skills` never does, is in `docs/adr/`.
 
 ## Theme
 

@@ -4,9 +4,9 @@ import { frozenSweep, lead, type Mark, MARKS, SWEEP_ROLE, sweeping, tally } from
 import type { SidebarPlugin } from '../plugin'
 
 // Each state's mark from the Sidebar's shared circle vocabulary
-// (`plugins/marks.tsx`, `docs/spec/sidebar-icons.md`) — a filled disc wants
-// you, a ring is steady, a ring with a core is connecting — and the text at
-// the right with its role, in the folded summary's order.
+// (`plugins/marks.tsx`) — a filled disc wants you, a ring is steady, a ring
+// with a core is connecting — and the text at the right with its role, in the
+// folded summary's order.
 type State = { mark: Mark; text: (row: McpRow) => string; textRole: Role }
 const STATES: Record<McpRow['state'], State> = {
   ok: {

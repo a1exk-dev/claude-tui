@@ -54,7 +54,7 @@ ctui runs as a mod in every Claude Code session where the plugin is enabled. It 
 
 ## Known differences
 
-Some parts of the design renders are Claude Code's own and stay as Claude Code draws them: the sidebar's frame and close button, the prompt box, the permission-mode pill, the main background, and the rows of tools other than Read, Edit, Write and Bash. See [the full list](https://github.com/a1exk-dev/claude-tui/blob/main/docs/spec/v0.1.md#known-differences-from-the-renders).
+Some parts of the design renders are Claude Code's own and stay as Claude Code draws them: the sidebar's frame and close button, the prompt box, the permission-mode pill, the main background, and the rows of tools other than Read, Edit, Write and Bash. See [the full list](https://github.com/a1exk-dev/claude-tui/blob/main/docs/configuration.md#known-differences-from-the-renders).
 
 ## License
 
