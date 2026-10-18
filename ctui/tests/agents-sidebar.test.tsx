@@ -175,7 +175,7 @@ function host(on: On, world: { agents: AgentInfo[]; toasts: string[]; files?: st
     if (!world.files?.includes(e.path)) throw new Error('ENOENT')
     return { value: { kind: 'file' as const, size: 1, mtimeMs: 1, isLink: false } }
   })
-  on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
+  on('fs.read', () => ({ value: '{}' }))
   on('env.get', () => ({ value: '1' }))
   on('tool.list', () => ({ value: [] }))
   on('agent.list', () => ({ value: world.agents }))

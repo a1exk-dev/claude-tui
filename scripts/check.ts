@@ -41,8 +41,18 @@ run(tsc, ['-p', '.'])
 run(tsc, ['-p', '.claude/skills/live-checks/harness'])
 // ctui's production code against the support floor's types: a change that needs a newer engine fails here.
 run(tsc, ['-p', 'tsconfig.floor.json'])
-run(claude, ['plugin', 'validate', 'ctui', '--strict'])
-run(claude, ['plugin', 'validate', '.', '--strict'])
+// Strict, but for the one warning ctui means: no file stores its version (scripts/release-version.ts).
+const NO_VERSION = 'version: No version specified'
+const validate = (dir: string) => {
+  const { status, stdout, stderr } = spawnSync(claude, ['plugin', 'validate', dir], { encoding: 'utf8' })
+  process.stdout.write(stdout)
+  process.stderr.write(stderr)
+  const warnings = Number(/Found (\d+) warnings?/.exec(stdout)?.[1] ?? 0)
+  const expected = stdout.includes(NO_VERSION) ? 1 : 0
+  if (status !== 0 || warnings !== expected) error(`claude plugin validate ${dir} failed, or warned of more than a missing version`)
+}
+validate('ctui')
+validate('.')
 run(claude, ['plugin', 'test', 'ctui'])
 
 // Registry consistency.
@@ -70,7 +80,6 @@ const themes = readdirSync('ctui/themes')
   .map((f) => f.replace(/\.json$/, ''))
   .sort()
 same('inherit plus the ctui/themes/*.json slugs A–Z and the theme options', ['inherit', ...themes].join(' '), manifest.userConfig.theme.options.join(' '))
-same('plugin.json and ctui/package.json versions', manifest.version, json('ctui/package.json').version)
 
 // The pin and the support floor: both READMEs name them, the toast's constant
 // and the floor's vendored types name the floor.
@@ -101,6 +110,9 @@ else if (!entry.includes(pin)) {
 
 // The cost live check's fixture generator.
 run('node', ['--test', 'scripts/cost-fixture.test.ts'])
+
+// The version a merge into main gets, from its branch name and the v* tags.
+run('node', ['--test', 'scripts/release-version.test.ts'])
 
 // Themes and the docs/configuration.md table: regenerating must change nothing.
 run('node', ['--test', 'scripts/themes.test.ts'])

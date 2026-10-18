@@ -40,7 +40,7 @@ const DATA: SidebarData = {
     a: { id: 'a', kind: 'agent', type: 'Explore', label: 'list work dir', status: 'running', startedAt: 0 },
     s: { id: 's', kind: 'shell', type: 'shell', label: 'npm test', parent: 'a', status: 'completed', startedAt: 0, endedAt: 5000 },
   },
-  versions: { ctui: '0.2.0', claude: '2.1.292', theme: 'Tokyo Night' },
+  versions: { ctui: 'da270ab1c2f3', claude: '2.1.292', theme: 'Tokyo Night' },
 }
 
 type Node = { type?: string; props?: Record<string, unknown>; children?: unknown[] }
@@ -117,7 +117,7 @@ test('every run of text draws in a theme key; fold arrows draw muted', async ($,
 
 test('main text draws with the text key: path, branch, titles, labels, percents, versions', async ($, on) => {
   const { runs: all } = await draw($, on)
-  for (const text of ['~/Projects/claude-tui', 'Context:', 'MCP:', 'playwright', '9%', '34%', '2.1.292', '0.2.0, Tokyo Night']) {
+  for (const text of ['~/Projects/claude-tui', 'Context:', 'MCP:', 'playwright', '9%', '34%', '2.1.292', 'da270ab1c2f3, Tokyo Night']) {
     expect(colorOf(all, text), text).toEqual(['text'])
   }
   expect(colorOf(all, 'Run the tests')).toEqual(['text'])
@@ -183,16 +183,17 @@ test('a capped list draws ▸ N more muted', async ($, on) => {
 })
 
 // The footer is one row where it fits the body width, else two; nothing truncates.
-for (const [columns, theme, footer] of [
-  [42, 'Tokyo Night', ['claude cli: 2.1.292', 'ctui: 0.2.0, Tokyo Night']],
-  [42, 'inherit', ['claude cli: 2.1.292', 'ctui: 0.2.0, inherit']],
-  [53, 'Tokyo Night', ['claude cli: 2.1.292 │ ctui: 0.2.0, Tokyo Night']],
-  [53, 'inherit', ['claude cli: 2.1.292 │ ctui: 0.2.0, inherit']],
+// ctui's part is its install commit, or `local` under `--plugin-dir`.
+for (const [columns, ctui, theme, footer] of [
+  [42, 'da270ab1c2f3', 'Tokyo Night', ['claude cli: 2.1.292', 'ctui: da270ab1c2f3, Tokyo Night']],
+  [57, 'da270ab1c2f3', 'Tokyo Night', ['claude cli: 2.1.292 │ ctui: da270ab1c2f3, Tokyo Night']],
+  [42, 'local', 'inherit', ['claude cli: 2.1.292', 'ctui: local, inherit']],
+  [46, 'local', 'inherit', ['claude cli: 2.1.292 │ ctui: local, inherit']],
 ] as const) {
-  test(`the versions footer at ${columns} columns under ${theme}: ${footer.length} row(s)`, async ($, on) => {
-    const data = { ...DATA, versions: { ctui: '0.2.0', claude: '2.1.292', theme } }
+  test(`the versions footer at ${columns} columns with ctui ${ctui} under ${theme}: ${footer.length} row(s)`, async ($, on) => {
+    const data = { ...DATA, versions: { ctui, claude: '2.1.292', theme } }
     const { pane, runs: all } = await draw($, on, { data }, columns)
-    const rows = await pane.findAll({ type: 'Text', text: /^(claude cli|ctui): \d/ })
+    const rows = await pane.findAll({ type: 'Text', text: /^(claude cli|ctui): \S/ })
     expect(rows.map((row) => row.text)).toEqual([...footer])
     for (const row of rows) expect(row.text.length).toBeLessThanOrEqual(columns - 4)
     expect(['claude cli:', 'ctui:'].map((t) => colorOf(all, t)[0])).toEqual(['inactive', 'inactive'])
@@ -202,12 +203,12 @@ for (const [columns, theme, footer] of [
 
 test("a Theme's overrides reach every role", async ($, on) => {
   const theme: Colors = colors({ text: '#d3c6aa', inactive: '#918c7e', subtle: '#475258' })
-  // At 53 columns the footer is one row, with its │.
-  const { runs: all } = await draw($, on, { colors: theme }, 53)
+  // At 57 columns the footer is one row, with its │.
+  const { runs: all } = await draw($, on, { colors: theme }, 57)
   expect(colorOf(all, 'Context:')).toEqual(['#d3c6aa'])
   expect(GLYPHS.map((glyph) => colorOf(all, glyph))).toEqual([['#918c7e'], ['#918c7e'], ['#918c7e']])
   expect(colorOf(all, '│')).toEqual(['#475258'])
-  expect(colorOf(all, '═'.repeat(49))).toEqual(['#475258'])
+  expect(colorOf(all, '═'.repeat(53))).toEqual(['#475258'])
   expect(colorOf(all, '▼')).toEqual(Array(6).fill('#918c7e'))
   expect(all.some((run) => ['text', 'inactive', 'subtle'].includes(run.color ?? ''))).toBe(false)
 })
