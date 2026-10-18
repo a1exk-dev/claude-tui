@@ -30,7 +30,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release.ts
 
-  # The publish job (needs: release) that calls publish.yml goes here.
+  publish:
+    needs: release
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: v${{ needs.release.outputs.version }}
 
   # Re-run this job alone after a failure: the tag and release already exist.
   back-merge:
