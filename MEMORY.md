@@ -193,13 +193,14 @@ Guidance: Keep every structural choice compatible with both channels: Anthropic'
 - `ctui/` must contain its own README (at least 40 words, stating the support floor and the tested Claude Code version, and disclosing that the mod watches Bash and agent events in every session) and its own LICENSE. The repo-root files don't count.
 - `ctui/package.json` has no dependencies, no scripts, no lockfile, and a `files` whitelist. The dev `package.json` and lockfile stay at the repo root. The whitelist includes `themes/`; the vendored Omarchy sources (`vendor/omarchy/`, with its MIT `LICENSE` and version) and the generator stay outside `ctui/`. `ctui/LICENSE` carries Omarchy's MIT notice for the generated Themes.
 - The npm name `ctui` is taken. Use the scoped `@a1exk-dev/ctui` unless the human decides otherwise.
+- npm holds a signed copy of each release, not an install path. The `claude-tui` marketplace entry stays on `./ctui`, with no second catalog, and the READMEs give only the git marketplace and the directory as installs. `ctui/README.md` doubles as the npm page.
 - Releases: bump both version fields on `release/x.y.z`, merge to `main` (the default branch, which the directory follows), tag `vX.Y.Z`. A tag workflow runs the checks, publishes to npm with provenance, and creates the GitHub release.
 - Versions: each 0.x is a real release (`release/0.y.0` into `main`, tagged) for initial development, with no npm publish and no directory listing. 1.0.0 is the stable release that gets listed; the publishing map sets the listing up. The human chose this in #42, following SemVer's 0.y.z rule.
 - Any network call needs disclosure, an opt-out, and a privacy policy URL.
 
 Details: `docs/agents/research/publishing-catalog-npm.md`.
 
-Reason: The human set both channels as publishing targets.
+Reason: The human set both channels as publishing targets. In #376 the human kept installs on git, as every entry in Anthropic's official and the community catalogs does: none uses an npm source, the directory reads the git repo, and Claude Code has no install from a package name. A second catalog would give ctui a second id, and two enabled copies load only one hooks module.
 
 ## Display name is `ctui`, and the plugin is a TUI skin, not only a sidebar
 
