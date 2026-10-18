@@ -30,8 +30,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release.ts
 
+  # The human publishes 1.0.0 to npm by hand (#381); this job takes over from the release after it.
   publish:
     needs: release
+    if: needs.release.outputs.version != '1.0.0'
     permissions:
       id-token: write
       contents: read

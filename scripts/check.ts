@@ -42,14 +42,22 @@ run(tsc, ['-p', '.claude/skills/live-checks/harness'])
 // ctui's production code against the support floor's types: a change that needs a newer engine fails here.
 run(tsc, ['-p', 'tsconfig.floor.json'])
 // Strict, but for the one warning ctui means: no file stores its version (scripts/release-version.ts).
-const NO_VERSION = 'version: No version specified'
+type Issue = { path: string; message: string }
+type Report = { errors: Issue[]; warnings: Issue[] }
+const noVersion = ({ path, message }: Issue) => /(^|→ )version$/.test(path) && message.startsWith('No version specified')
 const validate = (dir: string) => {
-  const { status, stdout, stderr } = spawnSync(claude, ['plugin', 'validate', dir], { encoding: 'utf8' })
-  process.stdout.write(stdout)
+  const { status, stdout, stderr } = spawnSync(claude, ['plugin', 'validate', dir, '--json'], { encoding: 'utf8' })
   process.stderr.write(stderr)
-  const warnings = Number(/Found (\d+) warnings?/.exec(stdout)?.[1] ?? 0)
-  const expected = stdout.includes(NO_VERSION) ? 1 : 0
-  if (status !== 0 || warnings !== expected) error(`claude plugin validate ${dir} failed, or warned of more than a missing version`)
+  let reports: Report[] = []
+  try {
+    const result: { manifest: Report; contents: Report[] } = JSON.parse(stdout)
+    reports = [result.manifest, ...result.contents]
+  } catch {
+    process.stdout.write(stdout)
+  }
+  const issues = reports.flatMap((report) => [...report.errors, ...report.warnings.filter((warning) => !noVersion(warning))])
+  for (const { path, message } of issues) console.error(`${dir}: ${path}: ${message}`)
+  if (status !== 0 || reports.length === 0 || issues.length > 0) error(`claude plugin validate ${dir} failed, or warned of more than a missing version`)
 }
 validate('ctui')
 validate('.')
