@@ -20,7 +20,7 @@ test('versions below the floor, the floor itself and later ones', () => {
 function host(on: On, version: string, toasts: string[]) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.version', () => ({ value: { version } }))
-  on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
+  on('fs.read', () => ({ value: '{}' }))
   on('env.set', () => ({ value: undefined }))
   on('ui.toast', (_, e) => {
     toasts.push(e.text)

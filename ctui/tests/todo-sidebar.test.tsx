@@ -152,7 +152,7 @@ function host(
     if (!theme || e.path !== theme.path) throw new Error('ENOENT')
     return { value: { kind: 'file' as const, size: theme.file.length, mtimeMs: theme.mtimeMs, isLink: false } }
   })
-  on('fs.read', (_, e) => ({ value: e.path === world.theme?.path ? world.theme.file : '{ "version": "0.0.0" }' }))
+  on('fs.read', (_, e) => ({ value: e.path === world.theme?.path ? world.theme.file : '{}' }))
   on('env.get', (_, e) => ({ value: world.env[e.name] }))
   on('env.set', (_, e) => {
     world.env[e.name] = e.value
