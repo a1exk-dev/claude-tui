@@ -15,6 +15,7 @@
     "themes",
     "types",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "publishConfig": {

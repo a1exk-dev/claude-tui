@@ -122,6 +122,9 @@ run('node', ['--test', 'scripts/cost-fixture.test.ts'])
 // The version a merge into main gets, from its branch name and the v* tags.
 run('node', ['--test', 'scripts/release-version.test.ts'])
 
+// The changelog entry prepare-release.ts writes and the check on pull requests into main.
+run('node', ['--test', 'scripts/changelog.test.ts'])
+
 // The back-merge from main into develop after a release.
 run('node', ['--test', 'scripts/back-merge.test.ts'])
 

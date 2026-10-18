@@ -10,7 +10,8 @@ const semver = (match: RegExpExecArray): Semver => [Number(match[1]), Number(mat
 // Semver order: major, then minor, then patch, each as a number.
 const compare = (a: Semver, b: Semver) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]
 
-const latestTag = (tags: string[]): Semver | undefined =>
+// The highest v<semver> tag, ignoring any other.
+export const latestTag = (tags: string[]): Semver | undefined =>
   tags
     .map((tag) => /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag))
     .filter((match) => match !== null)
