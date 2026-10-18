@@ -1,6 +1,7 @@
 // The version a merge into main gets, from the branch name and the `v*` tags:
 // no file in the repo stores ctui's version. Used by the source-branch job
 // before the merge and by the release job after it.
+import { execFileSync } from 'node:child_process'
 
 type Semver = [number, number, number]
 
@@ -16,6 +17,9 @@ const latestTag = (tags: string[]): Semver | undefined =>
     .map(semver)
     .sort(compare)
     .at(-1)
+
+// The repo's tags that start with v, for nextVersion, which ignores any that are not v<semver>.
+export const versionTags = () => execFileSync('git', ['tag', '--list', 'v*'], { encoding: 'utf8' }).split('\n').filter(Boolean)
 
 export function nextVersion(headRef: string, tags: string[]): string {
   const latest = latestTag(tags)

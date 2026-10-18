@@ -14,8 +14,10 @@ export function prAction(openPrs: number[]): PrAction {
 
 export type MergeDecision = 'wait' | 'conflict' | 'auto-merge' | 'leave'
 
-// mergeable is the value of `gh pr view --json mergeable`.
-export function mergeDecision(mergeable: string, ownerMerged: boolean): MergeDecision {
+// The values of `gh pr view --json mergeable`.
+export type Mergeable = 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN'
+
+export function mergeDecision(mergeable: Mergeable, ownerMerged: boolean): MergeDecision {
   if (mergeable === 'UNKNOWN') return 'wait'
   if (mergeable === 'CONFLICTING') return 'conflict'
   // Any other actor's back-merge follows the normal develop rule.
@@ -63,7 +65,7 @@ if (import.meta.main) {
 
   let decision: MergeDecision = 'wait'
   for (let tries = 1; tries <= MAX_TRIES; tries++) {
-    decision = mergeDecision(gh('pr', 'view', String(pr), '--json', 'mergeable', '--jq', '.mergeable'), ownerMerged)
+    decision = mergeDecision(gh('pr', 'view', String(pr), '--json', 'mergeable', '--jq', '.mergeable') as Mergeable, ownerMerged)
     if (decision !== 'wait') break
     if (tries < MAX_TRIES) await setTimeout(RETRY_MS)
   }
