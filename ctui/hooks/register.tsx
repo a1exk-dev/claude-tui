@@ -3,6 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import { plugins, sections } from '../plugins'
 import { colors } from '../plugins/colors'
 import type { GitSnapshot, McpRow, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
+import { build } from './build'
 import { type Config, readConfig } from './config'
 import { belowFloor, floorToast } from './floor'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
@@ -187,10 +188,9 @@ async function refillVersions($: EngineInterface, slug: string) {
 
 // `slug` is the `theme` setting; the footer shows the Theme file's `name`, as `/theme` lists it.
 async function loadVersions($: EngineInterface, slug: string) {
-  const manifest = JSON.parse(await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`))
   const name =
     slug === 'inherit' ? slug : String(JSON.parse(await $.fs.read(`${$.plugin.root}/themes/${slug}.json`)).name)
-  const versions = { ctui: String(manifest.version), claude: (await $.session.version()).version, theme: name }
+  const versions = { ctui: build($.plugin.root), claude: (await $.session.version()).version, theme: name }
   const { value } = await $.state.get(VERSIONS)
   if (JSON.stringify(value) !== JSON.stringify(versions)) await $.state.set(VERSIONS, versions)
 }

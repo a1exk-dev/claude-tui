@@ -175,7 +175,7 @@ function claudeHome(on: On, world: { theme: string; file: string; mtimeMs: numbe
     return { value: { kind: 'file', size: world.file.length, mtimeMs: world.mtimeMs, isLink: false } }
   })
   on('fs.read', (_, e) => {
-    if (e.path.endsWith('/.claude-plugin/plugin.json')) return { value: '{ "version": "0.0.0" }' }
+    if (e.path.endsWith('/.claude-plugin/plugin.json')) return { value: '{}' }
     if (e.path !== OMARCHY) throw new Error('ENOENT')
     return { value: world.file }
   })

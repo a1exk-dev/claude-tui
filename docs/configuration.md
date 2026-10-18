@@ -17,7 +17,7 @@ The Sidebar shows the `git` header at the top, the `versions` footer at the bott
 | `skills` | Every skill this chat used, one row each, A–Z: typed as `/name`, run by Claude or a subagent, preloaded into a subagent, or a plugin or user command that reaches Claude. Each row shows the name and, at the right, where it comes from (`user`, `project`, a plugin's name, `built-in`, `synced`). `/clear` empties it; `/resume` rebuilds it from the transcript, less any skill used before a compaction or only inside a subagent. | `skills_enable` (Skills section), `skills_folded` (Skills folded) |
 | `mcp` | MCP servers seen this session and the ones you turned off, A–Z, each with where it comes from and its state: `user · 22 tools`, `project · down`, `claude.ai · off`. The source is `user`, `project`, `local`, `claude.ai`, a plugin's name, `managed` or `enterprise`, read from the config files without contacting any server; a server none of them holds reads `dynamic` (as `--mcp-config` adds), and running one of its tools corrects the source. | `mcp_enable` (MCP section), `mcp_folded` (MCP folded) |
 | `agents` | "Agents & shells": running subagents, background shells and Workflow runs, with their elapsed time. | `agents_enable` (Agents & shells section), `agents_folded` (Agents & shells folded), `agents_toasts` (Agent and shell toasts) |
-| `versions` | Footer: the Claude Code and ctui versions and the Theme's name (`inherit` with none), on one row where it fits, else two. Always on. | |
+| `versions` | Footer: the Claude Code version, ctui's install commit (the id `/plugin` shows, or `local` when loaded by `--plugin-dir`) and the Theme's name (`inherit` with none), on one row where it fits, else two. Always on. | |
 
 ## Other settings
 
@@ -172,7 +172,7 @@ Claude Code draws these, or the mods API can't reach them.
 | Borderless Sidebar, full height | Claude Code's `│` rule, the `✕` row above the body and the row below it. The dock stops above the prompt. | #8 |
 | Sidebar panel `#141414` | The dock's color is the `/theme` theme's `composerSidebarBackground` (`#262626` on the built-in dark). A ctui Theme paints the body, but Claude Code's frame keeps the `/theme` color until you pick the same theme there. | #8, #12, #77 |
 | Sidebar always shown | Shown only in fullscreen at 110+ columns. Below 144 columns, a first session docks it only at the first prompt. | #9 |
-| Footer `claude-tui 0.1.1`, `opencode 1.0`, `claude-cli` | `claude cli: <version>` and `ctui: <version>, <Theme>`, with no update icon. | #17 |
+| Footer `claude-tui 0.1.1`, `opencode 1.0`, `claude-cli` | `claude cli: <version>` and `ctui: <commit>, <Theme>`, with no update icon. | #17 |
 | MCP `✕ … failed`; every configured server listed | `down`. A server that never connected this session isn't listed, unless you turned it off. | #11 |
 | Round prompt box with "Ask anything" | Claude Code's `─` rules and `❯`. | #20 |
 | Main background `#0a0a0a` | The terminal's background. [Main background](#main-background) shows how to set it. | #20 |

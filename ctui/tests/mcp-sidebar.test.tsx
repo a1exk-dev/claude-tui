@@ -234,7 +234,7 @@ function host(on: On, world: World, path = CLAUDE_JSON) {
     const file = world.files?.[e.path]
     if (file) return { value: JSON.stringify(file) }
     if (e.path.endsWith('mcp.json')) throw new Error('ENOENT')
-    return { value: '{ "version": "0.0.0" }' }
+    return { value: '{}' }
   })
   on('settings.read', (_, e) => ({ value: (e.source === 'policy' ? world.policy : world.settings) ?? {} }))
   on('classic.PostToolUse', () => ({}))

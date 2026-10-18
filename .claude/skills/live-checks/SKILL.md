@@ -32,8 +32,7 @@ expensive to spend on a checkout that does not pass.
 Then collect the version block's facts:
 
 ```bash
-node -p "require('./ctui/.claude-plugin/plugin.json').version"
-git rev-parse --short HEAD
+git describe --tags
 node -p "require('./package.json').devDependencies['@anthropic-ai/claude-code']"
 ```
 
@@ -95,7 +94,7 @@ Write `$RUN/report.md` in this shape and print its path as the last thing you sa
 ```markdown
 ## ctui live checks — PASS (37/37)
 
-plugin ctui 0.6.0 (da270ab)
+plugin ctui v0.6.0-12-gda270ab
 engine @anthropic-ai/claude-code 2.1.300
 node scripts/check.ts  PASS  360 tests, 9 s
 run 2026-10-15T09:14Z  Sonnet, medium effort

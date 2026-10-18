@@ -134,7 +134,7 @@ function host(on: On, world: World = {}) {
   on('env.get', () => ({ value: '/home/a' }))
   on('env.set', () => ({ value: undefined }))
   on('agent.list', () => ({ value: [] }))
-  on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
+  on('fs.read', () => ({ value: '{}' }))
   on('session.usage', () => ({
     value: {
       startedAt: 0,
