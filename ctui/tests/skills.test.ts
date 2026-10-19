@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { addSkill, skillName, skillsFromMessages, sortedSkills, sourceOf } from '../hooks/skills'
+import { addSkill, dirSource, skillDirs, skillName, skillsFromMessages, sortedSkills, sourceOf, stated } from '../hooks/skills'
 
 // The `skills` Sidebar plugin's data (#175): each skill's source, the list's
 // dedupe and order, and the rebuild from a resumed transcript's main rows.
@@ -31,6 +31,42 @@ test('a skill’s source, from the skill listing, else the command list, else it
   // Markdown commands that reach the model.
   expect(['kit:notes', 'standup'].map(source)).toEqual(['kit', 'user'])
   expect(source('acme:lint')).toBe('acme')
+})
+
+// #396: a skill with `disable-model-invocation: true` is in neither the skill
+// listing nor, as a project skill, anywhere the command list can say so.
+test('a skill the model can’t invoke takes its source from the event, else its folder', () => {
+  // The command list calls every file-backed command `user`.
+  const commands = [...COMMANDS, { name: 'wayfinder', description: '', source: 'user' as const }]
+  expect(sourceOf('wayfinder', FRONTMATTER, commands)).toBe('user')
+  expect(sourceOf('wayfinder', FRONTMATTER, commands, { source: 'projectSettings' })).toBe('project')
+  expect(sourceOf('wayfinder', FRONTMATTER, commands, { source: 'plugin', pluginName: 'kit' })).toBe('kit')
+  expect(sourceOf('wayfinder', FRONTMATTER, commands, { place: 'project' })).toBe('project')
+  // An event that states no source reads `built-in`: the lookup decides.
+  expect(sourceOf('tdd', FRONTMATTER, commands, { source: 'built-in' })).toBe('user')
+  // The command list's plugin outranks a folder.
+  expect(sourceOf('kit:notes', FRONTMATTER, commands, { place: 'project' })).toBe('kit')
+})
+
+test('the source a skill.prompt states, when it states one', () => {
+  expect(stated({ skill: 'a', text: '', source: 'projectSettings' })).toEqual({ source: 'projectSettings', pluginName: undefined })
+  expect(stated({ skill: 'a', text: '', source: 'plugin', pluginName: 'kit' })).toEqual({ source: 'plugin', pluginName: 'kit' })
+  expect(stated({ skill: 'a', text: '' })).toEqual({ source: undefined, pluginName: undefined })
+})
+
+test('a skill folder is user under the config dir, project in another .claude', () => {
+  const config = '/home/a/.claude'
+  const text = (dir: string) => `Base directory for this skill: ${dir}\n\nDo the thing.`
+  const dirs = skillDirs([
+    text('/srv/x/.claude/skills/wayfinder'),
+    'no skill here',
+    text('/home/a/.claude/skills/notes'),
+    text('/home/a/.claude/plugins/cache/kit/skills/review'),
+  ])
+  expect([...dirs.keys()]).toEqual(['wayfinder', 'notes', 'review'])
+  expect([...dirs.values()].map((dir) => dirSource(dir, config))).toEqual(['project', 'user', undefined])
+  expect(dirSource('/srv/x/.claude/commands/deploy', config)).toBe('project')
+  expect(dirSource(undefined, config)).toBeUndefined()
 })
 
 test('one row per skill and source; a repeat changes nothing', () => {
