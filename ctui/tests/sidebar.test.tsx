@@ -22,7 +22,7 @@ const footer: SidebarPlugin = {
   title: 'Versions',
   slot: 'footer',
   needs: [],
-  view: () => ['ctui 0.0.0', 'claude-cli 2.1.288'],
+  view: () => ['ctui local', 'claude-cli 2.1.288'],
 }
 const list = (id: 'mcp' | 'todo', items: number): SidebarPlugin => ({
   id,
@@ -128,7 +128,7 @@ test('header, sections and the footer on the last row', async ($, on) => {
     'mcp 2',
     'mcp 3',
     '',
-    'ctui 0.0.0',
+    'ctui local',
     'claude-cli 2.1.288',
   ])
   // The flexible space before the footer pushes it to the last row.
@@ -170,18 +170,18 @@ test('one section, expanded, has no rule', async ($, on) => {
 
 test('one section, folded, has no rule above or below it', async ($, on) => {
   const { tree } = await draw($, on, { folded: { mcp: true } })
-  expect(layout(tree)).toEqual(['~/x', `${BRANCH} main`, B, D, B, '▶\uFE0E mcp:sum 3', '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
+  expect(layout(tree)).toEqual(['~/x', `${BRANCH} main`, B, D, B, '▶\uFE0E mcp:sum 3', '', 'ctui local', 'claude-cli 2.1.288'])
 })
 
 // #135: the double rule shows only when the header and a section both show.
 test('no double rule without a header', async ($, on) => {
   const { tree } = await draw($, on, { plugins: [list('mcp', 1), footer] })
-  expect(layout(tree)).toEqual(['▼ mcp:1', B, 'mcp 1', '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
+  expect(layout(tree)).toEqual(['▼ mcp:1', B, 'mcp 1', '', 'ctui local', 'claude-cli 2.1.288'])
 })
 
 test('no double rule without sections', async ($, on) => {
   const { tree } = await draw($, on, { plugins: [header, footer] })
-  expect(layout(tree)).toEqual(['~/x', `${BRANCH} main`, '', 'ctui 0.0.0', 'claude-cli 2.1.288'])
+  expect(layout(tree)).toEqual(['~/x', `${BRANCH} main`, '', 'ctui local', 'claude-cli 2.1.288'])
 })
 
 // #136: the real git header parts the path from the git rows by 1 blank row.
@@ -340,7 +340,7 @@ const BUSY: SidebarData = {
     a: { id: 'a', kind: 'agent', type: 'Explore', label: 'map', status: 'running', startedAt: 0 },
     b: { id: 'b', kind: 'agent', type: 'Plan', label: 'plan', status: 'running', startedAt: 1 },
   },
-  versions: { ctui: '0.3.0', claude: '2.1.292', theme: 'inherit' },
+  versions: { ctui: 'da270ab1c2f3', claude: '2.1.292', theme: 'inherit' },
 }
 
 // The sections window: from after the double rule's blank row to the flexible space before the footer.

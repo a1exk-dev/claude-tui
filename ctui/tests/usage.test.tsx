@@ -339,7 +339,7 @@ function host(on: On, usage: SessionUsage, world: World = { transcripts: {}, gre
   on('fs.read', (_, e) => ({
     value: e.path.endsWith('/themes/tokyo-night.json')
       ? JSON.stringify({ name: 'Tokyo Night', base: 'dark', overrides: {} })
-      : '{ "version": "0.0.0" }',
+      : '{}',
   }))
   on('fs.exists', () => ({ value: false }))
   on('fs.stat', () => {
@@ -461,7 +461,7 @@ test('with a Theme selected the footer names it', { options: { theme: 'tokyo-nig
   await $.session.start({ cwd: '/srv/x', surface: 'terminal', isInteractive: true })
   await clock.settle()
   const pane = await $.ui.mount(SIDEBAR)
-  expect(await pane.find({ text: 'ctui: 0.0.0, Tokyo Night' })).toBeDefined()
+  expect(await pane.find({ text: 'ctui: local, Tokyo Night' })).toBeDefined()
 })
 
 // Scenarios: the cost row's month total, from the transcripts' `cost-state` lines.

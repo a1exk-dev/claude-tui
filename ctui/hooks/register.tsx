@@ -3,6 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import { plugins, sections } from '../plugins'
 import { colors } from '../plugins/colors'
 import type { GitSnapshot, McpRow, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
+import { build } from './build'
 import { type Config, readConfig } from './config'
 import { belowFloor, floorToast } from './floor'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
@@ -21,7 +22,7 @@ import {
   type Transcript,
 } from './month'
 import { grey, inheritGlass, themeFile } from './glass'
-import { addSkill, skillsFromMessages, sourceOf } from './skills'
+import { addSkill, dirSource, type SkillHints, skillDirs, skillName, skillsFromMessages, sourceOf, stated } from './skills'
 import { deniedText, HOTKEYS, isMonthlyKey, KEYS, MENU_START, monthlyKey, type Setting, settingKey, settingRows, menuView, moveId, NO_CONFIG, PARENT, rowId, rowKey, takenBy, themeSlug, type ThemeName, topKey, type TopPick, topPick } from './menu'
 import { type Control, controlKey, foldRowKey, sidebar, type SidebarInput } from './sidebar'
 import { assistantMessage } from './skin/assistant'
@@ -187,10 +188,9 @@ async function refillVersions($: EngineInterface, slug: string) {
 
 // `slug` is the `theme` setting; the footer shows the Theme file's `name`, as `/theme` lists it.
 async function loadVersions($: EngineInterface, slug: string) {
-  const manifest = JSON.parse(await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`))
   const name =
     slug === 'inherit' ? slug : String(JSON.parse(await $.fs.read(`${$.plugin.root}/themes/${slug}.json`)).name)
-  const versions = { ctui: String(manifest.version), claude: (await $.session.version()).version, theme: name }
+  const versions = { ctui: build($.plugin.root), claude: (await $.session.version()).version, theme: name }
   const { value } = await $.state.get(VERSIONS)
   if (JSON.stringify(value) !== JSON.stringify(versions)) await $.state.set(VERSIONS, versions)
 }
@@ -231,10 +231,14 @@ async function setNow($: EngineInterface) {
   }
 }
 
+// Claude Code's config dir: `CLAUDE_CONFIG_DIR`, else `~/.claude`.
+const configDirOf = async ($: EngineInterface) =>
+  (await $.env.get('CLAUDE_CONFIG_DIR')) || `${await $.env.get('HOME')}/.claude`
+
 // The main transcripts written since `since`, the current session's left out:
 // `<config dir>/projects/<project>/<session id>.jsonl`.
 async function listTranscripts($: EngineInterface, since: number, current: string) {
-  const dir = (await $.env.get('CLAUDE_CONFIG_DIR')) || `${await $.env.get('HOME')}/.claude`
+  const dir = await configDirOf($)
   const projects = (await $.fs.list(`${dir}/projects`)).filter((entry) => entry.kind === 'dir')
   const lists = await Promise.all(
     projects.map(async ({ name }) => {
@@ -391,7 +395,7 @@ async function paintable($: EngineInterface, glass: string) {
 // mtime changes: an Omarchy switch rewrites the file.
 async function refreshGlass($: EngineInterface) {
   const row = (await $.config.list()).find((r) => r.key === 'theme')
-  const dir = (await $.env.get('CLAUDE_CONFIG_DIR')) || `${await $.env.get('HOME')}/.claude`
+  const dir = await configDirOf($)
   const path = themeFile(row?.value, dir)
   const stat = path ? await $.fs.stat(path).catch(() => undefined) : undefined
   // `/clear` and `/resume` empty `$.state` with no `session.start`: read again.
@@ -756,10 +760,11 @@ async function themeNamesOf($: EngineInterface) {
 }
 
 // MEMORY.md "The `skills` Sidebar plugin lists every `skill.prompt`": the
-// skill listing and the command list name each skill's source.
+// skill listing and the command list name each skill's source, and the config
+// dir tells a user skill's folder from a project one's.
 async function skillCatalog($: EngineInterface) {
-  const [usage, commands] = await Promise.all([$.session.usage({ breakdown: 'summary' }), $.command.list()])
-  return { listed: usage.context.breakdown?.skills?.skillFrontmatter ?? [], commands }
+  const [usage, commands, configDir] = await Promise.all([$.session.usage({ breakdown: 'summary' }), $.command.list(), configDirOf($)])
+  return { listed: usage.context.breakdown?.skills?.skillFrontmatter ?? [], commands, configDir }
 }
 
 let skillsChain: Promise<unknown> = Promise.resolve() // one list write at a time
@@ -773,12 +778,13 @@ function writeSkills(write: () => Promise<void>) {
 }
 
 // A `skill.prompt`'s skill, once; a skill already listed reads nothing more.
-function addSkills($: EngineInterface, name: string) {
+function addSkills($: EngineInterface, name: string, text: string, hints: SkillHints) {
   return writeSkills(async () => {
     const { value = [] } = await $.state.get(SKILLS)
     if (value.some((row) => row.name === name)) return
-    const { listed, commands } = await skillCatalog($)
-    await $.state.set(SKILLS, [...addSkill(value, { name, source: sourceOf(name, listed, commands) })])
+    const { listed, commands, configDir } = await skillCatalog($)
+    const place = dirSource(skillDirs([text]).get(skillName(name)), configDir)
+    await $.state.set(SKILLS, [...addSkill(value, { name, source: sourceOf(name, listed, commands, { ...hints, place }) })])
   })
 }
 
@@ -787,14 +793,18 @@ function addSkills($: EngineInterface, name: string) {
 function refillSkills($: EngineInterface) {
   return writeSkills(async () => {
     if ((await $.state.get(SKILLS)).value) return
-    const [{ listed, commands }, messages] = await Promise.all([skillCatalog($), $.session.messages()])
+    const [{ listed, commands, configDir }, messages] = await Promise.all([skillCatalog($), $.session.messages()])
     const known = new Set([
       ...listed.map((skill) => skill.name),
       ...commands.filter((command) => command.source !== 'builtin').map((command) => command.name),
     ])
     const names = skillsFromMessages(messages, known)
+    const dirs = skillDirs(messages.map((message) => message.text))
     let rows: readonly SkillRow[] = []
-    for (const name of names) rows = addSkill(rows, { name, source: sourceOf(name, listed, commands) })
+    for (const name of names) {
+      const place = dirSource(dirs.get(skillName(name)), configDir)
+      rows = addSkill(rows, { name, source: sourceOf(name, listed, commands, { place }) })
+    }
     await $.state.set(SKILLS, [...rows])
   })
 }
@@ -1151,7 +1161,7 @@ export const register: Register = (on, options) => {
   // Every invocation, whoever made it: typed, the Skill tool (a subagent's
   // too), a fork, a preload, a markdown command. Observe only.
   on('skill.prompt', ($, e, next) => {
-    if (needs.has('skills')) void addSkills($, e.skill).catch(() => undefined)
+    if (needs.has('skills')) void addSkills($, e.skill, e.text, stated(e)).catch(() => undefined)
     return next(e)
   })
 

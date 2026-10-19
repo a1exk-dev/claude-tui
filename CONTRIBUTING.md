@@ -8,7 +8,7 @@ Use Node 22.18 or newer, which runs `.ts` files without a flag. Run `npm ci`. It
 
 ## Checks
 
-Run `node scripts/check.ts` before each commit. It runs `tsc` (against the pin's types and, for ctui's production code, the support floor's), `claude plugin validate ctui --strict` and `validate . --strict`, `claude plugin test ctui`, the consistency checks (Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; versions; both READMEs, `ctui/hooks/floor.ts` and the floor types against the pin and the floor; the root README's `/plugin` lines against `ctui/README.md`'s), the Theme generator's tests in `scripts/themes.test.ts`, the cost live check's fixture generator's tests in `scripts/cost-fixture.test.ts`, a check that `node scripts/themes.ts` would change no Theme and no `docs/configuration.md` table, and `cspell`. A word it flags that is spelled right, such as a new name, goes in `cspell.json`'s `words`. It exits 1 when `node_modules/.bin/claude` or `cspell` is missing. CI runs the same command. The whole run stays under the 2-minute ceiling in the `MEMORY.md` entry "Tests cover real usage"; nothing asserts it, so watch it as the suite grows.
+Run `node scripts/check.ts` before each commit. It runs `tsc` (against the pin's types and, for ctui's production code, the support floor's), `claude plugin validate ctui` and `validate .` (failing on any error or warning but the missing `version`, since no file stores ctui's version), `claude plugin test ctui`, the consistency checks (Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; both READMEs, `ctui/hooks/floor.ts` and the floor types against the pin and the floor; the root README's `/plugin` lines against `ctui/README.md`'s), the Theme generator's tests in `scripts/themes.test.ts`, the cost live check's fixture generator's tests in `scripts/cost-fixture.test.ts`, the release version's tests in `scripts/release-version.test.ts`, the changelog's tests in `scripts/changelog.test.ts`, the back-merge's tests in `scripts/back-merge.test.ts`, a check that `node scripts/themes.ts` would change no Theme and no `docs/configuration.md` table, and `cspell`. A word it flags that is spelled right, such as a new name, goes in `cspell.json`'s `words`. It exits 1 when `node_modules/.bin/claude` or `cspell` is missing. CI runs the same command. The whole run stays under the 2-minute ceiling in the `MEMORY.md` entry "Tests cover real usage"; nothing asserts it, so watch it as the suite grows.
 
 ## Tests
 
@@ -55,6 +55,12 @@ The command exits non-zero whenever a case scores under the threshold, which def
 ## Reports
 
 A release's pull request into `main` pastes both reports whole, a live-check run and an eval run, and a human merges it. An outside contributor's pull request into `develop` pastes both too; the maintainer re-runs either one on doubt. The owner's own pull requests into `develop` are asked for neither — auto-merge waits on `node scripts/check.ts` alone — and answer `N/A`. The template takes a whole report or `N/A`, never a tick per section: a report is atomic, so there is no partial run to claim.
+
+## Releasing
+
+On the `release/X.Y.Z` or `hotfix/<name>` branch, run `node scripts/prepare-release.ts` and commit the entry it writes on top of [`ctui/CHANGELOG.md`](ctui/CHANGELOG.md). It takes the version from the branch name, dates the entry today and lists the commits since the latest `v*` tag by Conventional Commits type, skipping merges and any line an earlier entry lists. Prose the subjects can't say goes in a file passed as `--note-file <path>`, which puts it under the heading; keep it to prose, since a line starting with `- ` reads as a listed change next time. The script is the only writer of an entry, so regenerate rather than hand-edit.
+
+Review the entry in the pull request into `main`. Its required check fails unless the top entry names the branch's version, and on the merge `release.yml` uses that entry as the GitHub Release body.
 
 ## Pull requests and pin bumps
 

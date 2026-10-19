@@ -134,7 +134,7 @@ function host(on: On, world: World = {}) {
   on('env.get', () => ({ value: '/home/a' }))
   on('env.set', () => ({ value: undefined }))
   on('agent.list', () => ({ value: [] }))
-  on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
+  on('fs.read', () => ({ value: '{}' }))
   on('session.usage', () => ({
     value: {
       startedAt: 0,
@@ -169,7 +169,14 @@ function host(on: On, world: World = {}) {
       rateLimits: [],
     },
   }))
-  on('command.list', () => ({ value: [{ name: 'context', description: '', source: 'builtin' }] }))
+  on('command.list', () => ({
+    value: [
+      { name: 'context', description: '', source: 'builtin' },
+      // Model-hidden skills: out of the listing, and `user` to the command list.
+      { name: 'wayfinder', description: '', source: 'user' },
+      { name: 'notes', description: '', source: 'user' },
+    ],
+  }))
   on('session.messages', () => ({ value: world.messages ?? [] }))
   on('skill.prompt', (_, e) => ({ text: e.text }))
   // The other sections' loaders, empty.
@@ -281,6 +288,47 @@ test('an in-process /resume rebuilds the list from the resumed transcript', asyn
   await clock.advance(1000)
   const pane = await sidebar($)
   expect(await sectionRows(pane)).toEqual(['tdduser'])
+})
+
+// #396: `disable-model-invocation: true` keeps a skill out of the listing.
+const loads = (dir: string) => `Base directory for this skill: ${dir}\n\nDo the thing.`
+
+test('a skill the model can’t invoke shows the source its skill.prompt states', async ($, on) => {
+  const clock = mock.clock(on)
+  host(on)
+  await start($)
+  await $.skill.prompt({ skill: 'wayfinder', text: 'Map it.', source: 'projectSettings' })
+  await $.skill.prompt({ skill: 'notes', text: 'Note it.', source: 'userSettings' })
+  await clock.settle()
+  const pane = await sidebar($)
+  expect(await sectionRows(pane)).toEqual(['notesuser', 'wayfinderproject'])
+})
+
+test('with no stated source, a model-hidden skill’s folder tells project from user', async ($, on) => {
+  const clock = mock.clock(on)
+  host(on) // every env var reads /home/a, so the config dir is /home/a
+  await start($)
+  await $.skill.prompt({ skill: 'wayfinder', text: loads('/srv/x/.claude/skills/wayfinder') })
+  await $.skill.prompt({ skill: 'notes', text: loads('/home/a/skills/notes') })
+  await clock.settle()
+  const pane = await sidebar($)
+  expect(await sectionRows(pane)).toEqual(['notesuser', 'wayfinderproject'])
+})
+
+test('a resume reads a model-hidden skill’s source off its folder in the transcript', async ($, on) => {
+  const clock = mock.clock(on)
+  host(on, {
+    messages: [
+      { role: 'user', text: '<command-name>/wayfinder</command-name>', toolUses: [] },
+      { role: 'user', text: loads('/srv/x/.claude/skills/wayfinder'), toolUses: [] },
+      { role: 'user', text: '<command-name>/notes</command-name>', toolUses: [] },
+      { role: 'user', text: loads('/home/a/skills/notes'), toolUses: [] },
+    ],
+  })
+  await start($) // `claude --resume`: a new process, $.state empty
+  await clock.settle()
+  const pane = await sidebar($)
+  expect(await sectionRows(pane)).toEqual(['notesuser', 'wayfinderproject'])
 })
 
 test('more than 4 skills cap at 4 rows and ▸ N more', async ($, on) => {

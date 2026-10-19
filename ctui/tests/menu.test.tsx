@@ -38,7 +38,7 @@ function host(on: On, world: World = {}) {
   on('fs.read', (_, e) => {
     const slug = /\/themes\/([\w-]+)\.json$/.exec(e.path)?.[1]
     if (slug) return { value: JSON.stringify({ name: NAMES[slug], base: 'dark', overrides: {} }) }
-    return { value: JSON.stringify({ version: '0.0.0', userConfig: { theme: { options: OPTIONS } } }) }
+    return { value: JSON.stringify({ userConfig: { theme: { options: OPTIONS } } }) }
   })
   on('config.list', () => ({ value: world.rows ?? [THEME_ROW] }))
   on('config.set', (_, e) => {

@@ -27,7 +27,7 @@ function host(on: On, world: World) {
   on('fs.stat', () => {
     throw new Error('ENOENT')
   })
-  on('fs.read', () => ({ value: '{ "version": "0.0.0" }' }))
+  on('fs.read', () => ({ value: '{}' }))
   on('env.get', () => ({ value: '1' }))
   on('tool.list', () => ({ value: [] }))
   on('agent.list', () => ({ value: [] }))

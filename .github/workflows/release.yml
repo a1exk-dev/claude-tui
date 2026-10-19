@@ -1,0 +1,62 @@
+name: release
+
+# No re-run of `node scripts/check.ts`: the required check on the pull request covers it.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  release:
+    if: github.event.pull_request.merged
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - name: Tag and release the merge commit
+        id: release
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release.ts
+
+  # The human publishes 1.0.0 to npm by hand (#381); this job takes over from the release after it.
+  publish:
+    needs: release
+    if: needs.release.outputs.version != '1.0.0'
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: v${{ needs.release.outputs.version }}
+
+  # Re-run this job alone after a failure: the tag and release already exist.
+  back-merge:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - name: Open the back-merge pull request into develop
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+          MERGED_BY: ${{ github.event.pull_request.merged_by.login }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/back-merge.ts

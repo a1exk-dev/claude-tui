@@ -23,6 +23,7 @@ The sidebar docks only in fullscreen, in a terminal 110 or more columns wide. Te
 
 - [`ctui/README.md`](ctui/README.md): what ctui does and how to set it up.
 - [`docs/configuration.md`](docs/configuration.md): every setting, and the known differences from the renders.
+- [`ctui/CHANGELOG.md`](ctui/CHANGELOG.md): what each release changed.
 
 ## Developing
 
