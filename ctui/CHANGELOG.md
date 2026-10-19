@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.0.0 (2026-10-19)
+
+### Features
+
+- write each release's changelog entry on its release branch
+- take the version from the branch name; the footer shows the install commit
+
+### Bug Fixes
+
+- show a model-hidden skill's real source in the skills Sidebar
+
+### Documentation
+
+- disclose the month scan, every-session hook reads and managed Claude Code
+- record the footer's install commit and the unversioned package.json
+- record how ctui discloses what the directory scan flags
+- record agent-context's release strategy for ctui
+- record npm as a published copy, not an install path
+
+### Continuous Integration
+
+- apply the release-automation review fixes
+- publish each release to npm through publish.yml
+- tag, release and back-merge each merge into main
+
 ## 0.6.0 (2026-10-17)
 
 ### Features
