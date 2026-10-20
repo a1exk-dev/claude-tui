@@ -133,6 +133,14 @@ const ctuiInstall = pluginCommands('ctui/README.md')
 if (ctuiInstall.length === 0) error('ctui/README.md has no /plugin install lines')
 same('the /plugin lines in README.md and ctui/README.md', pluginCommands('README.md').join(' | '), ctuiInstall.join(' | '))
 
+// The directory policy asks the README for examples (§3E), support and a security contact (§3B),
+// privacy and data handling (§3A) and troubleshooting (§3C).
+for (const section of ['## Examples', '## Support', '## Privacy and data', '## Troubleshooting']) {
+  if (!readmeLines('ctui/README.md').includes(section)) error(`ctui/README.md has no "${section}" section`)
+}
+const SECURITY = 'https://github.com/a1exk-dev/claude-tui/security/advisories/new'
+if (!readFileSync('ctui/README.md', 'utf8').includes(SECURITY)) error(`ctui/README.md does not link ${SECURITY} for security reports`)
+
 // The engine-pinned expectations hold on one engine, so their MEMORY.md entry names the pin.
 const PINNED = 'Engine-pinned expectations hold only on the pinned Claude Code version'
 const entry = readFileSync('MEMORY.md', 'utf8').split('\n## ').find((section) => section.startsWith(PINNED))
