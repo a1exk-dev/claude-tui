@@ -8,4 +8,5 @@ AGENTS.override.md
 CLAUDE.local.md
 prototypes/
 node_modules/
-ctui/evals/results/
+evals/results/
+ctui/tsconfig.json

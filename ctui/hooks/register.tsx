@@ -2,9 +2,10 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import { plugins, sections } from '../plugins'
 import { colors } from '../plugins/colors'
+import type { SidebarUi } from '../plugins/plugin'
 import type { GitSnapshot, McpRow, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
 import { build } from './build'
-import { type Config, readConfig } from './config'
+import { type Config, isSettingKey, readConfig, type SettingKey } from './config'
 import { belowFloor, floorToast } from './floor'
 import { fitsPromptLine, formatReset, modelEffort, promptLabel, savedEffort } from './format'
 import { parseGit, tildify } from './git'
@@ -159,12 +160,18 @@ async function refreshGit($: EngineInterface) {
   }
   gitRunning = true
   try {
-    const run = (args: string[]) => $.process.run(['git', '--no-optional-locks', ...args]).catch(() => undefined)
+    // Each command is written whole, so the directory's scan reads it as fixed
+    // text; `ctui/README.md` "What ctui watches" names all three.
     const git: GitSnapshot = { path: tildify(await $.session.cwd(), await $.env.get('HOME')) }
-    const status = await run(['status', '--porcelain=v2', '--branch'])
+    const status = await $.process
+      .run(['git', '--no-optional-locks', 'status', '--porcelain=v2', '--branch'])
+      .catch(() => undefined)
     if (status?.exitCode === 0) {
       // On an unborn branch the numstat fails: it counts as 0.
-      const [stash, numstat] = await Promise.all([run(['stash', 'list']), run(['diff', '--numstat', 'HEAD'])])
+      const [stash, numstat] = await Promise.all([
+        $.process.run(['git', '--no-optional-locks', 'stash', 'list']).catch(() => undefined),
+        $.process.run(['git', '--no-optional-locks', 'diff', '--numstat', 'HEAD']).catch(() => undefined),
+      ])
       const out = (result: typeof stash) => (result?.exitCode === 0 ? result.stdout : '')
       git.repo = parseGit(status.stdout, out(stash), out(numstat))
     }
@@ -465,8 +472,8 @@ async function refreshMcp($: EngineInterface) {
 function writeMcpRows($: EngineInterface, derive?: (rows: readonly McpRow[]) => readonly McpRow[]) {
   const write = mcpWrites.then(async () => {
     const { value: rows = [] } = await $.state.get(MCP)
-    const next = withBusy(derive ? derive(rows) : rows, mcpCalls)
-    if (JSON.stringify(next) !== JSON.stringify(rows)) await $.state.set(MCP, next)
+    const busy = withBusy(derive ? derive(rows) : rows, mcpCalls)
+    if (JSON.stringify(busy) !== JSON.stringify(rows)) await $.state.set(MCP, busy)
   })
   mcpWrites = write.catch(() => undefined)
   return write
@@ -721,10 +728,55 @@ async function setMenu($: EngineInterface, menu: Menu) {
 
 // One menu write; a deny toasts its line (a menu pick has no command row),
 // through the queue even with `agents_toasts` off.
-async function writeSetting($: EngineInterface, set: Setting) {
-  const { deny } = await $.config.set(set)
-  if (deny !== undefined) showToast($, { id: 'menu-deny', end: true, text: deniedText(set, deny) }, true)
+async function writeSetting($: EngineInterface, key: SettingKey, value: Setting['value']) {
+  const { deny } = await setConfig($, key, value)
+  if (deny !== undefined) showToast($, { id: 'menu-deny', end: true, text: deniedText({ key: `ctui.${key}`, value }, deny) }, true)
   return deny === undefined
+}
+
+// One `$.config.set` per setting, its key fixed text: the directory reads a
+// write's key only from a literal. A setting with no case fails `tsc`.
+function setConfig($: EngineInterface, key: SettingKey, value: Setting['value']) {
+  switch (key) {
+    case 'context_enable':
+      return $.config.set({ key: 'ctui.context_enable', value })
+    case 'context_folded':
+      return $.config.set({ key: 'ctui.context_folded', value })
+    case 'limits_enable':
+      return $.config.set({ key: 'ctui.limits_enable', value })
+    case 'limits_folded':
+      return $.config.set({ key: 'ctui.limits_folded', value })
+    case 'limits_cost':
+      return $.config.set({ key: 'ctui.limits_cost', value })
+    case 'limits_cost_monthly':
+      return $.config.set({ key: 'ctui.limits_cost_monthly', value })
+    case 'todo_enable':
+      return $.config.set({ key: 'ctui.todo_enable', value })
+    case 'todo_folded':
+      return $.config.set({ key: 'ctui.todo_folded', value })
+    case 'todo_tools':
+      return $.config.set({ key: 'ctui.todo_tools', value })
+    case 'skills_enable':
+      return $.config.set({ key: 'ctui.skills_enable', value })
+    case 'skills_folded':
+      return $.config.set({ key: 'ctui.skills_folded', value })
+    case 'mcp_enable':
+      return $.config.set({ key: 'ctui.mcp_enable', value })
+    case 'mcp_folded':
+      return $.config.set({ key: 'ctui.mcp_folded', value })
+    case 'agents_enable':
+      return $.config.set({ key: 'ctui.agents_enable', value })
+    case 'agents_folded':
+      return $.config.set({ key: 'ctui.agents_folded', value })
+    case 'agents_toasts':
+      return $.config.set({ key: 'ctui.agents_toasts', value })
+    case 'order':
+      return $.config.set({ key: 'ctui.order', value })
+    case 'theme':
+      return $.config.set({ key: 'ctui.theme', value })
+    default:
+      throw new Error(`no case for the setting ${key satisfies never}`)
+  }
 }
 
 // Puts the menu's ring on `key` once the redraw has drawn it, as #160's spike
@@ -742,7 +794,7 @@ async function flushOrder($: EngineInterface) {
   orderTimer = undefined
   const { pending } = await menuOf($)
   if (!pending) return
-  await writeSetting($, { key: 'ctui.order', value: pending.join(',') })
+  await writeSetting($, 'order', pending.join(','))
   const { pending: _, ...menu } = await menuOf($)
   await setMenu($, menu)
 }
@@ -841,8 +893,8 @@ async function addTurn($: EngineInterface, turn: Turn) {
 }
 
 // The latest main-loop permission mode, for the turn footer.
-function noteMode(e: { agent_id?: string; permission_mode?: string }) {
-  if (e.agent_id === undefined && e.permission_mode) mode = e.permission_mode
+function noteMode(input: { agent_id?: string; permission_mode?: string }) {
+  if (input.agent_id === undefined && input.permission_mode) mode = input.permission_mode
 }
 
 // Redraws the line under the prompt on the next tick, never from a render.
@@ -1221,8 +1273,20 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: SIDEBAR }, async ($, e) => {
-    const ui = $.ui.resolve(e)
-    if (!('Client' in ui)) return <ui.Box />
+    if (e.surface !== 'terminal' && e.surface !== 'desktop') {
+      const { Box } = $.ui.resolve(e)
+      return <Box />
+    }
+    // The Sidebar's Clients, each with its fixed `module` path: the directory
+    // traces a `Client` only straight from `$.ui.resolve(e)` (MEMORY.md
+    // "Sidebar plugins are pure; only `register.tsx` touches `$`").
+    const { Client, ...elements } = $.ui.resolve(e)
+    const ui: SidebarUi = {
+      ...elements,
+      press: (key, props) => <Client key={key} module="./press.tsx" props={props} />,
+      foldRow: (key, width, props) => <Client key={key} module="./foldrow.tsx" width={width} flexGrow={1} props={props} />,
+      sweep: (key, props) => <Client key={key} module="../plugins/todo/spinner.tsx" props={props} />,
+    }
     setDock($, e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1)
     if (e.props.placement === 'inline') {
       $.clock.after(0, () => void $.ui.close({ id: SIDEBAR }))
@@ -1466,7 +1530,7 @@ export const register: Register = (on, options) => {
       // The ring keeps its index from the top level: start it on the filter.
       if (top === 'themes') focusLater($, KEYS.filter)
     } else if (slug) {
-      if (slug !== config.theme) await writeSetting($, { key: 'ctui.theme', value: slug })
+      if (slug !== config.theme) await writeSetting($, 'theme', slug)
     } else if (row) {
       const { ring: _, ...rest } = menu
       await setMenu($, { ...rest, level: 'plugin', focus: row })
@@ -1477,19 +1541,20 @@ export const register: Register = (on, options) => {
     } else if (e.element === KEYS.toggle && id) {
       await flushOrder($)
       const section = sections.find((plugin) => plugin.id === id)
-      if (section) await writeSetting($, { key: `ctui.${id}_enable`, value: !config[section.id].enable })
+      const key = `${id}_enable`
+      if (section && isSettingKey(key)) await writeSetting($, key, !config[section.id].enable)
     } else if (menu.level === 'plugin' && id) {
       // A setting row. `Start folded` sets where a new session starts: pin
       // the section's fold now, so the reload doesn't change it.
       const section = sections.find((plugin) => plugin.id === id)
       const setting = section && settingRows(section.id, config).find(({ option }) => settingKey(option) === e.element)
-      if (section && setting) {
+      if (section && setting && isSettingKey(setting.option)) {
         if (setting.option === `${section.id}_folded`) {
           const { value = {} } = await $.state.get(FOLDED)
           if (value[section.id] === undefined) await $.state.set(FOLDED, { ...value, [section.id]: config[section.id].folded ?? false })
         }
         await flushOrder($)
-        await writeSetting($, { key: `ctui.${setting.option}`, value: setting.next })
+        await writeSetting($, setting.option, setting.next)
       }
     } else if ((e.element === KEYS.up || e.element === KEYS.down) && id) {
       const moved = moveId(order, id, e.element === KEYS.up ? -1 : 1)
@@ -1515,7 +1580,7 @@ export const register: Register = (on, options) => {
       showToast($, { id: 'menu-deny', end: true, text: deniedText(set, `"${e.value}" isn't a number`) }, true)
     } else if (value !== config.limits.monthly) {
       await flushOrder($)
-      saved = await writeSetting($, set)
+      saved = await writeSetting($, 'limits_cost_monthly', value)
     }
     // A save reloads and draws the new value; otherwise a new field shows the saved one.
     // The ring leaves for Cost and comes back after it, at #240's probe timing,

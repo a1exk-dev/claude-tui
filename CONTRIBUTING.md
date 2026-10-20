@@ -8,11 +8,11 @@ Use Node 22.18 or newer, which runs `.ts` files without a flag. Run `npm ci`. It
 
 ## Checks
 
-Run `node scripts/check.ts` before each commit. It runs `tsc` (against the pin's types and, for ctui's production code, the support floor's), `claude plugin validate ctui` and `validate .` (failing on any error or warning but the missing `version`, since no file stores ctui's version), `claude plugin test ctui`, the consistency checks (Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; both READMEs, `ctui/hooks/floor.ts` and the floor types against the pin and the floor; the root README's `/plugin` lines against `ctui/README.md`'s), the Theme generator's tests in `scripts/themes.test.ts`, the cost live check's fixture generator's tests in `scripts/cost-fixture.test.ts`, the release version's tests in `scripts/release-version.test.ts`, the changelog's tests in `scripts/changelog.test.ts`, the back-merge's tests in `scripts/back-merge.test.ts`, a check that `node scripts/themes.ts` would change no Theme and no `docs/configuration.md` table, and `cspell`. A word it flags that is spelled right, such as a new name, goes in `cspell.json`'s `words`. It exits 1 when `node_modules/.bin/claude` or `cspell` is missing. CI runs the same command. The whole run stays under the 2-minute ceiling in the `MEMORY.md` entry "Tests cover real usage"; nothing asserts it, so watch it as the suite grows.
+Run `node scripts/check.ts` before each commit. It runs `tsc` (against the pin's types and, for ctui's production code, the support floor's), `claude plugin validate ctui` and `validate .` (failing on any error or warning), `claude plugin test` on a scratch copy of `ctui/` with `tests/` inside, the consistency checks (`ctui/`'s tracked files against `ctui/package.json`'s `files`; Sidebar plugin folders, registry imports and `<id>_enable` keys; themes; both READMEs, `ctui/hooks/floor.ts` and the floor types against the pin and the floor; the root README's `/plugin` lines against `ctui/README.md`'s), the Theme generator's tests in `scripts/themes.test.ts`, the cost live check's fixture generator's tests in `scripts/cost-fixture.test.ts`, the release version's tests in `scripts/release-version.test.ts`, the changelog's tests in `scripts/changelog.test.ts`, `plugin.json`'s version tests in `scripts/plugin-version.test.ts`, the back-merge's tests in `scripts/back-merge.test.ts`, a check that `node scripts/themes.ts` would change no Theme and no `docs/configuration.md` table, and `cspell`. A word it flags that is spelled right, such as a new name, goes in `cspell.json`'s `words`. It exits 1 when `node_modules/.bin/claude` or `cspell` is missing. CI runs the same command. The whole run stays under the 2-minute ceiling in the `MEMORY.md` entry "Tests cover real usage"; nothing asserts it, so watch it as the suite grows.
 
 ## Tests
 
-`claude plugin test ctui` runs `ctui/tests/*.test.ts(x)`: unit tests per module, and scenario tests that drive the hooks through real usage with the `claude-code/testing` drivers.
+`tests/*.test.ts(x)` hold unit tests per module, and scenario tests that drive the hooks through real usage with the `claude-code/testing` drivers. They live outside `ctui/`, because Anthropic's plugin directory scans that whole folder, and `claude plugin test` runs only tests under the plugin's folder: `node scripts/check.ts` copies `ctui/` into a scratch folder in the OS temp dir with `tests/` inside, runs them there and removes the copy. A test imports from `../hooks/…` and `../plugins/…` as if it sat in `ctui/tests/`, and the root `tsconfig.json`'s `rootDirs` resolves those for the type check and editors.
 
 ## Live checks
 
@@ -44,11 +44,11 @@ The starting session then does these steps, in order, when the subshell returns:
 
 ## Evals
 
-`ctui/evals/` measures whether the task-list nudge's text works, which no test can assert. One run, from the repo root:
+`evals/` measures whether the task-list nudge's text works, which no test can assert. One run, from the repo root:
 
-    node_modules/.bin/claude plugin eval ./ctui --ablation with-without --scaffold --trust-plugin --no-publish --allow-tools Edit Write 'Bash(node:*)'
+    node scripts/evals.ts --ablation with-without --scaffold --trust-plugin --no-publish --allow-tools Edit Write 'Bash(node:*)'
 
-That is 18 cheap sessions on `claude-haiku-5-5` — 2 arms × 3 cases × 3 runs — with no judge turn, so the scoring itself costs nothing; the 2026-10-13 run spent $4.47 in about 5 minutes. Without `--trust-plugin` the run stops at the first-run trust prompt; `--no-publish` keeps the report out of claude.ai, under the gitignored `ctui/evals/results/`.
+`scripts/evals.ts` copies `ctui/` into a scratch folder in the OS temp dir with `evals/` inside, since `claude plugin eval` reads cases only from below the plugin, runs `claude plugin eval` on that copy with the flags given, writes the results and the HTML report under the gitignored `evals/results/<timestamp>/`, and removes the copy. That is 18 cheap sessions on `claude-haiku-5-5` — 2 arms × 3 cases × 3 runs — with no judge turn, so the scoring itself costs nothing; the 2026-10-13 run spent $4.47 in about 5 minutes. Without `--trust-plugin` the run stops at the trust prompt, which every run reaches because each copy is a new folder; `--no-publish` keeps the report out of claude.ai.
 
 The command exits non-zero whenever a case scores under the threshold, which defaults to 1.0 because the suite passes no `--threshold`. That exit is not the result: the result is the per-case delta between the arms, which the report carries and the pull request pastes. `node scripts/check.ts` never runs it.
 
@@ -58,9 +58,9 @@ A release's pull request into `main` pastes both reports whole, a live-check run
 
 ## Releasing
 
-On the `release/X.Y.Z` or `hotfix/<name>` branch, run `node scripts/prepare-release.ts` and commit the entry it writes on top of [`ctui/CHANGELOG.md`](ctui/CHANGELOG.md). It takes the version from the branch name, dates the entry today and lists the commits since the latest `v*` tag by Conventional Commits type, skipping merges and any line an earlier entry lists. Prose the subjects can't say goes in a file passed as `--note-file <path>`, which puts it under the heading; keep it to prose, since a line starting with `- ` reads as a listed change next time. The script is the only writer of an entry, so regenerate rather than hand-edit.
+On the `release/X.Y.Z` or `hotfix/<name>` branch, run `node scripts/prepare-release.ts` and commit the entry it writes on top of [`ctui/CHANGELOG.md`](ctui/CHANGELOG.md) and the version it writes into `ctui/.claude-plugin/plugin.json`. It takes the version from the branch name, dates the entry today and lists the commits since the latest `v*` tag by Conventional Commits type, skipping merges and any line an earlier entry lists. Prose the subjects can't say goes in a file passed as `--note-file <path>`, which puts it under the heading; keep it to prose, since a line starting with `- ` reads as a listed change next time. The script is the only writer of an entry, so regenerate rather than hand-edit.
 
-Review the entry in the pull request into `main`. Its required check fails unless the top entry names the branch's version, and on the merge `release.yml` uses that entry as the GitHub Release body.
+Review the entry in the pull request into `main`. Its required check fails unless the top entry names the branch's version and `plugin.json`'s `version` equals it, and on the merge `release.yml` uses that entry as the GitHub Release body.
 
 ## Pull requests and pin bumps
 

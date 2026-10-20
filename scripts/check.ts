@@ -5,6 +5,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FLOOR as floor } from '../ctui/hooks/floor.ts'
+import { ICON, png } from './icon.ts'
+import { claude, staged } from './stage.ts'
 import { outputs } from './themes.ts'
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'))
@@ -28,7 +30,6 @@ const subfolders = (dir: string) =>
     .map((entry) => entry.name)
 
 const tsc = 'node_modules/.bin/tsc'
-const claude = 'node_modules/.bin/claude'
 const cspell = 'node_modules/.bin/cspell'
 if (![tsc, claude, cspell].every(existsSync)) {
   console.error('error: tsc, claude or cspell is not installed, run npm ci')
@@ -41,10 +42,9 @@ run(tsc, ['-p', '.'])
 run(tsc, ['-p', '.claude/skills/live-checks/harness'])
 // ctui's production code against the support floor's types: a change that needs a newer engine fails here.
 run(tsc, ['-p', 'tsconfig.floor.json'])
-// Strict, but for the one warning ctui means: no file stores its version (scripts/release-version.ts).
+// Strict: every error and warning fails.
 type Issue = { path: string; message: string }
 type Report = { errors: Issue[]; warnings: Issue[] }
-const noVersion = ({ path, message }: Issue) => /(^|→ )version$/.test(path) && message.startsWith('No version specified')
 const validate = (dir: string) => {
   const { status, stdout, stderr } = spawnSync(claude, ['plugin', 'validate', dir, '--json'], { encoding: 'utf8' })
   process.stderr.write(stderr)
@@ -55,13 +55,14 @@ const validate = (dir: string) => {
   } catch {
     process.stdout.write(stdout)
   }
-  const issues = reports.flatMap((report) => [...report.errors, ...report.warnings.filter((warning) => !noVersion(warning))])
+  const issues = reports.flatMap((report) => [...report.errors, ...report.warnings])
   for (const { path, message } of issues) console.error(`${dir}: ${path}: ${message}`)
-  if (status !== 0 || reports.length === 0 || issues.length > 0) error(`claude plugin validate ${dir} failed, or warned of more than a missing version`)
+  if (status !== 0 || reports.length === 0 || issues.length > 0) error(`claude plugin validate ${dir} failed or warned`)
 }
 validate('ctui')
 validate('.')
-run(claude, ['plugin', 'test', 'ctui'])
+// tests/ lives outside ctui/, which the directory scans whole, and joins a scratch copy of it.
+staged('tests', (plugin) => run(claude, ['plugin', 'test', plugin]))
 
 // Registry consistency.
 const manifestPath = 'ctui/.claude-plugin/plugin.json'
@@ -88,6 +89,19 @@ const themes = readdirSync('ctui/themes')
   .map((f) => f.replace(/\.json$/, ''))
   .sort()
 same('inherit plus the ctui/themes/*.json slugs A–Z and the theme options', ['inherit', ...themes].join(' '), manifest.userConfig.theme.options.join(' '))
+
+// ctui/ holds only what ships: every tracked file is in ctui/package.json's `files` (npm adds package.json itself),
+// and every `files` entry names a tracked file. The directory scans the whole folder (#415).
+const shipped: string[] = [...json('ctui/package.json').files, 'package.json']
+const tracked = spawnSync('git', ['ls-files', 'ctui'], { encoding: 'utf8' })
+  .stdout.split('\n')
+  .filter(Boolean)
+  .map((path) => path.replace(/^ctui\//, ''))
+const isUnder = (path: string, entry: string) => path === entry || path.startsWith(`${entry}/`)
+const unshipped = tracked.filter((path) => !shipped.some((entry) => isUnder(path, entry)))
+if (unshipped.length > 0) error(`ctui/ tracks files ctui/package.json's files leaves out: ${unshipped.join(' ')}`)
+const missing = shipped.filter((entry) => !tracked.some((path) => isUnder(path, entry)))
+if (missing.length > 0) error(`ctui/package.json's files names what ctui/ does not track: ${missing.join(' ')}`)
 
 // The pin and the support floor: both READMEs name them, the toast's constant
 // and the floor's vendored types name the floor.
@@ -125,6 +139,9 @@ run('node', ['--test', 'scripts/release-version.test.ts'])
 // The changelog entry prepare-release.ts writes and the check on pull requests into main.
 run('node', ['--test', 'scripts/changelog.test.ts'])
 
+// plugin.json's version, which prepare-release.ts writes and the check on pull requests into main enforces.
+run('node', ['--test', 'scripts/plugin-version.test.ts'])
+
 // The back-merge from main into develop after a release.
 run('node', ['--test', 'scripts/back-merge.test.ts'])
 
@@ -137,6 +154,10 @@ for (const [path, contents] of generated) {
 for (const file of readdirSync('ctui/themes')) {
   if (!generated.has(`ctui/themes/${file}`)) error(`ctui/themes/${file} is not a generated Theme`)
 }
+
+// The directory listing icon: regenerating must change nothing.
+run('node', ['--test', 'scripts/icon.test.ts'])
+if (!existsSync(ICON) || !readFileSync(ICON).equals(png())) error(`${ICON} is stale, run node scripts/icon.ts`)
 
 // Spelling, against cspell.json's words. A new name that is spelled right goes in its `words`.
 run(cspell, ['lint', '--no-progress', '--no-summary', '**'])

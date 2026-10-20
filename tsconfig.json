@@ -12,7 +12,8 @@
     "jsxFactory": "h",
     "jsxFragmentFactory": "Fragment",
     "typeRoots": ["vendor/claude-code-types"],
-    "types": ["claude-code", "claude-code-tools"]
+    "types": ["claude-code", "claude-code-tools"],
+    "rootDirs": ["ctui", "."]
   },
-  "include": ["ctui/hooks", "ctui/plugins", "ctui/types", "ctui/tests"]
+  "include": ["ctui/hooks", "ctui/plugins", "ctui/types", "tests"]
 }
