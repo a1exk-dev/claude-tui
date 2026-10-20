@@ -8,6 +8,30 @@ import type { SidebarId } from '../plugins/plugin'
 // `limits_cost_monthly`.
 export type SectionConfig = { enable: boolean; folded?: boolean; tools?: boolean; cost?: CostChoice; monthly?: number }
 
+// ctui's `userConfig` keys, as `plugin.json` lists them.
+const SETTING_KEYS = [
+  'context_enable',
+  'context_folded',
+  'limits_enable',
+  'limits_folded',
+  'limits_cost',
+  'limits_cost_monthly',
+  'todo_enable',
+  'todo_folded',
+  'todo_tools',
+  'skills_enable',
+  'skills_folded',
+  'mcp_enable',
+  'mcp_folded',
+  'agents_enable',
+  'agents_folded',
+  'agents_toasts',
+  'order',
+  'theme',
+] as const
+export type SettingKey = (typeof SETTING_KEYS)[number]
+export const isSettingKey = (key: string): key is SettingKey => SETTING_KEYS.some((setting) => setting === key)
+
 // `auto` shows the Limits cost row off a plan; `on` and `off` override that.
 export type CostChoice = 'auto' | 'on' | 'off'
 
