@@ -7,7 +7,9 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+export const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+/** The pinned Claude Code, which runs each staged copy. */
+export const claude = join(root, 'node_modules', '.bin', 'claude')
 
 /** Runs `use` on a scratch copy of ctui/ holding `suite`, then removes the copy. */
 export function staged<T>(suite: 'tests' | 'evals', use: (plugin: string) => T): T {

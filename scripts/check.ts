@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FLOOR as floor } from '../ctui/hooks/floor.ts'
 import { ICON, png } from './icon.ts'
-import { staged } from './stage.ts'
+import { claude, staged } from './stage.ts'
 import { outputs } from './themes.ts'
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'))
@@ -30,7 +30,6 @@ const subfolders = (dir: string) =>
     .map((entry) => entry.name)
 
 const tsc = 'node_modules/.bin/tsc'
-const claude = 'node_modules/.bin/claude'
 const cspell = 'node_modules/.bin/cspell'
 if (![tsc, claude, cspell].every(existsSync)) {
   console.error('error: tsc, claude or cspell is not installed, run npm ci')
@@ -99,10 +98,10 @@ const tracked = spawnSync('git', ['ls-files', 'ctui'], { encoding: 'utf8' })
   .stdout.split('\n')
   .filter(Boolean)
   .map((path) => path.replace(/^ctui\//, ''))
-const ships = (path: string, entry: string) => path === entry || path.startsWith(`${entry}/`)
-const unshipped = tracked.filter((path) => !shipped.some((entry) => ships(path, entry)))
+const isUnder = (path: string, entry: string) => path === entry || path.startsWith(`${entry}/`)
+const unshipped = tracked.filter((path) => !shipped.some((entry) => isUnder(path, entry)))
 if (unshipped.length > 0) error(`ctui/ tracks files ctui/package.json's files leaves out: ${unshipped.join(' ')}`)
-const missing = shipped.filter((entry) => !tracked.some((path) => ships(path, entry)))
+const missing = shipped.filter((entry) => !tracked.some((path) => isUnder(path, entry)))
 if (missing.length > 0) error(`ctui/package.json's files names what ctui/ does not track: ${missing.join(' ')}`)
 
 // The pin and the support floor: both READMEs name them, the toast's constant
