@@ -160,12 +160,18 @@ async function refreshGit($: EngineInterface) {
   }
   gitRunning = true
   try {
-    const run = (args: string[]) => $.process.run(['git', '--no-optional-locks', ...args]).catch(() => undefined)
+    // Each command is written whole, so the directory's scan reads it as fixed
+    // text; `ctui/README.md` "What ctui watches" names all three.
     const git: GitSnapshot = { path: tildify(await $.session.cwd(), await $.env.get('HOME')) }
-    const status = await run(['status', '--porcelain=v2', '--branch'])
+    const status = await $.process
+      .run(['git', '--no-optional-locks', 'status', '--porcelain=v2', '--branch'])
+      .catch(() => undefined)
     if (status?.exitCode === 0) {
       // On an unborn branch the numstat fails: it counts as 0.
-      const [stash, numstat] = await Promise.all([run(['stash', 'list']), run(['diff', '--numstat', 'HEAD'])])
+      const [stash, numstat] = await Promise.all([
+        $.process.run(['git', '--no-optional-locks', 'stash', 'list']).catch(() => undefined),
+        $.process.run(['git', '--no-optional-locks', 'diff', '--numstat', 'HEAD']).catch(() => undefined),
+      ])
       const out = (result: typeof stash) => (result?.exitCode === 0 ? result.stdout : '')
       git.repo = parseGit(status.stdout, out(stash), out(numstat))
     }

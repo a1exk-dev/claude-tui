@@ -369,6 +369,20 @@ test('git refreshes at session start, every 5 s and after a file-changing tool',
   expect(await pane.find({ text: `${BRANCH} next` })).toBeDefined()
 })
 
+// The three commands `ctui/README.md` "What ctui watches" writes out.
+test('a git refresh runs only the three read-only commands the README names', async ($, on) => {
+  const clock = mock.clock(on)
+  const git = { runs: [] as string[][], status: STATUS }
+  host(on, git)
+  await $.session.start({ cwd: '/home/a/Projects/x', surface: 'terminal', isInteractive: true })
+  await clock.settle()
+  expect(git.runs.filter((argv) => argv[0] === 'git').sort()).toEqual([
+    ['git', '--no-optional-locks', 'diff', '--numstat', 'HEAD'],
+    ['git', '--no-optional-locks', 'stash', 'list'],
+    ['git', '--no-optional-locks', 'status', '--porcelain=v2', '--branch'],
+  ])
+})
+
 // A `git_enable` or `versions_enable` an earlier ctui saved stays in settings.json.
 test(
   'the git header and versions footer draw whatever an old setting says',

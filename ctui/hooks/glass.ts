@@ -9,7 +9,7 @@ const HEX = /^#[0-9a-f]{6}$/i
 export function mix(a: string, b: string, w: number) {
   const to = channels(b)
   const mixed = channels(a).map((x, i) => Math.floor(x * (1 - w) + to[i]! * w + 0.5))
-  return `#${mixed.map((x) => x.toString(16).padStart(2, '0')).join('')}`
+  return '#' + mixed.map((x) => x.toString(16).padStart(2, '0')).join('')
 }
 
 // Under tmux, Claude Code draws 256 colors and rounds a hex with unequal
@@ -19,7 +19,7 @@ export function mix(a: string, b: string, w: number) {
 export function grey(hex: string) {
   const [r, g, b] = channels(hex) as [number, number, number]
   const y = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b).toString(16).padStart(2, '0')
-  return `#${y}${y}${y}`
+  return '#' + y + y + y
 }
 
 // The glass ctui paints under `inherit` for a custom `/theme`'s overrides.

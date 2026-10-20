@@ -64,6 +64,21 @@ ctui runs as a mod in every Claude Code session where the plugin is enabled. It 
 
 Some of its hooks run in every session. A submitted prompt and a finished turn give the hook only their permission mode, for the turn footer; a finished tool call gives it only the server the call came from (`mcp_server`), while the `mcp` section is on; and `tool.call` gives it the tool name, to count MCP calls in flight and refresh `git`. Each event passes on unchanged, and ctui stores and sends nothing from them.
 
+The programs ctui runs are these four, and nothing else:
+
+- `git --no-optional-locks status --porcelain=v2 --branch`
+- `git --no-optional-locks stash list`
+- `git --no-optional-locks diff --numstat HEAD`
+- `grep -h -F '"type":"cost-state"' -- <transcripts>`, where `<transcripts>` are this month's transcript files whose cost ctui hasn't read yet, while the Limits cost row shows
+
+The three `git` commands only read the repository, and take no lock on it. Their output and the `grep`'s stay on your machine.
+
+ctui calls Claude Code's tools itself in two cases only: `TaskList`, to read the session's task list for the todo section, and, while the sidebar is docked with **Todo** on, Claude's own `TaskCreate` and `TaskUpdate` calls, which it runs for Claude so Claude Code's own list stays hidden.
+
+ctui changes two kinds of settings only: its own `ctui.*` settings, when you change one in `/ctui`, and `CLAUDE_CODE_ENABLE_TODO_TOOLS`, which it sets for the session while **Task tools** is on.
+
+Its `tool.describe` hook changes what Claude reads about its tools in two ways. With **Task tools** on, it keeps the tools that start and update a task list (`TaskCreate` and `TaskUpdate`, or `TodoWrite`) in the prompt rather than deferred, and adds one line to `TaskCreate`'s or `TodoWrite`'s description asking Claude to make a list for a request with two or more outcomes. It also reads each MCP tool's server name, to name that server's row as `/mcp` does. Apart from the rows it redraws in its own look and the task calls above, every other hook, `agent.spawn` included, passes its event on unchanged.
+
 ## Known differences
 
 Some parts of the design renders are Claude Code's own and stay as Claude Code draws them: the sidebar's frame and close button, the prompt box, the permission-mode pill, the main background, and the rows of tools other than Read, Edit, Write and Bash. See [the full list](https://github.com/a1exk-dev/claude-tui/blob/main/docs/configuration.md#known-differences-from-the-renders).
