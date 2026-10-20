@@ -1,4 +1,4 @@
-import type { RenderElement, RenderNode } from 'claude-code'
+import type { JsonValue, RenderElement, RenderNode } from 'claude-code'
 
 import type { Colors } from '../plugins/colors'
 import type { SidebarData, SidebarId, SidebarPlugin, SidebarUi } from '../plugins/plugin'
@@ -43,7 +43,7 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
   const { ui, plugins, data, config, colors: c } = input
   // Padding takes 2 columns each side; section rows indent 2 more.
   const width = input.bodyColumns - 4
-  const { Box, Text, Button, Client } = ui
+  const { Box, Text, Button } = ui
   // A fold arrow or a list toggle. At rest a muted `Client`, whose click
   // `register.tsx` answers at `ui.message`. A Client is outside the focus
   // ring, so while the Pane holds the focus it is a dim Button instead.
@@ -53,15 +53,11 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     input.focused ? (
       <Button key={controlKey(key)} plain dimColor label={label} onPress={() => input.onControl(key)} />
     ) : (
-      <Client
-        key={controlKey(key)}
-        module="./press.tsx"
-        props={{
-          label,
-          color: c.muted,
-          ...(key.kind === 'fold' ? { hover: c.accent, scope: foldRowKey(key.id) } : { hover: c.main }),
-        }}
-      />
+      ui.press(controlKey(key), {
+        label,
+        color: c.muted,
+        ...(key.kind === 'fold' ? { hover: c.accent, scope: foldRowKey(key.id) } : { hover: c.main }),
+      })
     )
   const row = (node: RenderNode, indent = 0) => (
     <Box height={1} flexShrink={0} paddingLeft={indent}>
@@ -105,13 +101,15 @@ export function sidebar(input: SidebarInput): { tree: RenderElement; maxScroll: 
     const title = (
       <Box height={1} flexShrink={0}>
         {control({ kind: 'fold', id: plugin.id }, folded ? FOLDED : EXPANDED)}
-        <Client
-          key={key}
-          module="./foldrow.tsx"
-          width={width - 1}
-          flexGrow={1}
-          props={{ title: plugin.title, right, main: c.main, muted: c.muted, accent: c.accent, scope: key }}
-        />
+        {ui.foldRow(key, width - 1, {
+          title: plugin.title,
+          // A plugin's tree crosses to the surface module as plain data.
+          right: right as JsonValue,
+          main: c.main,
+          muted: c.muted,
+          accent: c.accent,
+          scope: key,
+        })}
       </Box>
     )
     // Each node with its height in rows.

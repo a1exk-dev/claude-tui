@@ -1,15 +1,16 @@
 import type { ClientSurface, ElementTable } from 'claude-code'
 
-import FoldRow, { type FoldRowProps } from '../hooks/foldrow'
-import Press, { type PressProps } from '../hooks/press'
+import FoldRow from '../hooks/foldrow'
+import Press from '../hooks/press'
 import type { SidebarInput } from '../hooks/sidebar'
-import Spinner, { type SpinnerProps } from '../plugins/todo/spinner'
+import Spinner from '../plugins/todo/spinner'
 
 // A test plugin loads no surface module, so each Sidebar `Client` draws as
 // the tree its module draws at rest: `press.tsx`, `foldrow.tsx` or
 // `spinner.tsx` on its first frame.
-export function clientsAsTrees(ui: ElementTable): SidebarInput['ui'] {
-  if (!('Client' in ui)) throw new Error('the Sidebar draws on the terminal')
+export function clientsAsTrees(table: ElementTable): SidebarInput['ui'] {
+  if (!('Client' in table)) throw new Error('the Sidebar draws on the terminal')
+  const { Client: _, ...ui } = table
   const surface = <S,>() =>
     ({
       elements: ui,
@@ -22,18 +23,10 @@ export function clientsAsTrees(ui: ElementTable): SidebarInput['ui'] {
       onKey: () => () => {},
       post: () => {},
     }) as unknown as ClientSurface<S>
-  // The kit hands `module` as a path, not the source literal.
-  const draws: Record<string, (props: unknown) => ReturnType<typeof Press>> = {
-    'press.tsx': (props) => Press(props as PressProps, surface()),
-    'foldrow.tsx': (props) => FoldRow(props as FoldRowProps, surface()),
-    'spinner.tsx': (props) => Spinner(props as SpinnerProps, surface()),
-  }
   return {
     ...ui,
-    Client: ({ module, props }) => {
-      const draw = draws[module.split('/').pop()!]
-      if (!draw) throw new Error(`no stub for the Client module ${module}`)
-      return draw(props)
-    },
+    press: (_key, props) => Press(props, surface()),
+    foldRow: (_key, _width, props) => FoldRow(props, surface()),
+    sweep: (_key, props) => Spinner(props, surface()),
   }
 }

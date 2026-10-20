@@ -1,8 +1,11 @@
-import type { ElementTable, RenderNode } from 'claude-code'
+import type { ElementTable, RenderElement, RenderNode } from 'claude-code'
 
 import type { SectionConfig } from '../hooks/config'
+import type { FoldRowProps } from '../hooks/foldrow'
+import type { PressProps } from '../hooks/press'
 import type { GitSnapshot, McpRow, SkillRow, Task, Todo, Usage, Versions } from '../types'
 import type { Colors } from './colors'
+import type { SpinnerProps } from './todo/spinner'
 
 export type SidebarId = 'git' | 'context' | 'limits' | 'todo' | 'skills' | 'mcp' | 'agents' | 'versions'
 
@@ -19,8 +22,20 @@ export type SidebarData = {
   versions?: Versions
 }
 
-// The Sidebar's element table: the surfaces that draw a Client.
-export type SidebarUi = ElementTable<'terminal' | 'desktop'>
+// The Sidebar's `Client`s, each under its `key`: a fold arrow or list toggle
+// (`press.tsx`), a section's title row (`foldrow.tsx`) and a working row's
+// sweep (`todo/spinner.tsx`). register.tsx builds them from the `Client` it
+// takes from `$.ui.resolve(e)`, the only place one is bound (MEMORY.md
+// "Sidebar plugins are pure; only `register.tsx` touches `$`").
+export type SidebarClients = {
+  press: (key: string, props: PressProps) => RenderElement
+  foldRow: (key: string, width: number, props: FoldRowProps) => RenderElement
+  sweep: (key: string, props: SpinnerProps) => RenderElement
+}
+
+// The Sidebar's element table: the surfaces that draw a Client, with the
+// Sidebar's Clients in place of `Client`.
+export type SidebarUi = Omit<ElementTable<'terminal' | 'desktop'>, 'Client'> & SidebarClients
 
 // `width` is the row's width in cells. `colors` holds each role's color.
 type Draw<T> = (data: SidebarData, ui: SidebarUi, cfg: SectionConfig, width: number, colors: Colors) => T

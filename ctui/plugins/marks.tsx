@@ -59,14 +59,14 @@ export const lead = (Text: SidebarUi['Text'], { glyph, role }: Mark, c: Colors):
 // row's own: shape says in progress, colour keeps saying which state the row
 // is in (`docs/adr/0003-one-glyph-one-colour.md`).
 export const sweeping = (
-  { Box, Text, Client }: SidebarUi,
+  { Box, Text, sweep }: SidebarUi,
   key: string,
   label: string,
   c: Colors,
   role: Role,
 ): RenderNode[] => [
   <Box width={1} flexShrink={0}>
-    <Client key={key} module="./todo/spinner.tsx" props={{ ...SWEEP, color: c[role] }} />
+    {sweep(key, { ...SWEEP, color: c[role] })}
   </Box>,
   <Text color={c.main} wrap="truncate-end">
     {GAP}
