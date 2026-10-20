@@ -42,13 +42,13 @@
     "limits_cost": {
       "type": "string",
       "title": "Limits cost",
-      "description": "Show this month's cost against your limit; auto hides it on a Claude plan",
+      "description": "Show this month's cost against your limit, read from this month's transcripts; auto hides it on a Claude plan",
       "options": [
         "auto",
         "on",
         "off"
       ],
-      "default": "auto"
+      "default": "off"
     },
     "limits_cost_monthly": {
       "type": "number",

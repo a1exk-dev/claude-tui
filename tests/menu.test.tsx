@@ -588,7 +588,7 @@ test('Limits: Start folded, Cost and a Monthly cost field labelled like a row, h
   host(on)
   const pane = await openPlugin($, 'limits')
   expect(await pane.find({ type: 'Text', text: /^Settings/ })).toMatchObject({ text: 'Settings › Plugins › Limits' })
-  expect(await settingsOf(pane)).toEqual(['Start folded  off', 'Cost  auto'])
+  expect(await settingsOf(pane)).toEqual(['Start folded  off', 'Cost  off'])
   expect((await pane.find({ type: 'Button', key: 'setting-limits_folded' }))?.props.autoFocus).toBe(true)
   const field = await pane.find({ type: 'Input', key: 'menu-monthly-0' })
   expect(field?.props.value).toBe('100')

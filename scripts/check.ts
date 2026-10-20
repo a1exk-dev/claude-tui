@@ -122,8 +122,10 @@ if (!/^\d+\.\d+\.\d+$/.test(pin)) error(`the Claude Code pin must be an exact ve
 const floorWritten = /^\/\/ Written by Claude Code (\S+)\.$/m.exec(readFileSync('vendor/claude-code-types-floor/claude-code/index.d.ts', 'utf8'))?.[1] ?? ''
 same('the floor in ctui/hooks/floor.ts and the version that wrote vendor/claude-code-types-floor', floor, floorWritten)
 const supported = `Needs Claude Code ${floor} or later. Tested with ${pin}.`
-const readmeLines = (path: string) => readFileSync(path, 'utf8').split('\n')
-for (const readme of ['README.md', 'ctui/README.md']) {
+// Each README is read once.
+const readmes: Record<string, string> = Object.fromEntries(['README.md', 'ctui/README.md'].map((path) => [path, readFileSync(path, 'utf8')]))
+const readmeLines = (path: string) => readmes[path].split('\n')
+for (const readme of Object.keys(readmes)) {
   if (!readmeLines(readme).includes(supported)) error(`${readme} has no line "${supported}"`)
 }
 
@@ -132,6 +134,15 @@ const pluginCommands = (path: string) => readmeLines(path).filter((line) => line
 const ctuiInstall = pluginCommands('ctui/README.md')
 if (ctuiInstall.length === 0) error('ctui/README.md has no /plugin install lines')
 same('the /plugin lines in README.md and ctui/README.md', pluginCommands('README.md').join(' | '), ctuiInstall.join(' | '))
+
+// The directory policy asks the README for examples (§3E), support and a security contact (§3B),
+// privacy and data handling (§3A) and troubleshooting (§3C).
+const ctuiReadme = readmeLines('ctui/README.md')
+for (const section of ['## Examples', '## Support', '## Privacy and data', '## Troubleshooting']) {
+  if (!ctuiReadme.includes(section)) error(`ctui/README.md has no "${section}" section`)
+}
+const SECURITY = 'https://github.com/a1exk-dev/claude-tui/security/advisories/new'
+if (!readmes['ctui/README.md'].includes(SECURITY)) error(`ctui/README.md does not link ${SECURITY} for security reports`)
 
 // The engine-pinned expectations hold on one engine, so their MEMORY.md entry names the pin.
 const PINNED = 'Engine-pinned expectations hold only on the pinned Claude Code version'
