@@ -103,6 +103,17 @@ if (unshipped.length > 0) error(`ctui/ tracks files ctui/package.json's files le
 const missing = shipped.filter((entry) => !tracked.some((path) => isUnder(path, entry)))
 if (missing.length > 0) error(`ctui/package.json's files names what ctui/ does not track: ${missing.join(' ')}`)
 
+// The directory's Validate reads a `Client` only as an element written in a hook's own tree, from elements
+// destructured by name off `$.ui.resolve(e)`, with a string-literal `module` (MOD_IMPORT_DYNAMIC_COMPUTED, #428).
+// `claude plugin validate` checks none of it. A Sidebar plugin leaves a Client placeholder that register.tsx draws as its Client.
+for (const path of tracked.filter((path) => /\.tsx?$/.test(path)).map((path) => `ctui/${path}`)) {
+  const source = readFileSync(path, 'utf8')
+  if (/const \{[^}]*\.\.\.[^}]*\} = \$\.ui\.resolve\(/.test(source)) error(`${path} binds $.ui.resolve(e)'s elements with a rest pattern`)
+  const clients = [...source.matchAll(/<Client\b[^>]*>/g)].map((m) => m[0])
+  if (clients.length > 0 && path !== 'ctui/hooks/register.tsx') error(`${path} writes a <Client>: only register.tsx's hooks do`)
+  for (const tag of clients) if (!/ module="[^"]+"/.test(tag)) error(`${path} writes a <Client> without a string-literal module: ${tag}`)
+}
+
 // The pin and the support floor: both READMEs name them, the toast's constant
 // and the floor's vendored types name the floor.
 const pin: string = json('package.json').devDependencies['@anthropic-ai/claude-code']

@@ -24,18 +24,18 @@ export type SidebarData = {
 
 // The Sidebar's `Client`s, each under its `key`: a fold arrow or list toggle
 // (`press.tsx`), a section's title row (`foldrow.tsx`) and a working row's
-// sweep (`todo/spinner.tsx`). register.tsx builds them from the `Client` it
-// takes from `$.ui.resolve(e)`, the only place one is bound (MEMORY.md
-// "Sidebar plugins are pure; only `register.tsx` touches `$`").
+// sweep (`todo/spinner.tsx`). Each returns a Client placeholder (`clients.ts`)
+// that the Sidebar's render hook in register.tsx draws as its `Client`, the only
+// place one is written (MEMORY.md "Sidebar plugins are pure; only
+// `register.tsx` touches `$`").
 export type SidebarClients = {
   press: (key: string, props: PressProps) => RenderElement
   foldRow: (key: string, width: number, props: FoldRowProps) => RenderElement
   sweep: (key: string, props: SpinnerProps) => RenderElement
 }
 
-// The Sidebar's element table: the surfaces that draw a Client, with the
-// Sidebar's Clients in place of `Client`.
-export type SidebarUi = Omit<ElementTable<'terminal' | 'desktop'>, 'Client'> & SidebarClients
+// The Sidebar's elements, from the surfaces that draw a Client, and its Clients.
+export type SidebarUi = Pick<ElementTable<'terminal' | 'desktop'>, 'Box' | 'Text' | 'Button'> & SidebarClients
 
 // `width` is the row's width in cells. `colors` holds each role's color.
 type Draw<T> = (data: SidebarData, ui: SidebarUi, cfg: SectionConfig, width: number, colors: Colors) => T
