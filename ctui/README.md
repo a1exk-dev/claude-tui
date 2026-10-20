@@ -70,7 +70,7 @@ While the sidebar is docked with **Todo** on, ctui runs Claude's own TaskCreate 
 
 ## Privacy and data
 
-ctui makes no network calls, and nothing it reads leaves your machine. The only programs it starts are the three `git` commands for the sidebar header and, while **Limits cost** is on, one `grep` over this month's transcripts, all written out under [What ctui watches](#what-ctui-watches). Their arguments are fixed text and file paths, never your conversation or a file's text, and their output stays inside ctui.
+ctui makes no network calls, and nothing it reads leaves your machine. [What ctui watches](#what-ctui-watches) writes out every program it starts.
 
 What ctui stores, and for how long:
 
@@ -85,11 +85,11 @@ What ctui reads:
 - Your Claude Code settings, for which project MCP servers you approved and the model's effort, and the managed settings, for the names of managed MCP servers.
 - With the `inherit` theme and a custom Claude Code theme, that theme's file from `~/.claude/themes/`, to tint the sidebar.
 - The session's messages: to rebuild the skills section when it starts empty (a new process, `/clear` or `/resume`), and, on a model with TodoWrite instead of the Task tools, to fill the todo section. ctui keeps only the names of the skills and commands used, whether each skill's folder is yours or the project's, and the last TodoWrite call's list.
-- This month's transcripts, only while **Limits cost** is on, and only their cost lines.
+- This month's transcripts' cost lines, only while **Limits cost** is on, through the `grep` under [What ctui watches](#what-ctui-watches).
 
 ## What ctui watches
 
-ctui runs as a mod in every Claude Code session where the plugin is enabled. It watches Bash tool calls and subagent events to show background shells and agents, watches Claude's task tool calls, and runs them for Claude while the sidebar is docked, and reads the session's task list for the todo section, watches which skills and commands the chat invokes, and reads the skill and command lists and, after a resume, the transcript, for the skills section, runs `git` in the working directory for the sidebar header, reads the names of your MCP servers and the ones you turned off from `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`), the `.mcp.json` files from the working directory up, your settings and the managed MCP settings, and which server a finished MCP tool call came from, to show where each server comes from (never a server's config, which can hold secrets), and, with the `inherit` theme and a custom Claude Code theme, reads that theme's file from `~/.claude/themes/` to tint the sidebar. Once you turn on **Limits cost** in `/config` (it is off by default), and while the Limits cost row shows, it also searches this month's Claude Code transcripts under `~/.claude/projects` (or `$CLAUDE_CONFIG_DIR/projects`) for their cost lines, reads only those lines, and keeps each session's dollar total to add up the month. Set **Limits cost** back to off to stop it. [Privacy and data](#privacy-and-data) says what ctui keeps from each read, and for how long.
+ctui runs as a mod in every Claude Code session where the plugin is enabled. It watches Bash tool calls and subagent events to show background shells and agents, Claude's task tool calls for the todo section, and which skills and commands the chat invokes, with Claude Code's skill and command lists, for the skills section. Once you turn on **Limits cost** in `/config` (it is off by default), and while the Limits cost row shows, it also searches this month's Claude Code transcripts under `~/.claude/projects` (or `$CLAUDE_CONFIG_DIR/projects`) for their cost lines, reads only those lines, and keeps each session's dollar total to add up the month. Set **Limits cost** back to off to stop it. [Privacy and data](#privacy-and-data) lists every file and message ctui reads, what it keeps from each, and for how long.
 
 Some of its hooks run in every session. A submitted prompt and a finished turn give the hook only their permission mode, for the turn footer; a finished tool call gives it only the server the call came from (`mcp_server`), while the `mcp` section is on; and `tool.call` gives it the tool name, to count MCP calls in flight and refresh `git`. Each of these events passes on unchanged, and ctui keeps nothing else from them.
 
@@ -100,9 +100,9 @@ The programs ctui runs are these four, and nothing else:
 - `git --no-optional-locks diff --numstat HEAD`
 - `grep -h -F '"type":"cost-state"' -- <transcripts>`, where `<transcripts>` are this month's transcript files whose cost ctui hasn't read yet, while the Limits cost row shows
 
-The three `git` commands only read the repository, and take no lock on it. Their output and the `grep`'s stay on your machine.
+The three `git` commands, run in the working directory for the sidebar header, only read the repository, and take no lock on it. Every argument is fixed text or a file path, never your conversation or a file's text, and the output of all four stays inside ctui, on your machine.
 
-ctui calls Claude Code's tools itself in two cases only: `TaskList`, to read the session's task list for the todo section, and, while the sidebar is docked with **Todo** on, Claude's own `TaskCreate` and `TaskUpdate` calls, which it runs for Claude so Claude Code's own list stays hidden.
+ctui calls Claude Code's tools itself in two cases only: `TaskList`, to read the session's task list for the todo section, and, while the sidebar is docked with **Todo** on, the main conversation's `TaskCreate` and `TaskUpdate` calls, which it runs for Claude so Claude Code's own list stays hidden. A subagent's task calls pass on to Claude Code unchanged.
 
 ctui changes two kinds of settings only: its own `ctui.*` settings, when you change one in `/ctui`, and `CLAUDE_CODE_ENABLE_TODO_TOOLS`, which it sets for the session while **Task tools** is on.
 
@@ -110,11 +110,12 @@ Its `tool.describe` hook changes what Claude reads about its tools in two ways. 
 
 These hooks change what Claude Code draws or does:
 
-- **Closing the sidebar.** While the sidebar is docked, you can't close it (`ui.close`); ctui's own close passes.
-- **The `/ctui` menu.** Its hidden hotkeys are denied focus, so the keyboard stays on the rows (`ui.focus`). Esc in a submenu goes back a level instead of closing the menu (`ui.close`); at the top, Esc closes it.
+- **Closing the sidebar.** You can't close the sidebar yourself (`ui.close`); only ctui's own close passes.
+- **Scrolling the sidebar.** ctui takes the sidebar's scroll (`ui.scroll`) and moves its sections itself; Claude Code's own scroll never runs.
+- **The `/ctui` menu.** Its hidden hotkeys are denied focus, so the keyboard stays on the rows (`ui.focus`). Esc in a submenu goes back a level instead of closing the menu (`ui.close`); at the top, Esc closes it. A key press on a row (`ui.press`) and text in the Monthly cost field or the Themes filter (`ui.input`) pass on to Claude Code first; ctui then opens the screen, writes the `ctui.*` setting, moves a section in the order or filters the Themes they ask for.
 - **Tool groups** are drawn expanded, so each call shows as its own row.
 - **Transcript rows** are restyled: Claude's replies, your own prompts, the Read, Edit, Write and Bash rows, the line under the prompt (`model · effort` added) and each turn's footer (its mode and model added).
-- **Task calls.** While the sidebar is docked with **Todo** on, Claude's own `TaskCreate` and `TaskUpdate` calls run as ctui's, as above.
+- **Task calls.** While the sidebar is docked with **Todo** on, the main conversation's `TaskCreate` and `TaskUpdate` calls run as ctui's, as above; a subagent's pass on.
 - **`/ctui`** is answered by ctui.
 
 These hooks read their event and pass it on unchanged:

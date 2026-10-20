@@ -262,7 +262,6 @@ test('folded summaries', () => {
 })
 
 test('readConfig reads limits_cost as auto, on or off, and the limit as a number', () => {
-  // Unset, the cost row is off: showing it reads this month's transcripts.
   expect(readConfig({}).limits).toMatchObject({ cost: 'off', monthly: 100 })
   expect(readConfig({ limits_cost: 'auto' }).limits.cost).toBe('auto')
   expect(readConfig({ limits_cost: 'on', limits_cost_monthly: 0 }).limits).toMatchObject({ cost: 'on', monthly: 0 })
