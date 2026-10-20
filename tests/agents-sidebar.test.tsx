@@ -271,7 +271,7 @@ test('agent.spawn gives a row and a start toast; the list turning completed give
   const { pane, rows } = await sidebarOf($)
   expect(await rows()).toEqual(['  list work dir'])
   expect(world.toasts).toEqual(['◆ Explore started: list work dir'])
-  // The row sweeps on its own surface clock, the Todo spinner's module under
+  // The row sweeps on its own surface clock, the sweep module `hooks/spinner.tsx` under
   // this row's own key, so the Sidebar does not redraw for it.
   const sweep = await pane.find({ type: 'Client', key: 'spinner-a1' })
   expect(sweep?.props.module).toBe('hooks/spinner.tsx')
