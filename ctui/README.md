@@ -47,7 +47,7 @@ Every setting, the sidebar sections and their options, an example Claude Code th
 
 ![The Themes screen of the /ctui menu](https://raw.githubusercontent.com/a1exk-dev/claude-tui/main/docs/design/menu-4-themes.png)
 
-- **Plugins** lists the sidebar sections in their order: `x` turns the focused one on or off, `k`/`j` move it up or down (saved a second after the last move), and Enter opens its settings.
+- **Plugins** lists the sidebar sections in their order: `x` turns the focused one on or off, `k`/`j` move it up or down (saved by the menu's next change, Esc or close), and Enter opens its settings.
 - **Themes** lists `inherit` (the default, which follows your Claude Code theme) and every bundled theme by name, with a filter field: type to narrow the list, pick to switch.
 
 Esc goes back one level, and closes the menu at the top. If another command already holds `/ctui`, ctui says so in a toast once per session; change its settings in `/config` instead. Each section and the toasts also have a row in `/config`. Settings are saved to your user `settings.json`, so a change applies to every session.
