@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FLOOR as floor } from '../ctui/hooks/floor.ts'
+import { ICON, png } from './icon.ts'
 import { outputs } from './themes.ts'
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'))
@@ -137,6 +138,10 @@ for (const [path, contents] of generated) {
 for (const file of readdirSync('ctui/themes')) {
   if (!generated.has(`ctui/themes/${file}`)) error(`ctui/themes/${file} is not a generated Theme`)
 }
+
+// The directory listing icon: regenerating must change nothing.
+run('node', ['--test', 'scripts/icon.test.ts'])
+if (!existsSync(ICON) || !readFileSync(ICON).equals(png())) error(`${ICON} is stale, run node scripts/icon.ts`)
 
 // Spelling, against cspell.json's words. A new name that is spelled right goes in its `words`.
 run(cspell, ['lint', '--no-progress', '--no-summary', '**'])
