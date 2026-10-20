@@ -13,7 +13,6 @@
     "sidebar",
     "mod"
   ],
-  "types": "./types/index.d.ts",
   "userConfig": {
     "context_enable": {
       "type": "boolean",
