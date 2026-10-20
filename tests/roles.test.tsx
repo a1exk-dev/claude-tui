@@ -40,7 +40,7 @@ const DATA: SidebarData = {
     a: { id: 'a', kind: 'agent', type: 'Explore', label: 'list work dir', status: 'running', startedAt: 0 },
     s: { id: 's', kind: 'shell', type: 'shell', label: 'npm test', parent: 'a', status: 'completed', startedAt: 0, endedAt: 5000 },
   },
-  versions: { ctui: 'da270ab1c2f3', claude: '2.1.292', theme: 'Tokyo Night' },
+  versions: { ctui: '1.0.1', claude: '2.1.292', theme: 'Tokyo Night' },
 }
 
 type Node = { type?: string; props?: Record<string, unknown>; children?: unknown[] }
@@ -117,7 +117,7 @@ test('every run of text draws in a theme key; fold arrows draw muted', async ($,
 
 test('main text draws with the text key: path, branch, titles, labels, percents, versions', async ($, on) => {
   const { runs: all } = await draw($, on)
-  for (const text of ['~/Projects/claude-tui', 'Context:', 'MCP:', 'playwright', '9%', '34%', '2.1.292', 'da270ab1c2f3, Tokyo Night']) {
+  for (const text of ['~/Projects/claude-tui', 'Context:', 'MCP:', 'playwright', '9%', '34%', '2.1.292', '1.0.1, Tokyo Night']) {
     expect(colorOf(all, text), text).toEqual(['text'])
   }
   expect(colorOf(all, 'Run the tests')).toEqual(['text'])
@@ -183,10 +183,10 @@ test('a capped list draws ▸ N more muted', async ($, on) => {
 })
 
 // The footer is one row where it fits the body width, else two; nothing truncates.
-// ctui's part is its install commit, or `local` under `--plugin-dir`.
+// ctui's part is its installed version, or `local` under `--plugin-dir`.
 for (const [columns, ctui, theme, footer] of [
-  [42, 'da270ab1c2f3', 'Tokyo Night', ['claude cli: 2.1.292', 'ctui: da270ab1c2f3, Tokyo Night']],
-  [57, 'da270ab1c2f3', 'Tokyo Night', ['claude cli: 2.1.292 │ ctui: da270ab1c2f3, Tokyo Night']],
+  [42, '1.0.1', 'Tokyo Night', ['claude cli: 2.1.292', 'ctui: 1.0.1, Tokyo Night']],
+  [57, '1.0.1', 'Tokyo Night', ['claude cli: 2.1.292 │ ctui: 1.0.1, Tokyo Night']],
   [42, 'local', 'inherit', ['claude cli: 2.1.292', 'ctui: local, inherit']],
   [46, 'local', 'inherit', ['claude cli: 2.1.292 │ ctui: local, inherit']],
 ] as const) {
