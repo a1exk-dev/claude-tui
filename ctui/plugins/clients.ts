@@ -3,7 +3,7 @@ import type { RenderElement, RenderNode } from 'claude-code'
 import type { FoldRowProps } from '../hooks/foldrow'
 import type { PressProps } from '../hooks/press'
 import type { SidebarClients } from './plugin'
-import type { SpinnerProps } from './todo/spinner'
+import type { SpinnerProps } from '../hooks/spinner'
 
 // A Client placeholder: where a Sidebar `Client` goes, as plain data: which of
 // the three, its key, its width and its props. A Sidebar plugin leaves one in
@@ -33,3 +33,23 @@ export const clientPlaceholders: SidebarClients = {
 // The placeholder `node` holds, if it holds one.
 export const placeholderOf = (node: RenderNode): ClientPlaceholder | undefined =>
   typeof node === 'object' && 'clientPlaceholder' in node ? (node as Holder).clientPlaceholder : undefined
+
+// Every Client placeholder in `node`'s tree, at any depth, for the render hook
+// to build each one's `Client` in its own body.
+export const placeholdersIn = (node: RenderElement): ClientPlaceholder[] => {
+  const held = placeholderOf(node)
+  if (held) return [held]
+  if (!('children' in node) || !node.children) return []
+  return node.children.flatMap((child) => (typeof child === 'string' ? [] : placeholdersIn(child)))
+}
+
+// `node`'s tree with each placeholder swapped for the element the render hook
+// built for it. Keyed by the placeholder itself: two sections can leave the
+// same key (`spinner-1` from Todo and from MCP).
+export const withClients = (node: RenderElement, ready: ReadonlyMap<ClientPlaceholder, RenderElement>): RenderElement => {
+  const held = placeholderOf(node)
+  if (held) return ready.get(held) ?? node
+  if (!('children' in node) || !node.children) return node
+  const children = node.children.map((child) => (typeof child === 'string' ? child : withClients(child, ready)))
+  return { ...node, children } as RenderElement
+}
