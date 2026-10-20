@@ -29,7 +29,7 @@
   same marks as a tally, mark then count, both in the mark's role, two spaces
   between terms.
   At the Sidebar's 42 columns the footer takes two rows: `claude cli: <v>`,
-  then `ctui: <install commit or local>, <Theme name>`.
+  then `ctui: <version or local>, <Theme name>`.
 
   The menu draws as `menuView()` in `ctui/hooks/menu.tsx` ships it: a bold
   breadcrumb (` › ` muted), blank, faint `═`, blank, the screen's rows, then a
@@ -399,7 +399,7 @@
           <div class="fill"></div>
           ${row('')}
           ${row(`${span('m', 'claude cli:')} 2.1.292`)}
-          ${row(`${span('m', 'ctui:')} da270ab1c2f3, inherit`)}`
+          ${row(`${span('m', 'ctui:')} 1.0.1, inherit`)}`
   }
 
   const TRANSCRIPT = `

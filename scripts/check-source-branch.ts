@@ -1,8 +1,7 @@
 // Git Flow test for pull requests into main. Run by the Git Flow workflow's source-branch job.
-import { readFileSync } from 'node:fs'
-import { CHANGELOG, topEntry } from './changelog.ts'
-import { MANIFEST, manifestVersion } from './plugin-version.ts'
-import { nextVersion, versionTags } from './release-version.ts'
+import { CHANGELOG } from './changelog.ts'
+import { MANIFEST } from './plugin-version.ts'
+import { checkedRelease } from './release-version.ts'
 
 if (import.meta.main) {
   const headRef = process.env.HEAD_REF ?? ''
@@ -15,9 +14,7 @@ if (import.meta.main) {
   } else {
     // Fail on a bad version, changelog entry or plugin.json version before the merge, not in the release job after it.
     try {
-      const version = nextVersion(headRef, versionTags())
-      topEntry(readFileSync(CHANGELOG, 'utf8'), version)
-      manifestVersion(readFileSync(MANIFEST, 'utf8'), version)
+      const { version } = checkedRelease(headRef)
       console.log(`${headRef} merges as v${version}, with its ${CHANGELOG} entry on top and its version in ${MANIFEST}`)
     } catch (error) {
       console.log(`::error::${(error as Error).message}`)

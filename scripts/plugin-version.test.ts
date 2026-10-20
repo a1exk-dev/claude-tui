@@ -1,7 +1,7 @@
 // Run by `node scripts/check.ts`, or alone: `node --test scripts/`.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { manifestVersion, withVersion } from './plugin-version.ts'
+import { assertManifestVersion, withVersion } from './plugin-version.ts'
 
 const manifest = '{\n  "name": "ctui",\n  "displayName": "ctui",\n  "keywords": [\n    "tui"\n  ]\n}\n'
 
@@ -15,10 +15,10 @@ test('a version already written is replaced in place', () => {
 })
 
 test('a version that matches the branch passes the check', () => {
-  assert.doesNotThrow(() => manifestVersion('{ "name": "ctui", "version": "1.0.2" }', '1.0.2'))
+  assert.doesNotThrow(() => assertManifestVersion('{ "name": "ctui", "version": "1.0.2" }', '1.0.2'))
 })
 
 test('another version or none fails the check', () => {
-  assert.throws(() => manifestVersion('{ "name": "ctui", "version": "1.0.1" }', '1.0.2'), /plugin\.json's version is 1\.0\.1, not 1\.0\.2/)
-  assert.throws(() => manifestVersion('{ "name": "ctui" }', '1.0.2'), /plugin\.json's version is missing, not 1\.0\.2/)
+  assert.throws(() => assertManifestVersion('{ "name": "ctui", "version": "1.0.1" }', '1.0.2'), /plugin\.json's version is 1\.0\.1, not 1\.0\.2/)
+  assert.throws(() => assertManifestVersion('{ "name": "ctui" }', '1.0.2'), /plugin\.json's version is missing, not 1\.0\.2/)
 })

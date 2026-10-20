@@ -11,7 +11,7 @@ export function withVersion(manifest: string, version: string): string {
 }
 
 // Fails unless the manifest's `version` is the one the merge into main gets.
-export function manifestVersion(manifest: string, version: string): void {
+export function assertManifestVersion(manifest: string, version: string): void {
   const written: unknown = JSON.parse(manifest).version
   if (written !== version) {
     throw new Error(`${MANIFEST}'s version is ${written ?? 'missing'}, not ${version}: run node scripts/prepare-release.ts on the branch`)
