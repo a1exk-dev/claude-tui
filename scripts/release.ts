@@ -1,16 +1,14 @@
 // Tags and releases a merge into main. Run by the release job in release.yml.
-import { appendFileSync, readFileSync } from 'node:fs'
+import { appendFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { CHANGELOG, topEntry } from './changelog.ts'
-import { nextVersion, versionTags } from './release-version.ts'
+import { checkedRelease } from './release-version.ts'
 
 if (import.meta.main) {
   const headRef = process.env.HEAD_REF ?? ''
   const mergeSha = process.env.MERGE_SHA ?? ''
   try {
-    const version = nextVersion(headRef, versionTags())
-    // The source-branch check passed this entry; check again so a mismatch tags nothing.
-    const notes = topEntry(readFileSync(CHANGELOG, 'utf8'), version)
+    // The source-branch check passed this entry and plugin.json's version; check again so a mismatch tags nothing.
+    const { version, notes } = checkedRelease(headRef)
     // The back-merge job reads the version from this job output. Write it
     // first, so a failed write leaves no tag behind.
     appendFileSync(process.env.GITHUB_OUTPUT ?? '', `version=${version}\n`)

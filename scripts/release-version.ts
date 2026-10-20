@@ -1,7 +1,10 @@
-// The version a merge into main gets, from the branch name and the `v*` tags:
-// no file in the repo stores ctui's version. Used by the source-branch job
+// The version a merge into main gets, from the branch name and the `v*` tags,
+// its only source: plugin.json's `version` mirrors it (plugin-version.ts). Used by the source-branch job
 // before the merge and by the release job after it.
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { CHANGELOG, topEntry } from './changelog.ts'
+import { assertManifestVersion, MANIFEST } from './plugin-version.ts'
 
 type Semver = [number, number, number]
 
@@ -36,4 +39,13 @@ export function nextVersion(headRef: string, tags: string[]): string {
     return [latest[0], latest[1], latest[2] + 1].join('.')
   }
   throw new Error(`${headRef} is not a release/X.Y.Z or hotfix/<name> branch`)
+}
+
+// The version a merge of headRef into main gets, and its changelog entry. Fails unless
+// that entry is on top of the changelog and plugin.json's version equals it.
+export function checkedRelease(headRef: string): { version: string; notes: string } {
+  const version = nextVersion(headRef, versionTags())
+  const notes = topEntry(readFileSync(CHANGELOG, 'utf8'), version)
+  assertManifestVersion(readFileSync(MANIFEST, 'utf8'), version)
+  return { version, notes }
 }

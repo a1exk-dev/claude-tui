@@ -340,7 +340,7 @@ const BUSY: SidebarData = {
     a: { id: 'a', kind: 'agent', type: 'Explore', label: 'map', status: 'running', startedAt: 0 },
     b: { id: 'b', kind: 'agent', type: 'Plan', label: 'plan', status: 'running', startedAt: 1 },
   },
-  versions: { ctui: 'da270ab1c2f3', claude: '2.1.292', theme: 'inherit' },
+  versions: { ctui: '1.0.1', claude: '2.1.292', theme: 'inherit' },
 }
 
 // The sections window: from after the double rule's blank row to the flexible space before the footer.

@@ -42,10 +42,9 @@ run(tsc, ['-p', '.'])
 run(tsc, ['-p', '.claude/skills/live-checks/harness'])
 // ctui's production code against the support floor's types: a change that needs a newer engine fails here.
 run(tsc, ['-p', 'tsconfig.floor.json'])
-// Strict, but for the one warning ctui means: no file stores its version (scripts/release-version.ts).
+// Strict: every error and warning fails.
 type Issue = { path: string; message: string }
 type Report = { errors: Issue[]; warnings: Issue[] }
-const noVersion = ({ path, message }: Issue) => /(^|→ )version$/.test(path) && message.startsWith('No version specified')
 const validate = (dir: string) => {
   const { status, stdout, stderr } = spawnSync(claude, ['plugin', 'validate', dir, '--json'], { encoding: 'utf8' })
   process.stderr.write(stderr)
@@ -56,9 +55,9 @@ const validate = (dir: string) => {
   } catch {
     process.stdout.write(stdout)
   }
-  const issues = reports.flatMap((report) => [...report.errors, ...report.warnings.filter((warning) => !noVersion(warning))])
+  const issues = reports.flatMap((report) => [...report.errors, ...report.warnings])
   for (const { path, message } of issues) console.error(`${dir}: ${path}: ${message}`)
-  if (status !== 0 || reports.length === 0 || issues.length > 0) error(`claude plugin validate ${dir} failed, or warned of more than a missing version`)
+  if (status !== 0 || reports.length === 0 || issues.length > 0) error(`claude plugin validate ${dir} failed or warned`)
 }
 validate('ctui')
 validate('.')
@@ -139,6 +138,9 @@ run('node', ['--test', 'scripts/release-version.test.ts'])
 
 // The changelog entry prepare-release.ts writes and the check on pull requests into main.
 run('node', ['--test', 'scripts/changelog.test.ts'])
+
+// plugin.json's version, which prepare-release.ts writes and the check on pull requests into main enforces.
+run('node', ['--test', 'scripts/plugin-version.test.ts'])
 
 // The back-merge from main into develop after a release.
 run('node', ['--test', 'scripts/back-merge.test.ts'])
