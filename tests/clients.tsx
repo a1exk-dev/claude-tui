@@ -3,7 +3,7 @@ import type { ClientSurface, ElementTable } from 'claude-code'
 import FoldRow from '../hooks/foldrow'
 import Press from '../hooks/press'
 import type { SidebarInput } from '../hooks/sidebar'
-import Spinner from '../plugins/todo/spinner'
+import Spinner from '../hooks/spinner'
 
 // A test plugin loads no surface module, so each Sidebar `Client` draws as
 // the tree its module draws at rest: `press.tsx`, `foldrow.tsx` or

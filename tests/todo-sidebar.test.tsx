@@ -219,7 +219,7 @@ test('TaskCreate and TaskUpdate draw rows, with activeForm from the inputs', asy
   expect(await rows()).toEqual(['  Doing alpha', '󰄰  beta'])
   // The spinner turns on its own frame clock, keyed by the task's id.
   const spinner = await pane.find({ type: 'Client', key: 'spinner-1' })
-  expect(spinner?.props.module).toBe('plugins/todo/spinner.tsx')
+  expect(spinner?.props.module).toBe('hooks/spinner.tsx')
   expect(spinner?.props.props).toEqual({ frames: ['󰪞', '󰪟', '󰪠', '󰪡', '󰪢', '󰪣', '󰪤', '󰪥'], ms: 100, color: 'warning' })
   expect((await pane.find({ type: 'Text', in: 'spinner-1' }))?.text).toBe('󰪞')
 
