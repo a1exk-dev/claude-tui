@@ -727,6 +727,8 @@ async function setMenu($: EngineInterface, menu: Menu) {
 }
 
 // The order the Plugins screen moved and hasn't saved, as the `order` setting's text.
+// Each hook that saves it repeats its own `$.config.set({ key: 'ctui.order', … })`
+// on purpose: the directory reads a write only on the hook's own `$`, call by call.
 async function pendingOrder($: EngineInterface) {
   return (await menuOf($)).pending?.join(',')
 }
@@ -1168,9 +1170,11 @@ export const register: Register = (on, options) => {
 
   // /clear and /resume empty `$.state` while running work goes on: the tick
   // merges it into the new session.
-  // An order the menu moved and never saved is written as the session ends.
+  // An order the menu moved and never saved is written as the session ends,
+  // but not on /clear or /resume: the write's reload would lose `carry` and
+  // `effortCarry`, and the menu's next write, Esc or close still saves it.
   on('session.end', async ($, e, next) => {
-    const order = await pendingOrder($)
+    const order = e.reason === 'clear' || e.reason === 'resume' ? undefined : await pendingOrder($)
     if (order !== undefined) await settleWrite($, { key: 'ctui.order', value: order }, (await $.config.set({ key: 'ctui.order', value: order })).deny)
     if (e.reason === 'clear' || e.reason === 'resume') effortCarry = (await $.state.get(EFFORT)).value
     if (tracking && (e.reason === 'clear' || e.reason === 'resume')) {
@@ -1423,6 +1427,9 @@ export const register: Register = (on, options) => {
   // Text after `/ctui` is ignored: `/config` is the way to type a value.
   on('command.run', { command: 'ctui' }, async ($) => {
     if (!(await hasConfig($))) return { text: NO_CONFIG }
+    // The menu starts over: an order still waiting is saved first.
+    const order = await pendingOrder($)
+    if (order !== undefined) await settleWrite($, { key: 'ctui.order', value: order }, (await $.config.set({ key: 'ctui.order', value: order })).deny)
     await setMenu($, MENU_START)
     await openMenu($)
     return {}
@@ -1527,8 +1534,8 @@ export const register: Register = (on, options) => {
     if (!write) return result
     // A waiting order is written first; each write is written out here, its
     // key fixed text, as the directory reads one. A setting with no case fails `tsc`.
-    const waiting = await pendingOrder($)
-    for (const set of waiting === undefined ? [write] : [{ key: 'order' as const, value: waiting }, write]) {
+    const unsaved = await pendingOrder($)
+    for (const set of unsaved === undefined ? [write] : [{ key: 'order' as const, value: unsaved }, write]) {
       let deny: string | undefined
       switch (set.key) {
         case 'context_enable':
