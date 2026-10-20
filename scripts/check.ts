@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FLOOR as floor } from '../ctui/hooks/floor.ts'
 import { ICON, png } from './icon.ts'
+import { claude, staged } from './stage.ts'
 import { outputs } from './themes.ts'
 
 process.chdir(join(dirname(fileURLToPath(import.meta.url)), '..'))
@@ -29,7 +30,6 @@ const subfolders = (dir: string) =>
     .map((entry) => entry.name)
 
 const tsc = 'node_modules/.bin/tsc'
-const claude = 'node_modules/.bin/claude'
 const cspell = 'node_modules/.bin/cspell'
 if (![tsc, claude, cspell].every(existsSync)) {
   console.error('error: tsc, claude or cspell is not installed, run npm ci')
@@ -62,7 +62,8 @@ const validate = (dir: string) => {
 }
 validate('ctui')
 validate('.')
-run(claude, ['plugin', 'test', 'ctui'])
+// tests/ lives outside ctui/, which the directory scans whole, and joins a scratch copy of it.
+staged('tests', (plugin) => run(claude, ['plugin', 'test', plugin]))
 
 // Registry consistency.
 const manifestPath = 'ctui/.claude-plugin/plugin.json'
@@ -89,6 +90,19 @@ const themes = readdirSync('ctui/themes')
   .map((f) => f.replace(/\.json$/, ''))
   .sort()
 same('inherit plus the ctui/themes/*.json slugs A–Z and the theme options', ['inherit', ...themes].join(' '), manifest.userConfig.theme.options.join(' '))
+
+// ctui/ holds only what ships: every tracked file is in ctui/package.json's `files` (npm adds package.json itself),
+// and every `files` entry names a tracked file. The directory scans the whole folder (#415).
+const shipped: string[] = [...json('ctui/package.json').files, 'package.json']
+const tracked = spawnSync('git', ['ls-files', 'ctui'], { encoding: 'utf8' })
+  .stdout.split('\n')
+  .filter(Boolean)
+  .map((path) => path.replace(/^ctui\//, ''))
+const isUnder = (path: string, entry: string) => path === entry || path.startsWith(`${entry}/`)
+const unshipped = tracked.filter((path) => !shipped.some((entry) => isUnder(path, entry)))
+if (unshipped.length > 0) error(`ctui/ tracks files ctui/package.json's files leaves out: ${unshipped.join(' ')}`)
+const missing = shipped.filter((entry) => !tracked.some((path) => isUnder(path, entry)))
+if (missing.length > 0) error(`ctui/package.json's files names what ctui/ does not track: ${missing.join(' ')}`)
 
 // The pin and the support floor: both READMEs name them, the toast's constant
 // and the floor's vendored types name the floor.
