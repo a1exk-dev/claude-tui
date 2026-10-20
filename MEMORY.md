@@ -204,15 +204,15 @@ Guidance: Keep every structural choice compatible with both channels: Anthropic'
 
 Details: `docs/agents/research/publishing-catalog-npm.md`.
 
-Reason: The human set both channels as publishing targets. In #376 the human kept installs on git, as every entry in Anthropic's official and the community catalogs does: none uses an npm source, the directory reads the git repo, and Claude Code has no install from a package name. A second catalog would give ctui a second id, and two enabled copies load only one hooks module. In #377 the human chose agent-context's version strategy over the hand bump most plugins use, and a hand publish of 1.0.0 over a `0.0.0` placeholder. In #395 the human chose a changelog file over generated notes, which list only `<type>: merge … into develop` titles; every commit type over feat and fix only; back-filled 0.x entries over starting at 1.0.0; and the check on the pull request as well as in `release.ts`, so a mismatch can't leave `main` merged but untagged. In #379 the human chose disclosure over a project allowlist (a skin's purpose is every session), a per-project or opt-in month total (either changes what the number means), and a Team live check before the README line (it would block the spec on an account).
+Reason: The human set both channels as publishing targets. In #376 the human kept installs on git, as every entry in Anthropic's official and the community catalogs does: none uses an npm source, the directory reads the git repo, and Claude Code has no install from a package name. A second catalog would give ctui a second id, and two enabled copies load only one hooks module. In #377 the human chose agent-context's version strategy over the hand bump most plugins use, and a hand publish of 1.0.0 over a `0.0.0` placeholder. In #395 the human chose a changelog file over generated notes, which list only `<type>: merge … into develop` titles; every commit type over feat and fix only; back-filled 0.x entries over starting at 1.0.0; and the check on the pull request as well as in `release.ts`, so a mismatch can't leave `main` merged but untagged. In #379 the human chose disclosure over a project allowlist (a mod's purpose is every session), a per-project or opt-in month total (either changes what the number means), and a Team live check before the README line (it would block the spec on an account).
 
-## Display name is `ctui`, and the plugin is a TUI skin, not only a sidebar
+## Display name is `ctui`, and the plugin is a mod, not only a sidebar
 
 Applies when: writing the manifest, the README, listing text, or describing scope.
 
-Guidance: Set `displayName` to `ctui`. The repo and marketplace stay `claude-tui`. Describe the plugin as a skin for Claude Code's TUI: it covers the Sidebar and the lines under the prompt input (model, effort, permission mode), and later other render sites.
+Guidance: Set `displayName` to `ctui`. The repo and marketplace stay `claude-tui`. Describe the plugin as a mod for Claude Code, the term and page title of Claude Code's docs ("Mods overview"), never as a skin, theme or extension: it covers the Sidebar and the lines under the prompt input (model, effort, permission mode), and later other render sites.
 
-Reason: Anthropic's directory holds names that match a known brand for review. The human chose `ctui` and noted the scope is wider than the sidebar.
+Reason: Anthropic's directory holds names that match a known brand for review. The human chose `ctui` and noted the scope is wider than the sidebar. On 2026-10-20 the human replaced "skin" with the docs' own term: ctui changes behaviour too (toasts, the task tools, the `/ctui` menu), not only looks.
 
 ## The `versions` footer shows no update icon; the mod makes no network call
 
