@@ -1,5 +1,6 @@
 {
   "name": "ctui",
+  "version": "1.0.1",
   "displayName": "ctui",
   "description": "A mod for Claude Code: a docked sidebar with git, context, limits, todo, skills, MCP and agent sections, plus agent and shell toasts and a /ctui settings menu for plugins and themes.",
   "author": {
