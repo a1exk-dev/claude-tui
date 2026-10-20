@@ -117,11 +117,12 @@ const footerOf = async (pane: Pane) => (await pane.findAll({ type: 'Box', text: 
 // ctui's own hook for `event` on the menu pane, called as the engine would,
 // with a `$` holding the menu's state, the opens, the writes (each denied with
 // `deny`, when given), the ring moves (each with the opens made before it) and
-// a clock that runs every timer at once, soonest first. The test kit
-// raises no `ui.close` for Esc and doesn't report the mod's own ring moves.
+// a clock that runs every timer at once, soonest first; `inHook` gets the
+// writes made before any timer ran. The test kit raises no `ui.close` for Esc
+// and doesn't report the mod's own ring moves.
 type MenuState = Menu
 type Focus = { requestId: string; key: string; opensBefore: number }
-async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input', e: unknown, next: () => unknown, state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[], focuses: Focus[], deny?: string) {
+async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input' | 'ui.focus', e: unknown, next: () => unknown, state: { menu?: MenuState }, opens: PaneOpenArgs[], sets: unknown[], focuses: Focus[], deny?: string, inHook: unknown[] = []) {
   let hook: ((...args: unknown[]) => unknown) | undefined
   const record = (name: string, matcher: { id?: string; requestId?: string }, run: (...args: unknown[]) => unknown) => {
     if (name === event && (matcher.id ?? matcher.requestId) === 'ctui') hook = run
@@ -148,6 +149,7 @@ async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input', e: unknown,
     },
   }
   const answer = await hook?.($, e, next)
+  inHook.push(...sets)
   for (let timer; (timer = timers.sort((a, b) => a.at - b.at).shift()); ) {
     now = timer.at
     await timer.run()
@@ -456,9 +458,10 @@ test('x turns the focused plugin on or off, saving once', { options: { todo_enab
   expect(seen.closes).toEqual([])
 })
 
-test('k/j move the focused row at once, keep the ring on it, and save the order once, a second after the last move', async ($, on) => {
+test('k/j move the focused row at once and keep the ring on it; the order waits, and the session’s end saves it once', async ($, on) => {
   const clock = mock.clock(on)
   const seen = host(on)
+  on('session.end', (_, e) => ({ sessionId: e.sessionId }))
   const pane = await openPlugins($)
   await focusRow($, 'context')
   await pane.press({ key: 'menu-down' })
@@ -466,12 +469,25 @@ test('k/j move the focused row at once, keep the ring on it, and save the order 
   await pane.press({ key: 'menu-down' })
   await clock.advance(100)
   expect(await titlesOf(pane)).toEqual(['Limits', 'Todo', 'Context', 'Skills', 'MCP', 'Agents & shells'])
-  expect(seen.sets).toEqual([])
-  await clock.advance(1000)
-  expect(seen.sets).toEqual([{ key: 'ctui.order', value: 'limits,todo,context,skills,mcp,agents' }])
   // The moved row keeps the ring: the redraw focuses it.
   expect((await pane.find({ type: 'Button', key: 'plugin-context' }))?.props.autoFocus).toBe(true)
+  // No timer writes it.
+  await clock.advance(5000)
+  expect(seen.sets).toEqual([])
+  // The session ends with the menu open: its own hook writes it.
+  await $.session.end({ reason: 'prompt_input_exit', sessionId: 's1', resume: { id: 's1' } })
+  expect(seen.sets).toEqual([{ key: 'ctui.order', value: 'limits,todo,context,skills,mcp,agents' }])
 })
+
+for (const origin of ['person', 'plugin'] as const) {
+  test(`closing the menu (${origin}) saves a waiting order in the close’s own hook`, async () => {
+    const state: { menu?: MenuState } = { menu: { level: 'top', filter: '', picks: { top: 'plugins' }, pending: ['mcp', 'context'] } }
+    const inHook: unknown[] = []
+    expect(await callHook('ui.close', { id: 'ctui', origin: { kind: origin } }, () => 'closed', state, [], [], [], undefined, inHook)).toBe('closed')
+    expect(inHook).toEqual([{ key: 'ctui.order', value: 'mcp,context' }])
+    expect(state.menu?.pending).toBeUndefined()
+  })
+}
 
 test('x with an order waiting writes the order first', async ($, on) => {
   const clock = mock.clock(on)
@@ -485,18 +501,37 @@ test('x with an order waiting writes the order first', async ($, on) => {
     { key: 'ctui.order', value: 'context,limits,todo,mcp,skills,agents' },
     { key: 'ctui.mcp_enable', value: false },
   ])
-  // The timer finds nothing left to write.
+  // Nothing waits to be written later.
   await clock.advance(2000)
   expect(seen.sets).toHaveLength(2)
 })
 
-test('Esc on Plugins with an order waiting writes it, then goes back', async () => {
+test('Esc on Plugins with an order waiting goes back, takes the keys back, and the ring’s landing saves the order', async () => {
+  const state: { menu?: MenuState } = { menu: { level: 'plugins', filter: '', picks: { top: 'plugins' }, pending: ['mcp', 'context'], focus: 'mcp' } }
+  const opens: PaneOpenArgs[] = []
+  const sets: unknown[] = []
+  const focuses: Focus[] = []
+  expect(await esc(state, opens, sets, focuses)).toEqual({ deny: expect.any(String) })
+  // Nothing is written before the menu has the keys again.
+  expect(sets).toEqual([])
+  expect(opens).toEqual([OPEN])
+  expect(focuses).toEqual([{ requestId: 'ctui', key: 'row-plugins', opensBefore: 1 }])
+  // The engine reports the ring landing on Plugins: that hook writes the order.
+  const inHook: unknown[] = []
+  const e = { component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: 'row-plugins', origin: { kind: 'plugin' } }
+  await callHook('ui.focus', e, () => ({}), state, [], [], [], undefined, inHook)
+  expect(inHook).toEqual([{ key: 'ctui.order', value: 'mcp,context' }])
+  expect(state.menu).toMatchObject({ level: 'top', ring: 'row-plugins' })
+  expect(state.menu?.pending).toBeUndefined()
+})
+
+test('on the Plugins screen the ring’s moves leave a waiting order unsaved', async () => {
   const state: { menu?: MenuState } = { menu: { level: 'plugins', filter: '', picks: { top: 'plugins' }, pending: ['mcp', 'context'], focus: 'mcp' } }
   const sets: unknown[] = []
-  expect(await esc(state, [], sets)).toEqual({ deny: expect.any(String) })
-  expect(sets).toEqual([{ key: 'ctui.order', value: 'mcp,context' }])
-  expect(state.menu?.level).toBe('top')
-  expect(state.menu?.pending).toBeUndefined()
+  const e = { component: 'Pane', requestId: 'ctui', plugin: 'ctui', element: 'plugin-context', origin: { kind: 'person' } }
+  await callHook('ui.focus', e, () => ({}), state, [], sets, [])
+  expect(sets).toEqual([])
+  expect(state.menu?.pending).toEqual(['mcp', 'context'])
 })
 
 test('Enter opens a plugin’s screen, even off; Esc returns to its row', { options: { mcp_enable: false } }, async ($, on) => {

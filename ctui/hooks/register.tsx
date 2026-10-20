@@ -95,7 +95,6 @@ const TOAST_GAP_MS = 2100
 
 // Module state: a reload starts a fresh environment.
 let tick: { cancel: () => void } | undefined
-let orderTimer: { cancel: () => void } | undefined // the menu's order write, a second after the last move
 let gitRunning = false
 let gitAgain = false // a refresh came while git ran: run once more after it
 let checking = false // a viewport check is queued
@@ -727,57 +726,22 @@ async function setMenu($: EngineInterface, menu: Menu) {
   await $.state.set(MENU, menu)
 }
 
-// One menu write; a deny toasts its line (a menu pick has no command row),
-// through the queue even with `agents_toasts` off.
-async function writeSetting($: EngineInterface, key: SettingKey, value: Setting['value']) {
-  const { deny } = await setConfig($, key, value)
-  if (deny !== undefined) showToast($, { id: 'menu-deny', end: true, text: deniedText({ key: `ctui.${key}`, value }, deny) }, true)
-  return deny === undefined
+// The order the Plugins screen moved and hasn't saved, as the `order` setting's text.
+async function pendingOrder($: EngineInterface) {
+  return (await menuOf($)).pending?.join(',')
 }
 
-// One `$.config.set` per setting, its key fixed text: the directory reads a
-// write's key only from a literal. A setting with no case fails `tsc`.
-function setConfig($: EngineInterface, key: SettingKey, value: Setting['value']) {
-  switch (key) {
-    case 'context_enable':
-      return $.config.set({ key: 'ctui.context_enable', value })
-    case 'context_folded':
-      return $.config.set({ key: 'ctui.context_folded', value })
-    case 'limits_enable':
-      return $.config.set({ key: 'ctui.limits_enable', value })
-    case 'limits_folded':
-      return $.config.set({ key: 'ctui.limits_folded', value })
-    case 'limits_cost':
-      return $.config.set({ key: 'ctui.limits_cost', value })
-    case 'limits_cost_monthly':
-      return $.config.set({ key: 'ctui.limits_cost_monthly', value })
-    case 'todo_enable':
-      return $.config.set({ key: 'ctui.todo_enable', value })
-    case 'todo_folded':
-      return $.config.set({ key: 'ctui.todo_folded', value })
-    case 'todo_tools':
-      return $.config.set({ key: 'ctui.todo_tools', value })
-    case 'skills_enable':
-      return $.config.set({ key: 'ctui.skills_enable', value })
-    case 'skills_folded':
-      return $.config.set({ key: 'ctui.skills_folded', value })
-    case 'mcp_enable':
-      return $.config.set({ key: 'ctui.mcp_enable', value })
-    case 'mcp_folded':
-      return $.config.set({ key: 'ctui.mcp_folded', value })
-    case 'agents_enable':
-      return $.config.set({ key: 'ctui.agents_enable', value })
-    case 'agents_folded':
-      return $.config.set({ key: 'ctui.agents_folded', value })
-    case 'agents_toasts':
-      return $.config.set({ key: 'ctui.agents_toasts', value })
-    case 'order':
-      return $.config.set({ key: 'ctui.order', value })
-    case 'theme':
-      return $.config.set({ key: 'ctui.theme', value })
-    default:
-      throw new Error(`no case for the setting ${key satisfies never}`)
+// After one menu write: a deny toasts its line (a menu pick has no command
+// row), through the queue even with `agents_toasts` off. A written or denied
+// order stops waiting; the rows keep it until the write lands, and the
+// reload's `session.start` then drops it.
+async function settleWrite($: EngineInterface, set: Setting, deny: string | undefined) {
+  if (deny !== undefined) showToast($, { id: 'menu-deny', end: true, text: deniedText(set, deny) }, true)
+  if (set.key === 'ctui.order') {
+    const { pending: _, ...menu } = await menuOf($)
+    await setMenu($, menu)
   }
+  return deny === undefined
 }
 
 // Puts the menu's ring on `key` once the redraw has drawn it, as #160's spike
@@ -786,19 +750,6 @@ function focusLater($: EngineInterface, key: string, ms = 50) {
   $.clock.after(ms, () => $.ui.focus({ requestId: MENU_PANE, key }).catch(() => undefined))
 }
 
-// Writes an order the Plugins screen moved, if one waits. Its reload drops
-// the module's timer, so every other write, Esc and the close call this first.
-// The rows keep the pending order until the write lands; the reload's
-// `session.start` then drops it.
-async function flushOrder($: EngineInterface) {
-  orderTimer?.cancel()
-  orderTimer = undefined
-  const { pending } = await menuOf($)
-  if (!pending) return
-  await writeSetting($, 'order', pending.join(','))
-  const { pending: _, ...menu } = await menuOf($)
-  await setMenu($, menu)
-}
 
 async function themeNamesOf($: EngineInterface) {
   const slugs = await themesOf($)
@@ -939,13 +890,10 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     void checkFloor($).catch(() => undefined)
     void registerMenu($).catch(() => undefined)
-    // A reload from elsewhere (`/config`) drops the order timer: start it again.
+    // A written order stops waiting; one a reload from elsewhere (`/config`)
+    // left still waits for the menu's next write, Esc or close.
     const { pending, ...menu } = await menuOf($)
     if (pending?.join(',') === config.order.join(',')) await setMenu($, menu)
-    else if (pending) {
-      orderTimer?.cancel()
-      orderTimer = $.clock.after(1000, () => flushOrder($))
-    }
     await setTodoEnv($, config.todo.tools)
     // `tool.describe` answers are cached for the session: re-ask them, so the pin follows `todo_tools`.
     $.ui.invalidate('tool.describe')
@@ -1220,7 +1168,10 @@ export const register: Register = (on, options) => {
 
   // /clear and /resume empty `$.state` while running work goes on: the tick
   // merges it into the new session.
+  // An order the menu moved and never saved is written as the session ends.
   on('session.end', async ($, e, next) => {
+    const order = await pendingOrder($)
+    if (order !== undefined) await settleWrite($, { key: 'ctui.order', value: order }, (await $.config.set({ key: 'ctui.order', value: order })).deny)
     if (e.reason === 'clear' || e.reason === 'resume') effortCarry = (await $.state.get(EFFORT)).value
     if (tracking && (e.reason === 'clear' || e.reason === 'resume')) {
       const { value = {} } = await $.state.get(TASKS)
@@ -1472,7 +1423,6 @@ export const register: Register = (on, options) => {
   // Text after `/ctui` is ignored: `/config` is the way to type a value.
   on('command.run', { command: 'ctui' }, async ($) => {
     if (!(await hasConfig($))) return { text: NO_CONFIG }
-    await flushOrder($)
     await setMenu($, MENU_START)
     await openMenu($)
     return {}
@@ -1515,15 +1465,20 @@ export const register: Register = (on, options) => {
     const id = rowId(e.element)
     const menu = await menuOf($)
     if (menu.ring !== e.element || (id && menu.focus !== id)) await setMenu($, { ...menu, ring: e.element, ...(id && { focus: id }) })
+    // Off the Plugins screen, a moved order is saved once the ring lands: Esc
+    // back to the top re-opens the menu and moves the ring before this write
+    // reloads the mod, so the keys stay with the menu.
+    const order = menu.level === 'plugins' ? undefined : await pendingOrder($)
+    if (order !== undefined) await settleWrite($, { key: 'ctui.order', value: order }, (await $.config.set({ key: 'ctui.order', value: order })).deny)
     return result
   })
 
   // Enter on a top row opens its screen. Enter on a Theme row writes it at
   // once; the reload keeps the menu, its level and filter in `$.state`.
   // Enter on a Plugins row opens its plugin's screen, even when it's off; `x`
-  // flips it, saving at once; `k`/`j` move it, saving the order a second
-  // after the last move, and keep the ring on it. On a plugin's screen,
-  // Enter on a setting writes its next value.
+  // flips it, saving at once; `k`/`j` move it and keep the ring on it, the
+  // order waiting for the next write, Esc or close, so a burst of moves
+  // reloads once. On a plugin's screen, Enter on a setting writes its next value.
   on('ui.press', { component: 'Pane', requestId: MENU_PANE }, async ($, e, next) => {
     const result = await next(e)
     const menu = await menuOf($)
@@ -1532,13 +1487,14 @@ export const register: Register = (on, options) => {
     const row = rowId(e.element)
     const top = topPick(e.element)
     const slug = themeSlug(e.element)
+    let write: { key: SettingKey; value: Setting['value'] } | undefined
     if (top) {
       const { ring: _, ...rest } = menu
       await setMenu($, { ...rest, level: top, filter: '', picks: { ...menu.picks, top } })
       // The ring keeps its index from the top level: start it on the filter.
       if (top === 'themes') focusLater($, KEYS.filter)
     } else if (slug) {
-      if (slug !== config.theme) await writeSetting($, 'theme', slug)
+      if (slug !== config.theme) write = { key: 'theme', value: slug }
     } else if (row) {
       const { ring: _, ...rest } = menu
       await setMenu($, { ...rest, level: 'plugin', focus: row })
@@ -1547,10 +1503,9 @@ export const register: Register = (on, options) => {
       const [setting] = opened ? settingRows(opened.id, config) : []
       if (setting) focusLater($, settingKey(setting.option))
     } else if (e.element === KEYS.toggle && id) {
-      await flushOrder($)
       const section = sections.find((plugin) => plugin.id === id)
       const key = `${id}_enable`
-      if (section && isSettingKey(key)) await writeSetting($, key, !config[section.id].enable)
+      if (section && isSettingKey(key)) write = { key, value: !config[section.id].enable }
     } else if (menu.level === 'plugin' && id) {
       // A setting row. `Start folded` sets where a new session starts: pin
       // the section's fold now, so the reload doesn't change it.
@@ -1561,16 +1516,79 @@ export const register: Register = (on, options) => {
           const { value = {} } = await $.state.get(FOLDED)
           if (value[section.id] === undefined) await $.state.set(FOLDED, { ...value, [section.id]: config[section.id].folded ?? false })
         }
-        await flushOrder($)
-        await writeSetting($, setting.option, setting.next)
+        write = { key: setting.option, value: setting.next }
       }
     } else if ((e.element === KEYS.up || e.element === KEYS.down) && id) {
       const moved = moveId(order, id, e.element === KEYS.up ? -1 : 1)
       if (moved.join(',') === order.join(',')) return result // at an end
       await setMenu($, { ...menu, focus: id, pending: moved })
-      orderTimer?.cancel()
-      orderTimer = $.clock.after(1000, () => flushOrder($))
       focusLater($, rowKey(id))
+    }
+    if (!write) return result
+    // A waiting order is written first; each write is written out here, its
+    // key fixed text, as the directory reads one. A setting with no case fails `tsc`.
+    const waiting = await pendingOrder($)
+    for (const set of waiting === undefined ? [write] : [{ key: 'order' as const, value: waiting }, write]) {
+      let deny: string | undefined
+      switch (set.key) {
+        case 'context_enable':
+          ;({ deny } = await $.config.set({ key: 'ctui.context_enable', value: set.value }))
+          break
+        case 'context_folded':
+          ;({ deny } = await $.config.set({ key: 'ctui.context_folded', value: set.value }))
+          break
+        case 'limits_enable':
+          ;({ deny } = await $.config.set({ key: 'ctui.limits_enable', value: set.value }))
+          break
+        case 'limits_folded':
+          ;({ deny } = await $.config.set({ key: 'ctui.limits_folded', value: set.value }))
+          break
+        case 'limits_cost':
+          ;({ deny } = await $.config.set({ key: 'ctui.limits_cost', value: set.value }))
+          break
+        case 'limits_cost_monthly':
+          ;({ deny } = await $.config.set({ key: 'ctui.limits_cost_monthly', value: set.value }))
+          break
+        case 'todo_enable':
+          ;({ deny } = await $.config.set({ key: 'ctui.todo_enable', value: set.value }))
+          break
+        case 'todo_folded':
+          ;({ deny } = await $.config.set({ key: 'ctui.todo_folded', value: set.value }))
+          break
+        case 'todo_tools':
+          ;({ deny } = await $.config.set({ key: 'ctui.todo_tools', value: set.value }))
+          break
+        case 'skills_enable':
+          ;({ deny } = await $.config.set({ key: 'ctui.skills_enable', value: set.value }))
+          break
+        case 'skills_folded':
+          ;({ deny } = await $.config.set({ key: 'ctui.skills_folded', value: set.value }))
+          break
+        case 'mcp_enable':
+          ;({ deny } = await $.config.set({ key: 'ctui.mcp_enable', value: set.value }))
+          break
+        case 'mcp_folded':
+          ;({ deny } = await $.config.set({ key: 'ctui.mcp_folded', value: set.value }))
+          break
+        case 'agents_enable':
+          ;({ deny } = await $.config.set({ key: 'ctui.agents_enable', value: set.value }))
+          break
+        case 'agents_folded':
+          ;({ deny } = await $.config.set({ key: 'ctui.agents_folded', value: set.value }))
+          break
+        case 'agents_toasts':
+          ;({ deny } = await $.config.set({ key: 'ctui.agents_toasts', value: set.value }))
+          break
+        case 'order':
+          ;({ deny } = await $.config.set({ key: 'ctui.order', value: set.value }))
+          break
+        case 'theme':
+          ;({ deny } = await $.config.set({ key: 'ctui.theme', value: set.value }))
+          break
+        default:
+          throw new Error(`no case for the setting ${set.key satisfies never}`)
+      }
+      await settleWrite($, { key: `ctui.${set.key}`, value: set.value }, deny)
     }
     return result
   })
@@ -1587,8 +1605,9 @@ export const register: Register = (on, options) => {
     if (text === '' || !Number.isFinite(value)) {
       showToast($, { id: 'menu-deny', end: true, text: deniedText(set, `"${e.value}" isn't a number`) }, true)
     } else if (value !== config.limits.monthly) {
-      await flushOrder($)
-      saved = await writeSetting($, 'limits_cost_monthly', value)
+      const order = await pendingOrder($)
+      if (order !== undefined) await settleWrite($, { key: 'ctui.order', value: order }, (await $.config.set({ key: 'ctui.order', value: order })).deny)
+      saved = await settleWrite($, set, (await $.config.set({ key: 'ctui.limits_cost_monthly', value: value })).deny)
     }
     // A save reloads and draws the new value; otherwise a new field shows the saved one.
     // The ring leaves for Cost and comes back after it, at #240's probe timing,
@@ -1610,26 +1629,27 @@ export const register: Register = (on, options) => {
   })
 
   // Esc in a submenu goes back a level: the deny keeps the pane but hands the
-  // keys to the prompt, so the menu opens again to take them. At the top it closes.
-  // An order still waiting is written first, on the way back or out.
+  // keys to the prompt, so the menu opens again to take them; the ring's
+  // landing then saves an order still waiting (`ui.focus`). At the top it
+  // closes, saving that order here.
   on('ui.close', { id: MENU_PANE }, async ($, e, next) => {
     const menu = await menuOf($)
     const up = PARENT[menu.level]
     if (e.origin.kind !== 'person' || !up) {
       const result = await next(e)
-      $.clock.after(0, () => flushOrder($))
+      const order = await pendingOrder($)
+      if (order !== undefined) await settleWrite($, { key: 'ctui.order', value: order }, (await $.config.set({ key: 'ctui.order', value: order })).deny)
       return result
     }
     // The ring goes back to the row just left.
     const ring = up === 'top' ? topKey(menu.level as TopPick) : menu.focus && rowKey(menu.focus)
     await setMenu($, { ...menu, level: up, filter: '', ring })
-    // Take the keys back first: the order's write reloads the mod, and an
+    // Take the keys back before any write: a write reloads the mod, and an
     // open from the old module after that is lost (live, 2.1.292). The ring
     // keeps its index through the redraw and the open, so move it too.
     $.clock.after(0, async () => {
       await openMenu($)
       if (ring) focusLater($, ring)
-      await flushOrder($)
     })
     return { deny: 'Back one level in the ctui menu' }
   })
