@@ -1,6 +1,10 @@
 # ctui
 
-ctui is a skin for the Claude Code terminal UI. It docks a sidebar beside the transcript with git, context, limits, todo, skills, MCP, and agents-and-shells sections, and it restyles the lines under the prompt input. It also raises short toasts when a subagent or a background shell starts, finishes, or fails.
+ctui is a [mod](https://code.claude.com/docs/en/plugins/mods/overview) for Claude Code: a plugin that changes how Claude Code looks and behaves. It docks a sidebar beside the transcript with git, context, limits, todo, skills, MCP, and agents-and-shells sections, and it restyles the lines under the prompt input. It also raises short toasts when a subagent or a background shell starts, finishes, or fails.
+
+![The sidebar with every section folded](https://raw.githubusercontent.com/a1exk-dev/claude-tui/main/docs/design/sidebar-1-all-folded.png)
+
+![The sidebar with every section expanded](https://raw.githubusercontent.com/a1exk-dev/claude-tui/main/docs/design/sidebar-3-all-expanded.png)
 
 Needs Claude Code 2.1.292 or later. Tested with 2.1.300.
 
@@ -35,12 +39,18 @@ background-opacity-cells = true
 
 Every setting, the sidebar sections and their options, an example Claude Code theme with the colors ctui uses, and how to set the main background in your terminal are in [the configuration docs](https://github.com/a1exk-dev/claude-tui/blob/main/docs/configuration.md).
 
-## Commands
+## Settings
 
-- `/ctui` opens the ctui menu at once, even while Claude is replying. **Themes** lists `inherit` (the default, which follows your Claude Code theme) and every bundled theme by name, with a filter field: type to narrow the list, pick to switch. Esc goes back one level, and closes the menu at the top.
-- **Plugins** in the same menu lists the sidebar sections in their order: `x` turns the focused one on or off, `k`/`j` move it up or down (saved a second after the last move), and Enter opens its settings.
+`/ctui` opens ctui's settings menu at once, even while Claude is replying.
 
-If another command already holds `/ctui`, ctui says so in a toast once per session; change its settings in `/config` instead. Each section and the toasts also have a row in `/config`. Settings are saved to your user `settings.json`, so a change applies to every session.
+![The Plugins screen of the /ctui menu](https://raw.githubusercontent.com/a1exk-dev/claude-tui/main/docs/design/menu-2-plugins.png)
+
+![The Themes screen of the /ctui menu](https://raw.githubusercontent.com/a1exk-dev/claude-tui/main/docs/design/menu-4-themes.png)
+
+- **Plugins** lists the sidebar sections in their order: `x` turns the focused one on or off, `k`/`j` move it up or down (saved a second after the last move), and Enter opens its settings.
+- **Themes** lists `inherit` (the default, which follows your Claude Code theme) and every bundled theme by name, with a filter field: type to narrow the list, pick to switch.
+
+Esc goes back one level, and closes the menu at the top. If another command already holds `/ctui`, ctui says so in a toast once per session; change its settings in `/config` instead. Each section and the toasts also have a row in `/config`. Settings are saved to your user `settings.json`, so a change applies to every session.
 
 ## Task tools
 

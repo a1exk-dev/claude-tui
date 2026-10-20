@@ -18,7 +18,7 @@ A `ctui/themes/<slug>.json` file in Claude Code's theme format, selected in the 
 
 ## ctui
 
-The Claude Code plugin this repo ships (`name` and `displayName` both `ctui`), installed from the `claude-tui` marketplace. It skins Claude Code's TUI: the **Sidebar**, the lines under the prompt input, and other render sites. It is not limited to the Sidebar.
+The Claude Code plugin this repo ships (`name` and `displayName` both `ctui`), installed from the `claude-tui` marketplace. It is a mod (Claude Code's docs title: "Mods overview") that restyles Claude Code's TUI: the **Sidebar**, the lines under the prompt input, and other render sites. It is not limited to the Sidebar.
 
 ## Live check
 
