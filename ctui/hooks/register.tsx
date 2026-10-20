@@ -1235,7 +1235,8 @@ export const register: Register = (on, options) => {
     }
     // The directory reads a `Client` only as an element of this hook's own
     // tree, from elements destructured by name, with a fixed `module` path.
-    const { Box, Text, Button, Client } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const { Client } = $.ui.resolve(e)
     const ui: SidebarUi = { Box, Text, Button, ...clientPlaceholders }
     setDock($, e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1)
     if (e.props.placement === 'inline') {
