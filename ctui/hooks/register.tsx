@@ -1306,7 +1306,12 @@ export const register: Register = (on, options) => {
       if (held.client === 'press') ready.set(held, <Client key={held.key} module="./press.tsx" props={held.props} />)
       else if (held.client === 'foldRow') {
         ready.set(held, <Client key={held.key} module="./foldrow.tsx" width={held.width} flexGrow={1} props={held.props} />)
-      } else ready.set(held, <Client key={held.key} module="./spinner.tsx" props={held.props} />)
+      } else if (held.client === 'sweep') ready.set(held, <Client key={held.key} module="./spinner.tsx" props={held.props} />)
+      else {
+        // A new ClientPlaceholder variant fails `tsc` here until it gets its branch.
+        const unbuilt: never = held
+        throw new Error(`no Client for ${JSON.stringify(unbuilt)}`)
+      }
     }
     return withClients(drawn.tree, ready)
   })
