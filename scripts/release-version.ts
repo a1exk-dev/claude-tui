@@ -1,5 +1,5 @@
-// The version a merge into main gets, from the branch name and the `v*` tags:
-// no file in the repo stores ctui's version. Used by the source-branch job
+// The version a merge into main gets, from the branch name and the `v*` tags,
+// its only source: plugin.json's `version` mirrors it (plugin-version.ts). Used by the source-branch job
 // before the merge and by the release job after it.
 import { execFileSync } from 'node:child_process'
 
