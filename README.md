@@ -1,12 +1,18 @@
 # ctui
 
-A skin for the Claude Code terminal UI, built around a sidebar docked beside the transcript.
+A [mod](https://code.claude.com/docs/en/plugins/mods/overview) for Claude Code, built around a sidebar docked beside the transcript.
 
 ![The sidebar with every section folded](docs/design/sidebar-1-all-folded.png)
 
 ![The sidebar with every section expanded](docs/design/sidebar-3-all-expanded.png)
 
 The sidebar folded and expanded. ctui also restyles the Read, Edit and Bash rows in the transcript and the `model · effort` line under the prompt.
+
+![The Plugins screen of the /ctui menu](docs/design/menu-2-plugins.png)
+
+![The Themes screen of the /ctui menu](docs/design/menu-4-themes.png)
+
+`/ctui` opens the settings menu: turn sidebar sections on or off, reorder them, change each one's settings, and pick a theme.
 
 ## Install
 

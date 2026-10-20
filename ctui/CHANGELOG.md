@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.1 (2026-10-20)
+
+### Documentation
+
+- describe ctui as a mod and show the sidebar and /ctui menu on npm
+
+### Continuous Integration
+
+- publish to npm from a job in release.yml, with one trusted publisher
+
 ## 1.0.0 (2026-10-19)
 
 ### Features
