@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.0.2 (2026-10-20)
+
+### Features
+
+- write plugin.json's version from the release branch
+- write git commands as fixed text and disclose what ctui runs and sets
+- move tests/ and evals/ out of the plugin folder and stage them for each run
+- generate ctui's listing icon from a cell bitmap in scripts/icon.ts
+
+### Bug Fixes
+
+- draw the Sidebar's Clients and write settings in shapes the directory reads
+
+### Documentation
+
+- record the footer's version, the 1.0.1 bootstrap and one disclosure list
+- name ctui's version, not its install commit, in the versions footer
+- turn on direct publishing for npm's trusted publisher
+
+### Code Refactoring
+
+- share the release checks and name the manifest assert assertManifestVersion
+- share the repo root and claude path from stage.ts and trim the staging memory
+
 ## 1.0.1 (2026-10-20)
 
 ### Documentation
