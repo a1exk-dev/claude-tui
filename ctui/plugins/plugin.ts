@@ -5,7 +5,7 @@ import type { FoldRowProps } from '../hooks/foldrow'
 import type { PressProps } from '../hooks/press'
 import type { GitSnapshot, McpRow, SkillRow, Task, Todo, Usage, Versions } from '../types'
 import type { Colors } from './colors'
-import type { SpinnerProps } from './todo/spinner'
+import type { SpinnerProps } from '../hooks/spinner'
 
 export type SidebarId = 'git' | 'context' | 'limits' | 'todo' | 'skills' | 'mcp' | 'agents' | 'versions'
 
@@ -24,7 +24,7 @@ export type SidebarData = {
 
 // The Sidebar's `Client`s, each under its `key`: a fold arrow or list toggle
 // (`press.tsx`), a section's title row (`foldrow.tsx`) and a working row's
-// sweep (`todo/spinner.tsx`). Each returns a Client placeholder (`clients.ts`)
+// sweep (`spinner.tsx`). Each returns a Client placeholder (`clients.ts`)
 // that the Sidebar's render hook in register.tsx draws as its `Client`, the only
 // place one is written (MEMORY.md "Sidebar plugins are pure; only
 // `register.tsx` touches `$`").

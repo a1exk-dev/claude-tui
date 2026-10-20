@@ -274,7 +274,7 @@ test('agent.spawn gives a row and a start toast; the list turning completed give
   // The row sweeps on its own surface clock, the Todo spinner's module under
   // this row's own key, so the Sidebar does not redraw for it.
   const sweep = await pane.find({ type: 'Client', key: 'spinner-a1' })
-  expect(sweep?.props.module).toBe('plugins/todo/spinner.tsx')
+  expect(sweep?.props.module).toBe('hooks/spinner.tsx')
   expect(sweep?.props.props).toEqual({
     frames: Array.from({ length: 8 }, (_, i) => String.fromCodePoint(0xf0a9e + i)),
     ms: 100,
