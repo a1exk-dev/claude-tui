@@ -56,3 +56,8 @@ test('the cost row shows per limits_cost and plan state, and only with a cost', 
   expect([showsCost(plan, 'on'), showsCost(api, 'off')]).toEqual([true, false])
   expect([showsCost(undefined, 'on'), showsCost({ ...api, cost: undefined }, 'on')]).toEqual([false, false])
 })
+
+test('an unset limits_cost leaves the cost row off', () => {
+  const api: Usage = { context: { window: 1 }, rateLimits: [], cost: { usd: 0 } }
+  expect(showsCost(api, undefined)).toBe(false)
+})
