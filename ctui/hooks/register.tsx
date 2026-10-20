@@ -1,7 +1,7 @@
 import type { EngineInterface, Register, RenderElement } from 'claude-code'
 
 import { plugins, sections } from '../plugins'
-import { clientMarks, markOf } from '../plugins/clients'
+import { clientPlaceholders, placeholderOf } from '../plugins/clients'
 import { colors } from '../plugins/colors'
 import type { SidebarUi } from '../plugins/plugin'
 import type { GitSnapshot, McpRow, Menu, SkillRow, Task, Todo, TodoItem, Turn, Usage } from '../types'
@@ -1236,18 +1236,18 @@ export const register: Register = (on, options) => {
     // The directory reads a `Client` only as an element of this hook's own
     // tree, from elements destructured by name, with a fixed `module` path.
     const { Box, Text, Button, Client } = $.ui.resolve(e)
-    const ui: SidebarUi = { Box, Text, Button, ...clientMarks }
-    // Each mark the Sidebar left turns into its Client here (MEMORY.md
+    const ui: SidebarUi = { Box, Text, Button, ...clientPlaceholders }
+    // Each Client placeholder the Sidebar left is drawn as its Client here (MEMORY.md
     // "Sidebar plugins are pure; only `register.tsx` touches `$`").
-    const place = (node: RenderElement): RenderElement => {
-      const mark = markOf(node)
-      if (mark?.client === 'press') return <Client key={mark.key} module="./press.tsx" props={mark.props} />
-      if (mark?.client === 'foldRow') {
-        return <Client key={mark.key} module="./foldrow.tsx" width={mark.width} flexGrow={1} props={mark.props} />
+    const drawClients = (node: RenderElement): RenderElement => {
+      const held = placeholderOf(node)
+      if (held?.client === 'press') return <Client key={held.key} module="./press.tsx" props={held.props} />
+      if (held?.client === 'foldRow') {
+        return <Client key={held.key} module="./foldrow.tsx" width={held.width} flexGrow={1} props={held.props} />
       }
-      if (mark?.client === 'sweep') return <Client key={mark.key} module="../plugins/todo/spinner.tsx" props={mark.props} />
+      if (held?.client === 'sweep') return <Client key={held.key} module="../plugins/todo/spinner.tsx" props={held.props} />
       if (!('children' in node) || !node.children) return node
-      const children = node.children.map((child) => (typeof child === 'string' ? child : place(child)))
+      const children = node.children.map((child) => (typeof child === 'string' ? child : drawClients(child)))
       return { ...node, children } as RenderElement
     }
     setDock($, e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1)
@@ -1311,7 +1311,7 @@ export const register: Register = (on, options) => {
       onControl: (control) => void toggle($, config, control),
     })
     maxScroll = drawn.maxScroll
-    return place(drawn.tree)
+    return drawClients(drawn.tree)
   })
 
   // A fold arrow's or a list toggle's click (`press.tsx`), or a title row's

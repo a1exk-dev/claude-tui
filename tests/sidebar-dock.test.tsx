@@ -253,6 +253,17 @@ test('a title row takes the section row less the arrow’s cell', async ($) => {
   expect((await pane.find({ key: 'foldrow-mcp' }))?.props).toMatchObject({ width: 37, flexGrow: 1 })
 })
 
+// The pure Sidebar leaves each Client placeholder nested inside its title row's Box;
+// the render hook draws each one there as its Client, under the placeholder's key and props.
+test('a Client placeholder nested in a title row draws as its Client in place', async ($) => {
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+  const [row] = (await pane.findAll({ type: 'Box' })).filter(({ children }) => JSON.stringify(children).includes('"foldrow-mcp"')).slice(-1)
+  expect(row?.children).toMatchObject([
+    { type: 'Client', props: { key: 'fold-mcp', module: 'hooks/press.tsx', props: { label: '▼', scope: 'foldrow-mcp' } } },
+    { type: 'Client', props: { key: 'foldrow-mcp', module: 'hooks/foldrow.tsx', width: 37, flexGrow: 1, props: { title: 'MCP', scope: 'foldrow-mcp' } } },
+  ])
+})
+
 test('while the Sidebar holds the focus, the first click on a title row folds', async ($) => {
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock', 30, true) })
   expect((await pane.find({ key: 'foldrow-todo' }))?.type).toBe('Client')

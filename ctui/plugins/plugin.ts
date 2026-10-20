@@ -24,8 +24,8 @@ export type SidebarData = {
 
 // The Sidebar's `Client`s, each under its `key`: a fold arrow or list toggle
 // (`press.tsx`), a section's title row (`foldrow.tsx`) and a working row's
-// sweep (`todo/spinner.tsx`). Each leaves a mark (`clients.ts`) that the
-// Sidebar's render hook in register.tsx turns into its `Client`, the only
+// sweep (`todo/spinner.tsx`). Each returns a Client placeholder (`clients.ts`)
+// that the Sidebar's render hook in register.tsx draws as its `Client`, the only
 // place one is written (MEMORY.md "Sidebar plugins are pure; only
 // `register.tsx` touches `$`").
 export type SidebarClients = {
