@@ -1,0 +1,158 @@
+<!doctype html>
+<!--
+  PROTOTYPE (#413), throwaway: candidate directory listing icons for ctui,
+  drawn from the Sidebar's own look (docs/design/sidebar.html palette,
+  ctui/plugins/marks.tsx circle marks, JetBrainsMono Nerd Font).
+
+  ?c=1 … 4 draws one candidate at 1024×1024. Export, from the repo root:
+
+    for c in 1 2 3 4; do
+      npx -y playwright@1.63.0 screenshot --viewport-size=1024,1024 \
+        "file://$PWD/prototypes/listing-icon/icons.html?c=$c" "prototypes/listing-icon/icon-$c.png"
+    done
+
+  compare.html then shows the four PNGs side by side at listing sizes.
+-->
+<meta charset="utf-8">
+<title>ctui icon candidates</title>
+<style>
+  :root {
+    --panel: #141414; --bg: #0a0a0a; --main: #eeeeee; --muted: #808080; --faint: #484848;
+    --green: #7fd88f; --orange: #f5a742; --purple: #9d7cd8; --red: #e06c75;
+  }
+  html, body { margin: 0; background: #000; }
+  body { font-family: 'JetBrainsMono Nerd Font', monospace; font-variant-ligatures: none; -webkit-font-smoothing: antialiased; }
+  .icon { width: 1024px; height: 1024px; background: var(--panel); position: relative; overflow: hidden; display: none; }
+  .icon.on { display: block; }
+  .center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .glyph { line-height: 1; display: inline-block; }
+
+  /* 2: tally rows */
+  .rows { position: absolute; left: 150px; right: 150px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 70px; }
+  .rows .r { display: flex; align-items: center; gap: 56px; height: 170px; }
+  .rows .g { font-size: 170px; width: 170px; text-align: center; line-height: 1; }
+  .rows .bar { height: 52px; border-radius: 26px; }
+
+  /* 3: dock */
+  .dock .transcript { position: absolute; left: 0; top: 0; bottom: 0; width: 470px; background: var(--bg); }
+  .dock .rule { position: absolute; left: 470px; top: 0; bottom: 0; width: 14px; background: var(--faint); }
+  .dock .tline { position: absolute; left: 90px; height: 40px; border-radius: 20px; background: var(--faint); }
+  .dock .side { position: absolute; left: 540px; right: 70px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: 64px; }
+  .dock .r { display: flex; align-items: center; gap: 34px; height: 120px; }
+  .dock .g { font-size: 120px; width: 120px; text-align: center; line-height: 1; }
+  .dock .bar { height: 36px; border-radius: 18px; background: var(--muted); }
+
+  /* 4: lead + name */
+  .lead { display: flex; align-items: center; gap: 40px; transform: translateX(-45px); }
+  .lead .g { font-size: 260px; line-height: 1; margin-right: 60px; }
+  .lead .t { font-size: 250px; font-weight: 700; color: var(--main); letter-spacing: -4px; line-height: 1; }
+
+  /* 5, 7: box-drawn pane; 9 inner columns, 6 rows of 140px at 0.6 advance */
+  .tui pre { margin: 0; position: absolute; line-height: 1; white-space: pre; }
+  .tui .frame { left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 140px; line-height: 150px; color: var(--faint); }
+  .tui .text { left: 50%; top: 50%; transform: translate(-50%, -48%); font-size: 96px; line-height: 128px; color: var(--main); }
+  .tui .m { color: var(--muted); } .tui .f { color: var(--faint); }
+  canvas { display: block; }
+</style>
+
+<!-- 1: the in-progress sweep frame (nf-md-circle_slice_6), warning -->
+<div class="icon" data-c="1">
+  <div class="center"><span class="glyph" style="font-size:720px;color:var(--orange);transform:translateX(-116px)">&#xf0aa3;</span></div>
+</div>
+
+<!-- 2: Todo's three states as rows: done, in progress, waiting -->
+<div class="icon" data-c="2">
+  <div class="rows">
+    <div class="r"><span class="g" style="color:var(--green)">&#xf0133;</span><span class="bar" style="width:420px;background:var(--muted)"></span></div>
+    <div class="r"><span class="g" style="color:var(--orange)">&#xf0aa3;</span><span class="bar" style="width:520px;background:var(--main)"></span></div>
+    <div class="r"><span class="g" style="color:var(--faint)">&#xf0130;</span><span class="bar" style="width:330px;background:var(--muted)"></span></div>
+  </div>
+</div>
+
+<!-- 3: the dock itself: transcript, rule, Sidebar rows -->
+<div class="icon dock" data-c="3">
+  <div class="transcript">
+    <div class="tline" style="top:300px;width:300px"></div>
+    <div class="tline" style="top:390px;width:230px"></div>
+    <div class="tline" style="top:480px;width:280px"></div>
+    <div class="tline" style="top:570px;width:180px"></div>
+    <div class="tline" style="top:660px;width:250px"></div>
+  </div>
+  <div class="rule"></div>
+  <div class="side">
+    <div class="r"><span class="g" style="color:var(--green)">&#xf0133;</span><span class="bar" style="width:200px"></span></div>
+    <div class="r"><span class="g" style="color:var(--orange)">&#xf0aa3;</span><span class="bar" style="width:240px;background:var(--main)"></span></div>
+    <div class="r"><span class="g" style="color:var(--faint)">&#xf0130;</span><span class="bar" style="width:170px"></span></div>
+  </div>
+</div>
+
+<!-- 4: a Sidebar row lead before the name: sweep, then ctui -->
+<div class="icon" data-c="4">
+  <div class="center"><div class="lead"><span class="g" style="color:var(--orange)">&#xf0aa3;</span><span class="t">ctui</span></div></div>
+</div>
+
+<!-- 5: Sweep, framed: a rounded box-drawn pane with its title in the border -->
+<div class="icon tui" data-c="5">
+  <pre class="frame">╭─ ctui ──╮
+│         │
+│         │
+│         │
+│         │
+╰─────────╯</pre>
+  <div class="center"><span class="glyph" style="font-size:430px;color:var(--orange);transform:translate(-68px,30px)">&#xf0aa3;</span></div>
+</div>
+
+<!-- 6: Sweep, in cells: the mark rasterised onto a terminal-cell grid -->
+<div class="icon" data-c="6"><canvas width="1024" height="1024" data-cells="sweep"></canvas></div>
+
+<!-- 7: Tally, as Sidebar text: Todo's title row and three rows, in a box-drawn pane -->
+<div class="icon tui" data-c="7">
+  <pre class="frame">╭─ ctui ──╮
+│         │
+│         │
+│         │
+│         │
+╰─────────╯</pre>
+  <pre class="text"><span class="m">▾</span> <b>Todo</b>   <span class="m">3</span>
+<span class="f">─────────</span>
+<span style="color:var(--green)">&#xf0133;</span>  <span class="m">done</span>
+<span style="color:var(--orange)">&#xf0aa3;</span>  work
+<span class="f">&#xf0130;</span>  <span class="m">next</span></pre>
+</div>
+
+<!-- 8: Tally, in cells: three marks and bars on a terminal-cell grid -->
+<div class="icon" data-c="8"><canvas width="1024" height="1024" data-cells="tally"></canvas></div>
+
+<script>
+  const c = new URLSearchParams(location.search).get('c') || '1'
+  document.querySelector(`.icon[data-c="${c}"]`).classList.add('on')
+
+  // Paint a grid of terminal cells: lit cells take a colour, the rest stay dim.
+  const cells = (cv, N, colour) => {
+    const g = cv.getContext('2d'); g.fillStyle = '#141414'; g.fillRect(0, 0, 1024, 1024)
+    const CELL = Math.floor(880 / N), GAP = Math.round(CELL * 0.12), off = (1024 - N * CELL + GAP) / 2
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      g.fillStyle = colour(x, y) || '#1b1b1b'
+      g.beginPath(); g.roundRect(off + x * CELL, off + y * CELL, CELL - GAP, CELL - GAP, CELL * 0.15); g.fill()
+    }
+  }
+  // 6: circle_slice_6 by geometry: an outer ring, a gap, a disc missing its top-left quarter.
+  cells(document.querySelector('[data-cells="sweep"]'), 19, (x, y) => {
+    const dx = x - 9, dy = y - 9, r = Math.hypot(dx, dy)
+    if (r >= 7.5 && r <= 9.4) return '#f5a742'
+    if (r <= 5.6 && !(dx < 0 && dy < 0)) return '#f5a742'
+  })
+  // 8: Todo's three states as 7×7 marks, each with a bar of cells.
+  const B = rows => rows.map(r => [...r])
+  const DONE = B(['..###..', '.#####.', '#.###.#', '##.#.##', '###.###', '.#####.', '..###..'])
+  const WORK = B(['..###..', '.#...#.', '#...#.#', '#..##.#', '#.###.#', '.#...#.', '..###..'])
+  const WAIT = B(['..###..', '.#...#.', '#.....#', '#.....#', '#.....#', '.#...#.', '..###..'])
+  const ROWS = [[DONE, '#7fd88f', '#808080', 10], [WORK, '#f5a742', '#eeeeee', 14], [WAIT, '#484848', '#808080', 8]]
+  cells(document.querySelector('[data-cells="tally"]'), 25, (x, y) => {
+    const i = Math.floor((y - 1) / 8), yy = (y - 1) % 8
+    if (y < 1 || i > 2 || yy > 6) return
+    const [mark, mc, bc, w] = ROWS[i]
+    if (x >= 1 && x <= 7) return mark[yy][x - 1] === '#' ? mc : undefined
+    if (yy >= 2 && yy <= 4 && x >= 10 && x < 10 + w) return yy === 3 ? bc : undefined
+  })
+</script>

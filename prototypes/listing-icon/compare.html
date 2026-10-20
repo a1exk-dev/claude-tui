@@ -1,0 +1,48 @@
+<!doctype html>
+<!-- PROTOTYPE (#413), throwaway: the Sweep and Tally candidates from icons.html side by side,
+     at a large size and at listing sizes, square and rounded, on a dark and a light page. -->
+<meta charset="utf-8">
+<title>ctui icon candidates, compared</title>
+<style>
+  body { margin: 0; font: 14px system-ui, sans-serif; }
+  .page { padding: 24px 32px; }
+  .dark { background: #1f1e1d; color: #eee; }
+  .light { background: #faf9f5; color: #222; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+  .grid > * { min-width: 0; }
+  .cand h3 { margin: 0 0 10px; font-size: 14px; }
+  .cand p { margin: 0 0 12px; opacity: .7; font-size: 13px; min-height: 3em; }
+  .big { width: 100%; max-width: 280px; display: block; margin-bottom: 14px; }
+  .sizes { display: flex; align-items: flex-end; gap: 14px; }
+  .sizes img { border-radius: 22%; }
+  .sizes img.sq { border-radius: 0; }
+  .card { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px; border-radius: 10px; }
+  .dark .card { background: #2b2a28; } .light .card { background: #fff; border: 1px solid #e5e3dc; }
+  .card img { width: 40px; height: 40px; border-radius: 9px; }
+  .card b { display: block; font-size: 14px; } .card span { font-size: 12px; opacity: .65; }
+</style>
+<body>
+<section class="page dark"><h2>Dark page</h2><div class="grid" id="dark"></div></section>
+<section class="page light"><h2>Light page</h2><div class="grid" id="light"></div></section>
+<script>
+  const C = [
+    [1, 'Sweep', 'The in-progress mark alone (circle_slice_6, warning orange), smooth.'],
+    [5, 'Sweep · framed', 'The mark inside a rounded box-drawn pane, "ctui" in the top border, all JetBrainsMono.'],
+    [6, 'Sweep · cells', 'The mark drawn on a 19×19 grid of terminal cells, unlit cells dim.'],
+    [2, 'Tally', 'Todo\'s three states as rows with text bars, smooth.'],
+    [7, 'Tally · text', 'The real Todo section as Sidebar text (title, rule, three rows) in a box-drawn pane.'],
+    [8, 'Tally · cells', 'The three marks and their bars on a 25×25 grid of terminal cells.'],
+  ]
+  for (const id of ['dark', 'light'])
+    document.getElementById(id).innerHTML = C.map(([n, t, d]) => `
+      <div class="cand"><h3>${n} · ${t}</h3><p>${d}</p>
+        <img class="big" src="icon-${n}.png">
+        <div class="sizes">
+          ${[128, 64, 48, 32].map(s => `<img src="icon-${n}.png" width="${s}" height="${s}">`).join('')}
+          <img class="sq" src="icon-${n}.png" width="48" height="48">
+        </div>
+        <div class="card"><img src="icon-${n}.png"><div><b>ctui</b><span>A docked sidebar for Claude Code</span></div></div>
+      </div>`).join('')
+</script>
+</body>
