@@ -30,16 +30,69 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release.ts
 
-  # The human publishes 1.0.0 to npm by hand (#381); this job takes over from the release after it.
+  # Publishes ctui/ to npm as @a1exk-dev/ctui through trusted publishing (OIDC): no token secret.
+  # It lives here, not in a workflow of its own, because npm trusts the workflow file a run started from.
+  # Re-run this job alone after a failure; a version npm already has is skipped.
   publish:
     needs: release
-    if: needs.release.outputs.version != '1.0.0'
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-    uses: ./.github/workflows/publish.yml
-    with:
-      tag: v${{ needs.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: v${{ needs.release.outputs.version }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          registry-url: https://registry.npmjs.org
+      - name: Skip a version npm already has
+        id: existing
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          if [ -n "$(npm view "@a1exk-dev/ctui@$VERSION" version 2>/dev/null)" ]; then
+            echo "@a1exk-dev/ctui@$VERSION is already on npm; skipping the publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+      # Trusted publishing needs npm 11.5.1 or later; an older npm would publish without OIDC.
+      - name: Install npm 11.5.1 or later
+        if: steps.existing.outputs.exists != 'true'
+        run: |
+          npm install --global npm@^11.5.1
+          current="$(npm --version)"
+          if ! printf '11.5.1\n%s\n' "$current" | sort --version-sort --check=quiet; then
+            echo "::error::npm $current is older than 11.5.1, which trusted publishing needs."
+            exit 1
+          fi
+      - name: Write the tag's version into ctui/package.json
+        if: steps.existing.outputs.exists != 'true'
+        working-directory: ctui
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: npm pkg set "version=$VERSION"
+      # Provenance and public access come from publishConfig in ctui/package.json.
+      - name: Publish ctui/
+        if: steps.existing.outputs.exists != 'true'
+        working-directory: ctui
+        run: npm publish
+      - name: Wait for npm to show the version
+        if: steps.existing.outputs.exists != 'true'
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          for try in $(seq 1 12); do
+            if [ -n "$(npm view "@a1exk-dev/ctui@$VERSION" version 2>/dev/null)" ]; then
+              echo "@a1exk-dev/ctui@$VERSION is on npm."
+              exit 0
+            fi
+            echo "Try $try of 12: @a1exk-dev/ctui@$VERSION is not on npm yet."
+            sleep 10
+          done
+          echo "::error::@a1exk-dev/ctui@$VERSION never showed on npm."
+          exit 1
 
   # Re-run this job alone after a failure: the tag and release already exist.
   back-merge:
