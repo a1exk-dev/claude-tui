@@ -1,0 +1,14 @@
+# ctui guards the engine calls Claude Code leaves bare
+
+Every `$` call ctui's hooks module makes is itself an event any installed mod can hook, so another mod can refuse it, and a refused call rejects. Claude Code's own typings write every fire-and-forget as a bare `void` with no handler, and its mods documentation calls a failed timer callback a debug-log line, with the timer running again at the next interval. ctui still guards every one: a call it doesn't await carries the fixed handler `.catch(() => undefined)`; a call it awaits before the hook answers carries an inline handler returning a substitute; a call awaited after ctui's own answer replaced the engine's discards the failure. `MEMORY.md` holds the rules as an agent applies them.
+
+The reason is ctui's own, not an engine hazard. `node scripts/check.ts` fails the whole test file on an unhandled rejection, so a bare `void` leaves its own failure path impossible to assert, and fails any test that merely reaches it. Nothing in Claude Code's docs or typings ties a rejection to an unload or to anything a person sees, and the test kit showed ctui's module surviving one (#455). Defending the handler as protection against the engine would rest it on a premise the docs contradict. A live measurement of a real session was declined: the policy is right whichever way it came out, and the engine's tolerance is recorded where it expires with the pinned version.
+
+The 2026-10-23 `/plugin-authoring` review accepted a risk on ctui's gating hooks and named two: the hook that keeps the docked Sidebar open and the one that keeps the focus ring off the `/ctui` menu's hidden hotkeys. Neither can fail, because both decide before any await: the Sidebar's close gate is a synchronous check of who asked for the close, and the hotkey gate's refusal is the first statement of its body, over a fixed list. The risk is closed on reachability, not on the engine's tolerance, and tests keep it closed. The gates that were at risk were two the review didn't name, Esc in a `/ctui` submenu and `/ctui` itself, which each read state before deciding; both now take an inline substitute.
+
+Two calls stay bare on purpose: the hotkey gate's state write and the Esc gate's save of a pending Plugins order. Both run after the hook has answered, so the answer already stands, and the person's next keystroke rewrites the state.
+
+## Considered Options
+
+- **Follow the typings literally**, leaving every fire-and-forget bare. Rejected: those failure paths could never be tested, and a test that touched one would fail.
+- **The registration-level `.catch`** on a hook's `on(...)`. Declined throughout: Claude Code scopes it to the nine events whose answer refuses, and shows it beside the inline guard as a backstop for a whole body, not as the remedy for an awaited read.

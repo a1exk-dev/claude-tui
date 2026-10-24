@@ -24,7 +24,7 @@ const THEME_ROW: ConfigRow = {
 const NAMES: Record<string, string> = { everforest: 'Everforest', 'tokyo-night': 'Tokyo Night', catppuccin: 'Catppuccin' }
 const OPTIONS = ['inherit', 'catppuccin', 'everforest', 'tokyo-night']
 
-type World = { rows?: ConfigRow[]; deny?: string; register?: string; toasts?: string[] }
+type World = { rows?: ConfigRow[]; list?: string; deny?: string; register?: string; toasts?: string[] }
 
 // The world beneath the plugin: files, `/config` rows (none under `claude -p`),
 // the writer, the command registry, toasts, and the panes opened and closed.
@@ -40,7 +40,7 @@ function host(on: On, world: World = {}) {
     if (slug) return { value: JSON.stringify({ name: NAMES[slug], base: 'dark', overrides: {} }) }
     return { value: JSON.stringify({ userConfig: { theme: { options: OPTIONS } } }) }
   })
-  on('config.list', () => ({ value: world.rows ?? [THEME_ROW] }))
+  on('config.list', () => (world.list === undefined ? { value: world.rows ?? [THEME_ROW] } : { deny: world.list }))
   on('config.set', (_, e) => {
     seen.sets.push({ key: e.key, value: e.value })
     return world.deny === undefined ? { value: e.value } : { deny: world.deny }
@@ -267,11 +267,17 @@ test('with the menu read refused, the person still can’t close the Sidebar', a
   expect(answer).toEqual({ deny: expect.any(String) })
 })
 
+const NO_MENU = { text: "Can't open the ctui menu. Change ctui settings in /config in an interactive session." }
+
 test('under claude -p /ctui prints the fixed line and opens nothing', async ($, on) => {
   const seen = host(on, { rows: [] })
-  expect(await run($)).toEqual({
-    text: "Can't change ctui settings in claude -p. Use /config in an interactive session.",
-  })
+  expect(await run($)).toEqual(NO_MENU)
+  expect(seen.opens).toEqual([])
+})
+
+test('with the settings list refused, /ctui prints the same line and opens nothing', async ($, on) => {
+  const seen = host(on, { list: 'another mod refused config.list' })
+  expect(await run($)).toEqual(NO_MENU)
   expect(seen.opens).toEqual([])
 })
 
@@ -283,6 +289,37 @@ test('a taken /ctui toasts once per session, and the Sidebar still draws', { opt
   await start($) // a settings reload runs session.start again
   await clock.settle()
   expect(toasts).toEqual(['/ctui is taken by the acme plugin; change ctui settings in /config'])
+  const sidebar = await $.ui.mount({
+    plugin: 'ctui',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'sidebar',
+    props: { title: 'Sidebar', isFocused: false, bodyColumns: 42, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} },
+  })
+  expect(await sidebar.find({ type: 'Client', key: 'foldrow-context' })).toBeDefined()
+})
+
+// Another mod refusing ctui's menu read costs only a pending Plugins order.
+test('a refused menu read at session start still starts the session, ticks and draws the Sidebar', async ($, on) => {
+  const clock = mock.clock(on)
+  host(on)
+  mock.env(on, {})
+  // What the boot reads beneath the plugin, so the hook runs to its end.
+  on('session.cwd', () => ({ value: '/srv/x' }))
+  on('session.version', () => ({ value: { version: '2.1.300' } }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  on('tool.list', () => ({ value: [] }))
+  on('fs.exists', () => ({ value: false }))
+  // Only the one-second tick lists the agents.
+  let ticks = 0
+  on('agent.list', () => {
+    ticks++
+    return { value: [] }
+  })
+  on('state.get', async ($, e, next) => (e.key === 'menu' ? { deny: 'refused by acme' } : next(e)))
+  expect(await start($)).toEqual({ cwd: '/srv/x' })
+  await clock.advance(2000)
+  expect(ticks).toBe(2)
   const sidebar = await $.ui.mount({
     plugin: 'ctui',
     surface: 'terminal',
