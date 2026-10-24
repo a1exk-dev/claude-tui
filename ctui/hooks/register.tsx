@@ -234,7 +234,7 @@ async function loadUsageAndMonth(
   choice: Config['limits']['cost'],
 ) {
   await loadUsage($)
-  if (now) void setNow($)
+  if (now) void setNow($).catch(() => undefined)
   if (monthCost) void refreshMonth($, choice).catch(() => undefined)
 }
 
@@ -918,27 +918,27 @@ export const register: Register = (on, options) => {
     // `tool.describe` answers are cached for the session: re-ask them, so the pin follows `todo_tools`.
     $.ui.invalidate('tool.describe')
     void refreshModel($).catch(() => undefined)
-    if (needs.has('todo')) void loadTodo($)
+    if (needs.has('todo')) void loadTodo($).catch(() => undefined)
     if (needs.has('skills')) void refillSkills($).catch(() => undefined)
-    if (needs.has('git')) void refreshGit($)
+    if (needs.has('git')) void refreshGit($).catch(() => undefined)
     if (needs.has('mcp')) void readMcpFiles($).catch(() => undefined)
-    if (needs.has('versions')) void loadVersions($, config.theme)
-    if (needs.has('usage')) void loadUsageAndMonth($, needs.has('now'), needs.has('monthCost'), config.limits.cost)
+    if (needs.has('versions')) void loadVersions($, config.theme).catch(() => undefined)
+    if (needs.has('usage')) void loadUsageAndMonth($, needs.has('now'), needs.has('monthCost'), config.limits.cost).catch(() => undefined)
     if (inherit) void refreshGlass($).catch(() => undefined)
     let ticks = 0
     tick?.cancel()
     tick = $.clock.every(1000, () => {
       ticks++
       void refreshModel($).catch(() => undefined)
-      if (ticks % 5 === 0 && needs.has('git')) void refreshGit($)
+      if (ticks % 5 === 0 && needs.has('git')) void refreshGit($).catch(() => undefined)
       if (needs.has('usage')) void refillUsageAndMonth($, needs.has('monthCost'), config.limits.cost).catch(() => undefined)
-      if (needs.has('versions')) void refillVersions($, config.theme)
-      if (needs.has('mcp')) void refreshMcp($)
-      if (needs.has('todo')) void refreshTodo($)
+      if (needs.has('versions')) void refillVersions($, config.theme).catch(() => undefined)
+      if (needs.has('mcp')) void refreshMcp($).catch(() => undefined)
+      if (needs.has('todo')) void refreshTodo($).catch(() => undefined)
       if (needs.has('skills')) void refillSkills($).catch(() => undefined)
-      if (needs.has('now')) void setNow($)
+      if (needs.has('now')) void setNow($).catch(() => undefined)
       if (inherit) void refreshGlass($).catch(() => undefined)
-      if (tracking) void refreshAgentsAndTasks($, needs.has('now'))
+      if (tracking) void refreshAgentsAndTasks($, needs.has('now')).catch(() => undefined)
     })
     return next(e)
   })
@@ -1008,16 +1008,16 @@ export const register: Register = (on, options) => {
     const server = needs.has('mcp') ? serverOfTool(e.tool) : undefined
     if (server) {
       mcpCalls = { ...mcpCalls, [server]: (mcpCalls[server] ?? 0) + 1 }
-      void writeMcpRows($)
+      void writeMcpRows($).catch(() => undefined)
     }
     try {
       return await next(e)
     } finally {
       if (server) {
         mcpCalls = { ...mcpCalls, [server]: Math.max((mcpCalls[server] ?? 1) - 1, 0) }
-        void writeMcpRows($)
+        void writeMcpRows($).catch(() => undefined)
       }
-      if (needs.has('git') && GIT_TOOLS.has(e.tool)) void refreshGit($)
+      if (needs.has('git') && GIT_TOOLS.has(e.tool)) void refreshGit($).catch(() => undefined)
     }
   })
 
@@ -1237,7 +1237,7 @@ export const register: Register = (on, options) => {
 
   // An open from the person's prompt counts as asked: it docks from 110 columns.
   on('prompt.submit', ($, e, next) => {
-    if (waiting && e.origin.kind === 'composer') void openSidebar($, requested ?? widthFor(DOCK_COLUMNS))
+    if (waiting && e.origin.kind === 'composer') void openSidebar($, requested ?? widthFor(DOCK_COLUMNS)).catch(() => undefined)
     return next(e)
   })
 
@@ -1252,7 +1252,7 @@ export const register: Register = (on, options) => {
     const ui: SidebarUi = { Box, Text, Button, ...clientPlaceholders }
     setDock($, e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1)
     if (e.props.placement === 'inline') {
-      $.clock.after(0, () => void $.ui.close({ id: SIDEBAR }))
+      $.clock.after(0, () => void $.ui.close({ id: SIDEBAR }).catch(() => undefined))
       return <Box />
     }
     waiting = false
@@ -1261,7 +1261,7 @@ export const register: Register = (on, options) => {
       const columns = widthFor(e.viewport.columns + e.props.bodyColumns + 1)
       if (columns !== requested) {
         requested = columns
-        $.clock.after(0, () => void openSidebar($, columns))
+        $.clock.after(0, () => void openSidebar($, columns).catch(() => undefined))
       }
     }
     const [folded, expanded, scroll, git, usage, month, now, mcp, todo, skills, versions, tasks, glass] = await Promise.all([
@@ -1308,7 +1308,7 @@ export const register: Register = (on, options) => {
       expanded: expanded.value ?? {},
       scroll: scroll.value ?? 0,
       focused: e.props.isFocused,
-      onControl: (control) => void toggle($, config, control),
+      onControl: (control) => void toggle($, config, control).catch(() => undefined),
     })
     maxScroll = drawn.maxScroll
     // Each Client placeholder the Sidebar left is built as its Client here, in
@@ -1433,7 +1433,7 @@ export const register: Register = (on, options) => {
     if (!turn && isFirstDraw && lastTurn && (await $.clock.now()) - lastTurn.at < FOOTER_MS) {
       turn = { ...lastTurn.turn, durationMs: e.props.durationMs }
       const alias = turn
-      $.clock.after(0, () => void addTurn($, alias))
+      $.clock.after(0, () => void addTurn($, alias).catch(() => undefined))
     }
     return next(turn ? { ...e, props: { ...e.props, word: turnWord(e.props.word, turn) } } : e)
   })
