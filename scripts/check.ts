@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FLOOR as floor } from '../ctui/hooks/floor.ts'
+import { MONTHLY_DEFAULT } from '../ctui/hooks/monthly.ts'
 import { ICON, png } from './icon.ts'
 import { claude, staged } from './stage.ts'
 import { outputs } from './themes.ts'
@@ -89,6 +90,12 @@ const themes = readdirSync('ctui/themes')
   .map((f) => f.replace(/\.json$/, ''))
   .sort()
 same('inherit plus the ctui/themes/*.json slugs A–Z and the theme options', ['inherit', ...themes].join(' '), manifest.userConfig.theme.options.join(' '))
+// The monthly cost default: the manifest declares it, and the settings reader and the Limits view read the constant.
+same(
+  'the limits_cost_monthly default in plugin.json and MONTHLY_DEFAULT in ctui/hooks/monthly.ts',
+  String(manifest.userConfig.limits_cost_monthly.default),
+  String(MONTHLY_DEFAULT),
+)
 
 // ctui/ holds only what ships: every tracked file is in ctui/package.json's `files` (npm adds package.json itself),
 // and every `files` entry names a tracked file. The directory scans the whole folder (#415).
