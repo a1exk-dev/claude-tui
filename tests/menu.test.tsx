@@ -24,7 +24,7 @@ const THEME_ROW: ConfigRow = {
 const NAMES: Record<string, string> = { everforest: 'Everforest', 'tokyo-night': 'Tokyo Night', catppuccin: 'Catppuccin' }
 const OPTIONS = ['inherit', 'catppuccin', 'everforest', 'tokyo-night']
 
-type World = { rows?: ConfigRow[]; deny?: string; register?: string; toasts?: string[] }
+type World = { rows?: ConfigRow[]; list?: string; deny?: string; register?: string; toasts?: string[] }
 
 // The world beneath the plugin: files, `/config` rows (none under `claude -p`),
 // the writer, the command registry, toasts, and the panes opened and closed.
@@ -40,7 +40,7 @@ function host(on: On, world: World = {}) {
     if (slug) return { value: JSON.stringify({ name: NAMES[slug], base: 'dark', overrides: {} }) }
     return { value: JSON.stringify({ userConfig: { theme: { options: OPTIONS } } }) }
   })
-  on('config.list', () => ({ value: world.rows ?? [THEME_ROW] }))
+  on('config.list', () => (world.list === undefined ? { value: world.rows ?? [THEME_ROW] } : { deny: world.list }))
   on('config.set', (_, e) => {
     seen.sets.push({ key: e.key, value: e.value })
     return world.deny === undefined ? { value: e.value } : { deny: world.deny }
@@ -243,11 +243,17 @@ test('the ring never lands on the hidden hotkeys', async ($, on) => {
   }
 })
 
+const NO_MENU = { text: "Can't open the ctui menu. Change ctui settings in /config in an interactive session." }
+
 test('under claude -p /ctui prints the fixed line and opens nothing', async ($, on) => {
   const seen = host(on, { rows: [] })
-  expect(await run($)).toEqual({
-    text: "Can't change ctui settings in claude -p. Use /config in an interactive session.",
-  })
+  expect(await run($)).toEqual(NO_MENU)
+  expect(seen.opens).toEqual([])
+})
+
+test('with the settings list refused, /ctui prints the same line and opens nothing', async ($, on) => {
+  const seen = host(on, { list: 'another mod refused config.list' })
+  expect(await run($)).toEqual(NO_MENU)
   expect(seen.opens).toEqual([])
 })
 

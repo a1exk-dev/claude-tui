@@ -226,6 +226,18 @@ async function refillUsageAndMonth($: EngineInterface, monthCost: boolean, choic
   if (monthCost) await refreshMonth($, choice)
 }
 
+// The session's first usage, then the `now` and month rows that read it, neither awaited.
+async function loadUsageAndMonth(
+  $: EngineInterface,
+  now: boolean,
+  monthCost: boolean,
+  choice: Config['limits']['cost'],
+) {
+  await loadUsage($)
+  if (now) void setNow($)
+  if (monthCost) void refreshMonth($, choice).catch(() => undefined)
+}
+
 // `now` moves when a reset time shown would read differently.
 async function setNow($: EngineInterface) {
   const usage = await $.state.get(USAGE)
@@ -647,6 +659,12 @@ async function tickTasks($: EngineInterface, timers: boolean) {
   if (timers && shown) await $.state.set(NOW, await $.clock.now())
 }
 
+// The tick's agent refresh, then its task share.
+async function refreshAgentsAndTasks($: EngineInterface, timers: boolean) {
+  await refreshAgents($)
+  await tickTasks($, timers)
+}
+
 function onNotification($: EngineInterface, text: string) {
   const note = parseTaskNotification(text)
   if (note) return updateTasks($, (tasks, now) => applyNotification(tasks, note, now))
@@ -684,7 +702,10 @@ async function themesOf($: EngineInterface) {
 
 // `claude -p` and the SDK list no `ctui.theme` row, and `$.config.set` throws there.
 async function hasConfig($: EngineInterface) {
-  return (await $.config.list()).some((row) => row.key === 'ctui.theme')
+  // A refused list reads as no settings: the person loses the menu for this
+  // `/ctui` and gets the fixed line that sends them to `/config`, not silence.
+  const rows = await $.config.list().catch(() => [])
+  return rows.some((row) => row.key === 'ctui.theme')
 }
 
 // MEMORY.md "`/ctui` is one instant menu; it survives each settings reload".
@@ -907,12 +928,7 @@ export const register: Register = (on, options) => {
     if (needs.has('git')) void refreshGit($)
     if (needs.has('mcp')) void readMcpFiles($).catch(() => undefined)
     if (needs.has('versions')) void loadVersions($, config.theme)
-    if (needs.has('usage')) {
-      void loadUsage($).then(() => {
-        if (needs.has('now')) void setNow($)
-        if (needs.has('monthCost')) void refreshMonth($, config.limits.cost).catch(() => undefined)
-      })
-    }
+    if (needs.has('usage')) void loadUsageAndMonth($, needs.has('now'), needs.has('monthCost'), config.limits.cost)
     if (inherit) void refreshGlass($).catch(() => undefined)
     let ticks = 0
     tick?.cancel()
@@ -927,7 +943,7 @@ export const register: Register = (on, options) => {
       if (needs.has('skills')) void refillSkills($).catch(() => undefined)
       if (needs.has('now')) void setNow($)
       if (inherit) void refreshGlass($).catch(() => undefined)
-      if (tracking) void refreshAgents($).then(() => tickTasks($, needs.has('now')))
+      if (tracking) void refreshAgentsAndTasks($, needs.has('now'))
     })
     return next(e)
   })
