@@ -59,7 +59,7 @@ export function themeRows(themes: readonly ThemeName[], filter: string): ThemeNa
   return [{ slug: 'inherit', name: 'inherit' }, ...named].filter(({ name }) => name.toLowerCase().includes(needle))
 }
 
-export const NO_CONFIG = "Can't change ctui settings in claude -p. Use /config in an interactive session."
+export const NO_CONFIG = "Can't open the ctui menu. Change ctui settings in /config in an interactive session."
 
 // The toast for a `{ deny }` from `$.config.set`.
 export function deniedText(set: Setting, deny: string) {
