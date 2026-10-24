@@ -424,6 +424,34 @@ test('docked, a deny from ctui’s own call passes through unchanged', async ($,
   expect(world.tasks).toEqual([])
 })
 
+// Another mod refusing the activeForm write costs only that label: the tool
+// still ran once, as ctui's own call, and its answer stands.
+const refuseForms = (on: On) => () =>
+  on('state.set', ($, e, next) => (e.key === 'activeForms' ? { deny: 'refused by acme' } : next(e)))
+
+test('docked, a refused activeForm write still runs TaskCreate once and answers its result', async ($, on) => {
+  const { clock, world } = await taskWorld($, on, refuseForms(on))
+  const { pane, rows } = await sidebarOf($)
+  expect(await $.tool.call(CREATE)).toEqual({ result: { task: { id: '1', subject: 'alpha' } } })
+  expect(world.callers).toEqual(['ctui'])
+  await clock.settle()
+  await pane.redraw()
+  expect(await rows()).toEqual(['󰄰  alpha'])
+})
+
+test('docked, a refused activeForm write still runs TaskUpdate once and answers its result', async ($, on) => {
+  const { clock, world } = await taskWorld($, on, refuseForms(on))
+  const { pane, rows } = await sidebarOf($)
+  await $.tool.call(CREATE)
+  expect(await $.tool.call({ ...UPDATE, activeForm: 'Doing alpha' })).toEqual({
+    result: { success: true, taskId: '1', updatedFields: ['status'] },
+  })
+  expect(world.callers).toEqual(['ctui', 'ctui'])
+  await clock.settle()
+  await pane.redraw()
+  expect(await rows()).toEqual(['  alpha'])
+})
+
 test('after the Sidebar was docked and now waits unplaced, a task call goes on to core', async ($, on) => {
   const { clock, world } = await taskWorld($, on, () => {
     on('ui.render', { component: 'SessionMode' }, ($, e) => {
