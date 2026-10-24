@@ -1383,7 +1383,7 @@ export const register: Register = (on, options) => {
   )
 
   on('ui.render', { component: 'UserMessage' }, ($, e, next) =>
-    isOwnPrompt(e.props.origin) ? userMessage($.ui.resolve(e), e.props.text, dockGap()) : next(e),
+    isOwnPrompt(e.props.origin) ? userMessage($.ui.resolve(e), e.props.text, dockGap(), e.viewport?.columns) : next(e),
   )
 
   // Each call of a group draws as its own `ToolUse` row.
