@@ -119,14 +119,17 @@ const footerOf = async (pane: Pane) => (await pane.findAll({ type: 'Box', text: 
 // `deny`, when given), the ring moves (each with the opens made before it) and
 // a clock that runs every timer at once, soonest first; `inHook` gets the
 // writes made before any timer ran. The test kit raises no `ui.close` for Esc
-// and doesn't report the mod's own ring moves.
+// and doesn't report the mod's own ring moves. The hook is the one on the pane
+// `e` names, the menu's or the Sidebar's. With `refuse`, every state read
+// rejects with it, as a read another mod refused does.
 type MenuState = Menu
 type Focus = { requestId: string; key: string; opensBefore: number }
-type Recorders = { opens?: PaneOpenArgs[]; sets?: unknown[]; focuses?: Focus[]; inHook?: unknown[]; deny?: string }
-async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input' | 'ui.focus', e: unknown, next: () => unknown, state: { menu?: MenuState }, { opens = [], sets = [], focuses = [], inHook = [], deny }: Recorders = {}) {
+type Recorders = { opens?: PaneOpenArgs[]; sets?: unknown[]; focuses?: Focus[]; inHook?: unknown[]; deny?: string; refuse?: string }
+async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input' | 'ui.focus', e: unknown, next: () => unknown, state: { menu?: MenuState }, { opens = [], sets = [], focuses = [], inHook = [], deny, refuse }: Recorders = {}) {
+  const { id, requestId } = e as { id?: string; requestId?: string }
   let hook: ((...args: unknown[]) => unknown) | undefined
   const record = (name: string, matcher: { id?: string; requestId?: string }, run: (...args: unknown[]) => unknown) => {
-    if (name === event && (matcher.id ?? matcher.requestId) === 'ctui') hook = run
+    if (name === event && (matcher.id ?? matcher.requestId) === (id ?? requestId)) hook = run
   }
   register(record as unknown as On, {})
   let now = 0
@@ -134,7 +137,10 @@ async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input' | 'ui.focus'
   const $ = {
     clock: { after: (ms: number, run: () => Promise<unknown>) => void timers.push({ at: now + ms, run }), now: async () => now, sleep: async () => undefined },
     state: {
-      get: async () => ({ value: state.menu }),
+      get: async () => {
+        if (refuse !== undefined) throw new Error(refuse)
+        return { value: state.menu }
+      },
       set: async (_: unknown, value: MenuState) => void (state.menu = value),
     },
     ui: {
@@ -241,6 +247,24 @@ test('the ring never lands on the hidden hotkeys', async ($, on) => {
   for (const element of ['menu-toggle', 'menu-up', 'menu-down']) {
     expect(await $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element, origin: { kind: 'person' } })).toEqual({ deny: expect.any(String) })
   }
+})
+
+// The ring gate and the Sidebar's close gate decide before any read, so
+// a refused read changes neither.
+test('with the menu read refused, the ring still never lands on the hidden hotkeys', async ($, on) => {
+  let refused = false
+  on('state.get', (_, e, next) => (refused && e.key === 'menu' ? { deny: 'refused by another mod' } : next(e)))
+  host(on)
+  await openPlugins($)
+  refused = true
+  for (const element of ['menu-toggle', 'menu-up', 'menu-down']) {
+    expect(await $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element, origin: { kind: 'person' } })).toEqual({ deny: expect.any(String) })
+  }
+})
+
+test('with the menu read refused, the person still can’t close the Sidebar', async () => {
+  const answer = await callHook('ui.close', { id: 'sidebar', origin: { kind: 'person' } }, () => 'closed', {}, { refuse: 'refused by another mod' })
+  expect(answer).toEqual({ deny: expect.any(String) })
 })
 
 test('under claude -p /ctui prints the fixed line and opens nothing', async ($, on) => {
@@ -409,6 +433,16 @@ for (const level of ['themes', 'plugins'] as const) {
     expect(await esc(state, { opens })).toBe('closed')
   })
 }
+
+// The menu's level can't be read, so Esc can't step back: the menu closes
+// rather than leave the person in a pane whose keys no longer work.
+test('with the menu read refused, Esc in a submenu closes the menu', async () => {
+  const state: { menu?: MenuState } = { menu: { level: 'plugins', filter: '', picks: { top: 'plugins' } } }
+  const closes: string[] = []
+  const answer = await callHook('ui.close', { id: 'ctui', origin: { kind: 'person' } }, () => void closes.push('ctui'), state, { refuse: 'refused by another mod' }).catch(() => undefined)
+  expect(closes).toEqual(['ctui'])
+  expect(answer).not.toEqual({ deny: expect.any(String) })
+})
 
 // The Plugins screen (#176).
 
