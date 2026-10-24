@@ -1037,7 +1037,7 @@ export const register: Register = (on, options) => {
     const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
       await keepActiveForm($, done.result.task.id, e.activeForm)
-      void loadTodo($)
+      void loadTodo($).catch(() => undefined)
     }
     return done
   })
@@ -1046,7 +1046,7 @@ export const register: Register = (on, options) => {
     const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
       await keepActiveForm($, e.taskId, e.activeForm)
-      void loadTodo($)
+      void loadTodo($).catch(() => undefined)
     }
     return done
   })
