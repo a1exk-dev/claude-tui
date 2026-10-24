@@ -2,7 +2,7 @@ import type { On, SessionMeasureInput, SessionUsage } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 import { readConfig, type SectionConfig } from '../hooks/config'
-import { MONTHLY_DEFAULT } from '../hooks/monthly'
+import { MONTHLY_DEFAULT } from '../hooks/monthly-default'
 import { colors } from '../plugins/colors'
 import context from '../plugins/context'
 import limits from '../plugins/limits'

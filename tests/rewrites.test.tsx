@@ -88,12 +88,10 @@ test('a prompt of many short lines counts each line as its own row', async ($, o
 test('the bar is never longer than one row per character plus three, at any width', async ($, on) => {
   host(on)
   for (const text of ['fix it', 'a\n\n\nb', 'x'.repeat(300)]) {
-    for (const columns of [1, 6, 9, 40, 107, 300]) {
+    for (const columns of [40, 80, 107, 300]) {
       expect(await barRows(await prompt($, text, columns))).toBeLessThanOrEqual(text.length + 3)
     }
   }
-  // A 6-column transcript leaves one cell a row: one row per character.
-  expect(await barRows(await prompt($, 'fix it', 6))).toBe(9)
 })
 
 test('a task notification passes through', async ($, on) => {

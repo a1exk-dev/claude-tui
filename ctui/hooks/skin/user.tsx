@@ -9,19 +9,22 @@ export const isOwnPrompt = (origin: PromptOrigin) => OWN.has(origin.kind)
 // and trailing newlines removed.
 const promptText = (text: string) => text.replace(/<\/?pasted_content\b[^>]*>/g, '').replace(/^\n+|\n+$/g, '')
 
-// The panel's chrome: the row's left padding, the bar column and the body's
-// horizontal padding (#450).
+// The panel's chrome in cells: the row's left padding of 1, which the bar
+// fills, and the body's horizontal padding of 2 on each side (#450).
 const CHROME = 5
 
+// Wide characters and long unbreakable words can leave as little as a quarter
+// of a row used, so each line wraps at most once per quarter of the inner
+// width (#450).
+const FILL = 4
+
 // The bar's length in rows: at least as tall as any wrap of the text can make
-// the row, and never more than one row per character plus three. Wide
-// characters and long unbreakable words can leave as little as a quarter of a
-// row used, so each line wraps at most once per quarter of the inner width
-// (#450). With no `columns`, one row per character plus three.
+// the row, and never more than one row per character plus three, which is the
+// length with no `columns`.
 function barLength(shown: string, right: number, columns?: number) {
   const most = shown.length + 3
   if (columns === undefined) return most
-  const cells = Math.max(1, Math.floor(Math.max(1, columns - CHROME - right) / 4))
+  const cells = Math.max(1, Math.floor(Math.max(1, columns - CHROME - right) / FILL))
   const rows = shown.split('\n').reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / cells)), 3)
   return Math.min(rows, most)
 }

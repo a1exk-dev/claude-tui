@@ -1,7 +1,7 @@
 import { bar, formatDollars, formatPercent, formatReset, formatUsd, level } from '../../hooks/format'
 import type { CostChoice } from '../../hooks/config'
 import { showsCost } from '../../hooks/month'
-import { MONTHLY_DEFAULT } from '../../hooks/monthly'
+import { MONTHLY_DEFAULT } from '../../hooks/monthly-default'
 import type { Usage } from '../../types'
 import type { SidebarData, SidebarPlugin } from '../plugin'
 

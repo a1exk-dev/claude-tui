@@ -2,7 +2,7 @@ import type { PluginOptions } from 'claude-code'
 
 import { plugins, sections } from '../plugins'
 import type { SidebarId } from '../plugins/plugin'
-import { MONTHLY_DEFAULT } from './monthly'
+import { MONTHLY_DEFAULT } from './monthly-default'
 
 // One Sidebar plugin's settings: `<id>_enable`, for a foldable one
 // `<id>_folded`, for `todo` `todo_tools`, and for `limits` `limits_cost` and
