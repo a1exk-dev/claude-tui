@@ -1040,7 +1040,9 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: 'TaskCreate' }, async ($, e, next) => {
     const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
-      await keepActiveForm($, done.result.task.id, e.activeForm)
+      // Once ctui's own call has replaced `next`, nothing later may throw: the
+      // engine would run the tool again. A refusal costs the row its activeForm.
+      await keepActiveForm($, done.result.task.id, e.activeForm).catch(() => undefined)
       void loadTodo($).catch(() => undefined)
     }
     return done
@@ -1049,7 +1051,9 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: 'TaskUpdate' }, async ($, e, next) => {
     const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
-      await keepActiveForm($, e.taskId, e.activeForm)
+      // Once ctui's own call has replaced `next`, nothing later may throw: the
+      // engine would run the tool again. A refusal costs the row its activeForm.
+      await keepActiveForm($, e.taskId, e.activeForm).catch(() => undefined)
       void loadTodo($).catch(() => undefined)
     }
     return done
