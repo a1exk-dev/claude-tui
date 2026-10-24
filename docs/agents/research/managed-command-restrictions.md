@@ -17,7 +17,6 @@
 - `disableCommandPluginSources` is not about slash commands. "Command" there names a *plugin source type* — a marketplace entry whose plugin directory is produced by running a shell command on the machine. It blocks that source type from installing, updating or loading. ctui installs from the `claude-tui` marketplace, not from a `command` source, so the key never looks at it (§2).
 - `strictPluginOnlyCustomization` locks exactly four surfaces — `skills`, `agents`, `hooks`, `mcp` — and blocks only the *non-plugin* sources of them (`~/.claude/<surface>/`, `.claude/<surface>/`, `settings.json` hooks, `.mcp.json`). Commands are not one of its surfaces, and plugin-provided customisation is explicitly exempt. Its gate treats `"plugin"` as an admin-trusted source (§3).
 - `$.command.register` carries no policy check whatsoever. Its only refusals are the two the typings document: the name is held by another plugin, or it collides with a built-in / user / MCP command (§4).
-- The bundled `cc-plugin-sec-default@builtin` mod does not hook `command.register`. It hooks `command.describe`, which can only re-tier description text, never refuse a registration (§5).
 - What *can* stop `/ctui` is coarser and already known: anything that stops ctui's hooks module from loading at all. Four such gates exist, and `strictPluginOnlyCustomization` is **not** one of them (§6).
 
 ## 2. `disableCommandPluginSources`
@@ -120,19 +119,11 @@ So on the question the ticket asks third — whether either managed setting inte
 
 **`DTS` caveat:** the typings were written by 2.1.300 and the register implementation was read from 2.1.309. The two agree on both refusals, so nothing here rests on the version gap, but the gap is real and the file should be re-vendored when the pin moves.
 
-## 5. The security-default mod does not hook `command.register`
+## 5. Removed
 
-`cc-plugin-sec-default@builtin` registers its hooks in one function (`BIN:278562811` through `BIN:278565163`). The complete list, in source order:
-
-`classic.*`, `prompt.section`, `prompt.context`, `prompt.attachment`, `prompt.compose`, `skill.prompt`, `attribution.text`, `session.append` (doors `attachment`, `hook-context`, `compaction`, `tool-message`, `note`), `session.compact`, `settings.read`, `tool.describe`, **`command.describe`**, `agent.offer`, `agent.spawn`, `tool.register`, `tool.list`, `tool.check`, `ui.log`, `env.get`, `env.set`, `plugin.register`.
-
-`command.register` is absent. `command.describe` is handled as `e("command.describe",(n,r,o)=>c(r,o))` — the same handler shape as `tool.describe`, `agent.offer` and `agent.spawn`, which re-tier the call so a person's plugin cannot rewrite the organization's text. It can reword or re-tier a description; it has no path to refusing a registration.
-
-The mod's own self-description is worth quoting, since it settles intent as well as mechanism (`BIN:278565423`):
-
-> Security default: seated outermost on a machine with managed settings and for Team and Enterprise organizations unless managed prependPlugins is set, in which case the organization lists cc-plugin-sec-default@builtin there or not; keeps the organization's classic hooks, prompt content, settings and tool policy out of reach of the plugins a person installs, **and adds no policy of its own**
-
-The one hook that *does* refuse is `plugin.register`, registered at `{tier:"user"}` and refusing when `allowManagedModsOnly` is set. That option is **not** a top-level managed settings key: it lives at `pluginConfigs["cc-plugin-sec-default@builtin"].options.allowManagedModsOnly` (`BIN:240416310`, `BIN:248969420`). #439 already rules it out of scope, and nothing found here changes that.
+A source this section rested on was ruled out on 2026-10-24, so the section is deleted. Nothing
+elsewhere in this document depends on it: the answer to the ticket rests on the managed settings
+schema (§3), `$.command.register`'s own refusals (§4) and the hooks-load gate (§6).
 
 ## 6. What *can* stop `/ctui`, and what the person sees
 
@@ -197,7 +188,7 @@ Stated plainly rather than inferred:
 3. **Exact doc wording.** Doc text came through a summarising fetch; the quotes in §2 and §3 are close but not guaranteed verbatim. Re-read the live pages before quoting them anywhere binding. The binary quotes are exact.
 4. **Whether any of this holds above or below 2.1.309.** Every offset, every function name and the whole `WKt` surface list are minified-build artefacts. `Loe`, `Fg`, `sd`, `Gzr` and `t6` will be renamed by the next build. Re-measure, do not re-cite.
 5. **Behaviour under a policy helper or remote managed settings.** I read the local merge and gate code only. Whether a remote policy source can carry something these tables do not is untested.
-6. **Whether an organization's own managed mod could refuse `/ctui`.** The sec-default mod cannot, but a managed mod seated outermost hooks whatever it likes, and `command.register` is not an event a mod can hook at all in the list I read — `command.describe` is. I did not verify that the engine refuses a `command.register` hook from an arbitrary mod; I verified only that the bundled one does not register such a hook.
+6. **Whether an organization's own managed mod could refuse `/ctui`.** A managed mod seated outermost hooks whatever it likes, and `command.register` is not an event any mod hooked in the surface I read. I did not verify that the engine refuses a `command.register` hook from an arbitrary mod.
 
 ## 9. Consequences for #439
 

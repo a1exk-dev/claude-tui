@@ -44,8 +44,7 @@
 |---|---|
 | Mod = plugin with `.claude-plugin/plugin.json` + `hooks/hooks.json` (`{"modules":["./register.js"]}`) + an ES-module hooks file exporting `register(on, options)` (.js/.mjs/.cjs/.jsx/.ts/.mts/.cts/.tsx) | [CC:plugins/mods/reference](https://code.claude.com/docs/en/plugins/mods/reference.md) L15-27; overview L121-134 |
 | Handlers are middleware: `on(event, matcher?, async ($, e, next) => …)`; they can observe, rewrite (`next({...e, props})`) or answer (return a tree, skip `next`) | reference L29-42; overview L174-182 |
-| Introduced: 2.1.287, on by default; built-in mods include `/diff`, agents-md, telemetry, sec-default, you-should-know | changelog 2.1.287; overview L95-113, L220-235 |
-| Built-in mod sources are public: `anthropics/claude-code/mods/{diff,agents-md,sec-default,telemetry,types}` | `gh api repos/anthropics/claude-code/contents/mods` (listed: agents-md, diff, sec-default, telemetry, types); overview L237-244 |
+| Introduced: 2.1.287, on by default; built-in mods include `/diff`, agents-md, telemetry, you-should-know | changelog 2.1.287; overview L95-113, L220-235 |
 | Samples: `anthropics/claude-code-playground/claude-code/mods/{token-weather,blast-radius,replay-theater}` | overview L50-62; verified via `gh api` |
 | Dev loop: `claude --plugin-dir ./my-mod` reloads the hooks module on save; `/reload-plugins`; `claude plugin validate` lists hooks and calls; `claude plugin test` | reference L278-288 |
 | Claude can write a mod for you into `~/.claude/dev-mods/<session-id>/`, with per-session hot reload | [CC:plugins/mods/create](https://code.claude.com/docs/en/plugins/mods/create.md) L28-55 |
