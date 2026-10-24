@@ -1,4 +1,4 @@
-import type { On, RenderComponent, RenderPropsOf } from 'claude-code'
+import type { On, RenderComponent, RenderPropsOf, RenderViewport } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 // Scenario: the transcript rewrites through `$.ui.mount`, with this test's own
@@ -18,8 +18,18 @@ function host(on: On) {
   return seen
 }
 
-const mount = <C extends RenderComponent>($: Engine, component: C, props: RenderPropsOf[C]) =>
-  $.ui.mount({ plugin: 'ctui', surface: 'terminal', component, props })
+const mount = <C extends RenderComponent>($: Engine, component: C, props: RenderPropsOf[C], viewport?: RenderViewport) =>
+  $.ui.mount({ plugin: 'ctui', surface: 'terminal', component, props, ...(viewport && { viewport }) })
+
+// The person's prompt at a transcript `columns` wide, or with no viewport.
+const prompt = ($: Engine, text: string, columns?: number) =>
+  mount($, 'UserMessage', { text, origin: { kind: 'composer' }, isExpanded: false }, columns === undefined ? undefined : { columns, rows: 40, isFullscreen: true })
+
+// The bar's length in rows.
+async function barRows(row: Awaited<ReturnType<typeof prompt>>) {
+  const [bar] = await row.findAll({ type: 'Text', text: /^┃/ })
+  return bar?.text.split('\n').length
+}
 
 const TOOL: RenderPropsOf['ToolUse'] = {
   tool_use_id: 'toolu_1',
@@ -51,6 +61,37 @@ test("the person's prompt draws the ┃ bar and panel, tags and edge newlines re
   expect(await row.find({ type: 'Text', text: /^fix it log line$/ })).toBeDefined()
   const [, , panel] = await row.findAll({ type: 'Box' })
   expect(panel?.props).toMatchObject({ backgroundColor: 'userMessageBackground', paddingX: 2, paddingY: 1 })
+})
+
+// A 107-column transcript leaves the panel 102 cells inside its chrome; a
+// quarter of that is 25 cells a row, so 20,000 characters wrap to at most 800 rows.
+test("a long prompt's bar is bounded by its wrapped rows, not its characters", async ($, on) => {
+  host(on)
+  const row = await prompt($, 'x'.repeat(20_000), 107)
+  expect(await barRows(row)).toBe(803)
+  const [, , panel] = await row.findAll({ type: 'Box' })
+  expect(panel?.props).toMatchObject({ backgroundColor: 'userMessageBackground', paddingX: 2, paddingY: 1 })
+})
+
+test('with no viewport, the bar is one row per character plus three, as before', async ($, on) => {
+  host(on)
+  expect(await barRows(await prompt($, 'x'.repeat(20_000)))).toBe(20_003)
+  expect(await barRows(await prompt($, 'fix it'))).toBe(9)
+})
+
+test('a prompt of many short lines counts each line as its own row', async ($, on) => {
+  host(on)
+  // 50 lines of 30 characters: 2 rows each at 25 cells a row.
+  expect(await barRows(await prompt($, Array.from({ length: 50 }, () => 'y'.repeat(30)).join('\n'), 107))).toBe(103)
+})
+
+test('the bar is never longer than one row per character plus three, at any width', async ($, on) => {
+  host(on)
+  for (const text of ['fix it', 'a\n\n\nb', 'x'.repeat(300)]) {
+    for (const columns of [40, 80, 107, 300]) {
+      expect(await barRows(await prompt($, text, columns))).toBeLessThanOrEqual(text.length + 3)
+    }
+  }
 })
 
 test('a task notification passes through', async ($, on) => {
@@ -124,6 +165,15 @@ test('while the Sidebar is docked, the rows ctui draws end 2 columns before its 
   expect(await prompt.drawn()).toMatchObject({ type: 'Box', props: { paddingLeft: 1, paddingRight: 2 } })
   const tool = await mount($, 'ToolUse', TOOL)
   expect(await tool.drawn()).toMatchObject({ type: 'Box', props: { paddingLeft: 2, paddingRight: 2 } })
+})
+
+// Docked, 106 columns less the chrome and the 2-column gap leave 99 cells:
+// 24 a row, so 20,000 characters wrap to at most 834 rows.
+test("while docked, the prompt's bar is bounded against the panel's narrower width", async ($, on) => {
+  mock.clock(on)
+  host(on)
+  await dock($)
+  expect(await barRows(await prompt($, 'x'.repeat(20_000), 106))).toBe(837)
 })
 
 test('with no Sidebar docked, the rows keep the full width', async ($, on) => {

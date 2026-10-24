@@ -1,6 +1,7 @@
 import { bar, formatDollars, formatPercent, formatReset, formatUsd, level } from '../../hooks/format'
 import type { CostChoice } from '../../hooks/config'
 import { showsCost } from '../../hooks/month'
+import { MONTHLY_DEFAULT } from '../../hooks/monthly-default'
 import type { Usage } from '../../types'
 import type { SidebarData, SidebarPlugin } from '../plugin'
 
@@ -56,7 +57,8 @@ const plugin: SidebarPlugin = {
       ]
     }
     const usd = cost(data, cfg.cost)
-    const limit = cfg.monthly ?? 100
+    // Unreachable: readConfig always sets the limit.
+    const limit = cfg.monthly ?? MONTHLY_DEFAULT
     const costRows =
       usd === undefined
         ? []

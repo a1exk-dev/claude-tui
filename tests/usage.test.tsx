@@ -2,6 +2,7 @@ import type { On, SessionMeasureInput, SessionUsage } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 import { readConfig, type SectionConfig } from '../hooks/config'
+import { MONTHLY_DEFAULT } from '../hooks/monthly-default'
 import { colors } from '../plugins/colors'
 import context from '../plugins/context'
 import limits from '../plugins/limits'
@@ -262,12 +263,12 @@ test('folded summaries', () => {
 })
 
 test('readConfig reads limits_cost as auto, on or off, and the limit as a number', () => {
-  expect(readConfig({}).limits).toMatchObject({ cost: 'off', monthly: 100 })
+  expect(readConfig({}).limits).toMatchObject({ cost: 'off', monthly: MONTHLY_DEFAULT })
   expect(readConfig({ limits_cost: 'auto' }).limits.cost).toBe('auto')
   expect(readConfig({ limits_cost: 'on', limits_cost_monthly: 0 }).limits).toMatchObject({ cost: 'on', monthly: 0 })
   expect(readConfig({ limits_cost: 'off', limits_cost_monthly: 250 }).limits).toMatchObject({ cost: 'off', monthly: 250 })
   // A hand-edited empty limit reads as the default.
-  expect(readConfig({ limits_cost_monthly: '' }).limits.monthly).toBe(100)
+  expect(readConfig({ limits_cost_monthly: '' }).limits.monthly).toBe(MONTHLY_DEFAULT)
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.
