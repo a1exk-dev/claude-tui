@@ -1671,7 +1671,7 @@ export const register: Register = (on, options) => {
     // closes the menu: what a skipped hook did, now ctui's stated choice. The
     // person loses the step back to the screen above; refusing instead would
     // trap them in a pane whose state can't be read, and whose reopen would
-    // fail too. The save below stays bare: the close has already answered.
+    // fail too.
     const menu = await menuOf($).catch(() => MENU_START)
     const up = PARENT[menu.level]
     if (e.origin.kind !== 'person' || !up) {
