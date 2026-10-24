@@ -2,6 +2,7 @@ import type { On, SessionMeasureInput, SessionUsage } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 import { readConfig, type SectionConfig } from '../hooks/config'
+import { MONTHLY_DEFAULT } from '../hooks/monthly-default'
 import { colors } from '../plugins/colors'
 import context from '../plugins/context'
 import limits from '../plugins/limits'
@@ -262,14 +263,18 @@ test('folded summaries', () => {
 })
 
 test('readConfig reads limits_cost as auto, on or off, and the limit as a number', () => {
-  expect(readConfig({}).limits).toMatchObject({ cost: 'auto', monthly: 100 })
+  expect(readConfig({}).limits).toMatchObject({ cost: 'off', monthly: MONTHLY_DEFAULT })
+  expect(readConfig({ limits_cost: 'auto' }).limits.cost).toBe('auto')
   expect(readConfig({ limits_cost: 'on', limits_cost_monthly: 0 }).limits).toMatchObject({ cost: 'on', monthly: 0 })
   expect(readConfig({ limits_cost: 'off', limits_cost_monthly: 250 }).limits).toMatchObject({ cost: 'off', monthly: 250 })
   // A hand-edited empty limit reads as the default.
-  expect(readConfig({ limits_cost_monthly: '' }).limits.monthly).toBe(100)
+  expect(readConfig({ limits_cost_monthly: '' }).limits.monthly).toBe(MONTHLY_DEFAULT)
 })
 
 // Scenario: the Sidebar through register.tsx's hooks.
+
+// The cost row is opt-in: these scenarios turn it on as `auto`.
+const COST_AUTO = { options: { limits_cost: 'auto' } } as const
 
 const SIDEBAR = {
   plugin: 'ctui',
@@ -297,6 +302,8 @@ type World = {
   session?: string
   grepFails?: boolean
   listed?: Promise<void>
+  // Each folder under `projects` the month total listed.
+  lists?: string[]
 }
 
 // Answers `$.session.usage()` and the other loaders beneath the plugin, and
@@ -312,6 +319,7 @@ function host(on: On, usage: SessionUsage, world: World = { transcripts: {}, gre
   on('env.get', (_, e) => ({ value: e.name === 'CLAUDE_CONFIG_DIR' ? undefined : '/home/a' }))
   on('fs.list', async (_, e) => {
     await world.listed
+    if (e.path.startsWith(projects)) (world.lists ??= []).push(e.path)
     const entry = (name: string, kind: 'file' | 'dir', mtimeMs = 0, size = 0) => ({ name, kind, mtimeMs, size, isLink: false })
     if (e.path === projects) {
       const dirs = new Set(Object.keys(transcripts).map((path) => path.split('/')[0] ?? ''))
@@ -358,7 +366,7 @@ function host(on: On, usage: SessionUsage, world: World = { transcripts: {}, gre
   })
 }
 
-test('session.measure moves the context and limits rows', async ($, on) => {
+test('session.measure moves the context and limits rows', COST_AUTO, async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
   host(on, { startedAt: NOW, ...FRESH })
   on('session.measure', ($, e) => ({ changed: e.changed }))
@@ -493,7 +501,7 @@ async function start($: Engine, on: On, world: World, usage: SessionUsage = LIVE
 
 const costLine = async (pane: Pane) => (await pane.find({ type: 'Text', text: /^ +[\d.]+\$( of 100\$)?$/ }))?.text.trim()
 
-test('the cost row adds every session ended this month to the live cost, the current one once', async ($, on) => {
+test('the cost row adds every session ended this month to the live cost, the current one once', COST_AUTO, async ($, on) => {
   const world: World = { transcripts: transcripts(), greps: [] }
   const { pane } = await start($, on, world)
   // 3 + 2.25 + 0 ended, plus 0.5 live.
@@ -505,7 +513,7 @@ test('the cost row adds every session ended this month to the live cost, the cur
   expect(world.store?.['cost:2026-10:current']).toBeUndefined()
 })
 
-test('every 60 s it rescans, reading only the transcripts that changed', async ($, on) => {
+test('every 60 s it rescans, reading only the transcripts that changed', COST_AUTO, async ($, on) => {
   const world: World = { transcripts: transcripts(), greps: [] }
   const { clock, pane } = await start($, on, world)
   world.transcripts['p2/b.jsonl'] = { mtimeMs: OCTOBER + 1, lines: [cost('b', 2.25), cost('b', 4)] }
@@ -520,7 +528,7 @@ test('every 60 s it rescans, reading only the transcripts that changed', async (
   expect(world.greps).toHaveLength(2)
 })
 
-test('cached totals outlive the transcript sweep; earlier months go from the store', async ($, on) => {
+test('cached totals outlive the transcript sweep; earlier months go from the store', COST_AUTO, async ($, on) => {
   const store = {
     'cost:2026-10:swept': { usd: 10, mtimeMs: OCTOBER, size: 1 },
     'cost:2026-09:old': { usd: 50, mtimeMs: SEPTEMBER, size: 1 },
@@ -530,7 +538,7 @@ test('cached totals outlive the transcript sweep; earlier months go from the sto
   expect(Object.keys(store)).toEqual(['cost:2026-10:swept'])
 })
 
-test('a failed scan shows the cached totals plus the live cost, and the next scan retries', async ($, on) => {
+test('a failed scan shows the cached totals plus the live cost, and the next scan retries', COST_AUTO, async ($, on) => {
   const store = { 'cost:2026-10:swept': { usd: 10, mtimeMs: OCTOBER, size: 1 } }
   const world: World = { transcripts: transcripts(), greps: [], store, grepFails: true }
   const { clock, pane } = await start($, on, world)
@@ -541,7 +549,7 @@ test('a failed scan shows the cached totals plus the live cost, and the next sca
   expect(await costLine(pane)).toBe('15.75$ of 100$')
 })
 
-test('the month rolls over at local midnight on the 1st', async ($, on) => {
+test('the month rolls over at local midnight on the 1st', COST_AUTO, async ($, on) => {
   const evening = new Date(2026, 9, 31, 23, 59, 30).getTime()
   const world: World = { transcripts: { 'p/a.jsonl': { mtimeMs: evening - 60_000, lines: [cost('a', 5)] } }, greps: [] }
   const { clock, pane } = await start($, on, world, LIVE, evening)
@@ -552,7 +560,7 @@ test('the month rolls over at local midnight on the 1st', async ($, on) => {
   expect(world.store).toEqual({})
 })
 
-test('the cost row waits for the first scan', async ($, on) => {
+test('the cost row waits for the first scan', COST_AUTO, async ($, on) => {
   let list = () => {}
   const world: World = { transcripts: transcripts(), greps: [], listed: new Promise((resolve) => (list = resolve)) }
   const { clock, pane } = await start($, on, world)
@@ -564,20 +572,23 @@ test('the cost row waits for the first scan', async ($, on) => {
 })
 
 for (const [name, usage, options] of [
-  ['on a plan with Limits cost auto', { ...LIVE, ...MEASURED }, {}],
+  ['on a fresh install, with Limits cost unset', LIVE, {}],
+  ['on a plan with Limits cost auto', { ...LIVE, ...MEASURED }, { limits_cost: 'auto' }],
   ['with Limits cost off', LIVE, { limits_cost: 'off' }],
 ] as const) {
   test(`nothing scans ${name}`, { options }, async ($, on) => {
     const world: World = { transcripts: transcripts(), greps: [] }
-    const { clock } = await start($, on, world, usage)
+    const { clock, pane } = await start($, on, world, usage)
     await clock.advance(120_000)
+    expect(world.lists).toBeUndefined()
     expect(world.greps).toEqual([])
     expect(world.store).toEqual({})
+    expect(await pane.find({ text: /^cost/ })).toBeUndefined()
   })
 }
 
 // `/clear` writes the old session's line, gives a new id and empties `$.state`.
-test('after /clear the old session counts by its line and the new one by its live cost', async ($, on) => {
+test('after /clear the old session counts by its line and the new one by its live cost', COST_AUTO, async ($, on) => {
   const usage = { ...LIVE }
   const world: World = { transcripts: transcripts(), greps: [] }
   const cleared = new Set<string>()
@@ -603,7 +614,7 @@ test('after /clear the old session counts by its line and the new one by its liv
 // `clear-swaps-id-and-cost`), so the total reads as it did before `/clear` once
 // the old session's own line holds the cost it had live — counted by its line,
 // never twice.
-test('the total after /clear reads as before it, the old session counted once', async ($, on) => {
+test('the total after /clear reads as before it, the old session counted once', COST_AUTO, async ($, on) => {
   const usage = { ...LIVE }
   const world: World = { transcripts: transcripts(), greps: [] }
   const cleared = new Set<string>()
@@ -628,7 +639,7 @@ test('the total after /clear reads as before it, the old session counted once', 
 })
 
 // `/resume` switches to an ended session and restores its cost as the live one.
-test('after /resume the resumed session counts by its live cost, not its line too', async ($, on) => {
+test('after /resume the resumed session counts by its live cost, not its line too', COST_AUTO, async ($, on) => {
   const usage = { ...LIVE }
   const world: World = { transcripts: transcripts(), greps: [] }
   on('session.measure', ($, e) => ({ changed: e.changed }))

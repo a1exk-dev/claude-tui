@@ -164,6 +164,7 @@ function host(on: On, world: { agents: AgentInfo[]; toasts: string[]; files?: st
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/srv/x' }))
   on('session.version', () => ({ value: { version: '2.1.300' } }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('session.usage', () => ({
     value: { startedAt: 0, context: { window: 200000 }, rateLimits: [], cost: { usd: 0 } },
   }))
@@ -271,10 +272,10 @@ test('agent.spawn gives a row and a start toast; the list turning completed give
   const { pane, rows } = await sidebarOf($)
   expect(await rows()).toEqual(['  list work dir'])
   expect(world.toasts).toEqual(['◆ Explore started: list work dir'])
-  // The row sweeps on its own surface clock, the Todo spinner's module under
+  // The row sweeps on its own surface clock, the sweep module `hooks/spinner.tsx` under
   // this row's own key, so the Sidebar does not redraw for it.
   const sweep = await pane.find({ type: 'Client', key: 'spinner-a1' })
-  expect(sweep?.props.module).toBe('plugins/todo/spinner.tsx')
+  expect(sweep?.props.module).toBe('hooks/spinner.tsx')
   expect(sweep?.props.props).toEqual({
     frames: Array.from({ length: 8 }, (_, i) => String.fromCodePoint(0xf0a9e + i)),
     ms: 100,

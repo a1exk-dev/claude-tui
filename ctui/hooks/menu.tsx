@@ -25,14 +25,15 @@ export const KEYS = {
   down: 'menu-down',
 } as const
 // A row's key, and what a key names: a Plugins row's plugin, a top row's
-// screen, a Theme row's slug.
+// screen, a Theme row's slug. Keys join with `+`, not a template: the directory
+// reads a substituted template as a command assembled at run time.
 const named = (prefix: string, key: string | undefined) => (key?.startsWith(prefix) ? key.slice(prefix.length) : undefined)
-export const rowKey = (id: string) => `plugin-${id}`
+export const rowKey = (id: string) => 'plugin-' + id
 export const rowId = (key: string | undefined) => named('plugin-', key)
 export type TopPick = 'plugins' | 'themes'
-export const topKey = (level: TopPick) => `row-${level}`
+export const topKey = (level: TopPick) => 'row-' + level
 export const topPick = (key: string) => named('row-', key) as TopPick | undefined
-export const themeKey = (slug: string) => `theme-${slug}`
+export const themeKey = (slug: string) => 'theme-' + slug
 export const themeSlug = (key: string) => named('theme-', key)
 // The Plugins screen's hidden hotkeys: the ring never lands on them.
 export const HOTKEYS: readonly string[] = [KEYS.toggle, KEYS.up, KEYS.down]
@@ -58,7 +59,7 @@ export function themeRows(themes: readonly ThemeName[], filter: string): ThemeNa
   return [{ slug: 'inherit', name: 'inherit' }, ...named].filter(({ name }) => name.toLowerCase().includes(needle))
 }
 
-export const NO_CONFIG = "Can't change ctui settings in claude -p. Use /config in an interactive session."
+export const NO_CONFIG = "Can't open the ctui menu. Change ctui settings in /config in an interactive session."
 
 // The toast for a `{ deny }` from `$.config.set`.
 export function deniedText(set: Setting, deny: string) {
@@ -94,7 +95,7 @@ export const isMonthlyKey = (key: string) => key.startsWith(`${KEYS.monthly}-`)
 // A plugin screen's setting row, `setting-<option>`: its label and value,
 // and what Enter writes.
 export type SettingRow = { option: string; label: string; value: string; next: string | boolean }
-export const settingKey = (option: string) => `setting-${option}`
+export const settingKey = (option: string) => 'setting-' + option
 
 const STEP = { auto: 'on', on: 'off', off: 'auto' } as const
 

@@ -108,7 +108,7 @@ declare module 'claude-code' {
       turns: Turn[] // every finished turn of the session: old footers redraw on scroll
       glass?: string | null // under `inherit`, the active custom /theme's glass; null or unset paints nothing
       menu?: Menu // the open `/ctui` menu: it outlives each settings reload
-      menuTaken?: boolean // this session toasted that `/ctui` is taken
+      menuRefused?: boolean // this session toasted that `/ctui` couldn't register
       floorToasted?: boolean // this session toasted an engine below the support floor
     }
   }

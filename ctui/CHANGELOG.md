@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.0.3 (2026-10-24)
+
+### Features
+
+- make the cost row's transcript scan opt-in
+
+### Bug Fixes
+
+- bound the prompt panel's bar by wrapped rows, not characters
+- name the monthly cost default once and tie the manifest to it
+- run a task tool once when its activeForm write is refused
+- hold an un-awaited call to end in its handler
+- drop the comment on the Esc gate's bare save
+- toast every refused /ctui registration and test the refusals nothing repairs
+- give the task hooks' todo reload the fixed handler, and check every un-awaited call
+- make the /ctui menu's gates decide before any refusable read
+- keep session start going when its menu read is refused
+- give every un-awaited engine call outside the task hooks the fixed handler
+- answer /ctui with a line when ctui's settings can't be read
+- read an unset cost choice as off in showsCost
+- build the sweep Client on an exhaustive branch
+- build every Sidebar Client in the render hook's own body
+- save a waiting order on /ctui, and not on /clear or /resume
+- write each setting in its own hook, on that hook's $
+- write each Client in the render hook's own tree
+- build menu row keys without a template substitution
+
+### Documentation
+
+- record when a release ships with an upstream-blocked directory finding
+- record ctui's three rules for a refused engine call
+- remove a forbidden research source from the repo
+- record that a rejected timer callback is a debug-log line
+- read what the engine prescribes for a failed engine call
+- record that the test kit fails a file on an unhandled rejection
+- record that managed policy stops the whole mod or nothing
+- retitle the Limits cost entry and name the one list of reads
+- match the per-hook list to the hooks and read each fact once
+- add the directory policy's README sections and a per-hook list
+
+### Miscellaneous Chores
+
+- read each README once
+
+### Code Refactoring
+
+- name the bar's wrap factor and rename the monthly default module
+- name the /ctui toast's state for any refused registration
+- lift the boot usage load and the tick's agent refresh into single-call helpers
+- name the Client stand-in a Client placeholder
+
+### Tests
+
+- refuse only the gate's menu read, and hold Esc's close answer
+- leave the unset cost comment to readConfig
+
 ## 1.0.2 (2026-10-20)
 
 ### Features

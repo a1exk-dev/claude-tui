@@ -55,6 +55,7 @@ export const monthTotal = (cached: Readonly<Record<string, Cached>>, current: st
 // alone isn't one.
 const onPlan = (usage: Usage) => usage.rateLimits.some(({ kind }) => kind === 'five_hour' || kind === 'seven_day')
 
-// Whether the cost row shows: `auto` hides it on a plan, and it needs a cost.
-export const showsCost = (usage: Usage | undefined, choice: CostChoice = 'auto') =>
+// Whether the cost row shows: unset is off, `auto` hides it on a plan, and it
+// needs a cost.
+export const showsCost = (usage: Usage | undefined, choice: CostChoice | undefined) =>
   Boolean(usage?.cost && (choice === 'on' || (choice === 'auto' && !onPlan(usage))))

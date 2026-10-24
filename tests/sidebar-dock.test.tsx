@@ -21,9 +21,10 @@ const paneProps = (placement: 'dock' | 'inline', bodyRows = 30, isFocused = fals
   view: {},
 })
 
-// Records the opens beneath the plugin; `panes` is what `$.ui.panes()` answers.
+// Records the opens beneath the plugin; `panes` is what `$.ui.panes()` answers,
+// and an open `refused` columns wide is another mod's deny.
 // Also draws the SessionMode site beneath ctui's observing hook.
-function recordOpens(on: On, isPlaced = true, panes: string[] = []) {
+function recordOpens(on: On, isPlaced = true, panes: string[] = [], refused?: number) {
   on('ui.render', { component: 'SessionMode' }, ($, e) => {
     const { Box } = $.ui.resolve(e)
     return <Box />
@@ -31,6 +32,7 @@ function recordOpens(on: On, isPlaced = true, panes: string[] = []) {
   const opens: PaneOpenArgs[] = []
   on('ui.open', ($, e) => {
     opens.push(e)
+    if (e.columns === refused) return { deny: 'refused by acme' }
     return { value: isPlaced ? { isPlaced: true } : { isPlaced: false, reason: 'below 144 columns' } }
   })
   on('ui.panes', () => ({
@@ -154,6 +156,43 @@ test('seated inline, the Sidebar draws nothing and closes', async ($, on) => {
   expect(closes).toEqual([{ id: 'sidebar', origin: { kind: 'plugin' } }])
 })
 
+test('a close another mod refuses on the inline placement changes nothing and toasts nothing', async ($, on) => {
+  const clock = mock.clock(on)
+  const toasts: string[] = []
+  on('ui.toast', (_, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
+  let refused = 0
+  on('ui.close', () => {
+    refused++
+    return { deny: 'refused by acme' }
+  })
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('inline') })
+  await clock.settle()
+  expect(refused).toBe(1)
+  const drawn = await pane.drawn()
+  expect(drawn).toMatchObject({ type: 'Box' })
+  expect('children' in drawn).toBe(false)
+  expect(toasts).toEqual([])
+})
+
+// Nothing asks the width again: the render hook records the width it asked
+// for before the open, so each later draw sees no change to make.
+test('a resize another mod refuses leaves the dock at its old width for the session', async ($, on) => {
+  const clock = mock.clock(on)
+  const opens = recordOpens(on, true, [], 53)
+  await sessionMode($, { columns: 150, rows: 40, isFullscreen: true })
+  await clock.settle()
+  // Widened to 170 columns, the dock still 42: three draws of it.
+  for (let draw = 0; draw < 3; draw++) {
+    const pane = await $.ui.mount({ ...PANE, props: paneProps('dock'), viewport: { columns: 127, rows: 40, isFullscreen: true } })
+    await clock.settle()
+    await pane.unmount()
+  }
+  expect(opens.map((open) => open.columns)).toEqual([42, 53])
+})
+
 // The kit has no driver for `ui.close`: the person's close mark is hand-written,
 // straight to the plugin's hook.
 test('the person can’t close the Sidebar; a plugin close passes', async () => {
@@ -251,6 +290,17 @@ test('a title row takes the section row less the arrow’s cell', async ($) => {
   const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
   // 42 columns less 4 of padding and the arrow's cell.
   expect((await pane.find({ key: 'foldrow-mcp' }))?.props).toMatchObject({ width: 37, flexGrow: 1 })
+})
+
+// The pure Sidebar leaves each Client placeholder nested inside its title row's Box;
+// the render hook draws each one there as its Client, under the placeholder's key and props.
+test('a Client placeholder nested in a title row draws as its Client in place', async ($) => {
+  const pane = await $.ui.mount({ ...PANE, props: paneProps('dock') })
+  const [row] = (await pane.findAll({ type: 'Box' })).filter(({ children }) => JSON.stringify(children).includes('"foldrow-mcp"')).slice(-1)
+  expect(row?.children).toMatchObject([
+    { type: 'Client', props: { key: 'fold-mcp', module: 'hooks/press.tsx', props: { label: '▼', scope: 'foldrow-mcp' } } },
+    { type: 'Client', props: { key: 'foldrow-mcp', module: 'hooks/foldrow.tsx', width: 37, flexGrow: 1, props: { title: 'MCP', scope: 'foldrow-mcp' } } },
+  ])
 })
 
 test('while the Sidebar holds the focus, the first click on a title row folds', async ($) => {
