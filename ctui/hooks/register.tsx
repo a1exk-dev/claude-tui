@@ -74,7 +74,7 @@ const widthFor = (terminalColumns: number) => (terminalColumns >= 160 ? 53 : 42)
 // The `/ctui` menu's pane, its model, and whether this session already toasted a taken or refused `/ctui`.
 const MENU_PANE = 'ctui'
 const MENU = { plugin: 'ctui', key: 'menu' } as const
-const MENU_TAKEN = { plugin: 'ctui', key: 'menuTaken' } as const
+const MENU_REFUSED = { plugin: 'ctui', key: 'menuRefused' } as const
 
 // Whether this session already toasted an engine below the support floor.
 const FLOOR_TOASTED = { plugin: 'ctui', key: 'floorToasted' } as const
@@ -717,13 +717,13 @@ async function registerMenu($: EngineInterface) {
     // Taken, or refused by another mod, the session has no `/ctui` until a
     // settings reload registers it again: one toast sends the person to `/config`.
     const refusal = error instanceof Error ? error.message : String(error)
-    if ((await $.state.get(MENU_TAKEN)).value) return
-    await $.state.set(MENU_TAKEN, true)
+    if ((await $.state.get(MENU_REFUSED)).value) return
+    await $.state.set(MENU_REFUSED, true)
     // A taken name reads `"/ctui" refused: …`, naming who holds it.
     const text = refusal.includes('"/ctui" refused')
       ? `/ctui is taken by ${takenBy(refusal)}; change ctui settings in /config`
       : "Can't register /ctui; change ctui settings in /config"
-    showToast($, { id: 'menu-taken', end: true, text }, true)
+    showToast($, { id: 'menu-refused', end: true, text }, true)
   }
 }
 
