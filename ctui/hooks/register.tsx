@@ -1041,7 +1041,7 @@ export const register: Register = (on, options) => {
     const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
       await keepActiveForm($, done.result.task.id, e.activeForm)
-      void loadTodo($)
+      void loadTodo($).catch(() => undefined)
     }
     return done
   })
@@ -1050,7 +1050,7 @@ export const register: Register = (on, options) => {
     const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
       await keepActiveForm($, e.taskId, e.activeForm)
-      void loadTodo($)
+      void loadTodo($).catch(() => undefined)
     }
     return done
   })
@@ -1667,7 +1667,12 @@ export const register: Register = (on, options) => {
   // landing then saves an order still waiting (`ui.focus`). At the top it
   // closes, saving that order here.
   on('ui.close', { id: MENU_PANE }, async ($, e, next) => {
-    const menu = await menuOf($)
+    // A refused read reads as the start, whose level has no parent, so Esc
+    // closes the menu: what a skipped hook did, now ctui's stated choice. The
+    // person loses the step back to the screen above; refusing instead would
+    // trap them in a pane whose state can't be read, and whose reopen would
+    // fail too. The save below stays bare: the close has already answered.
+    const menu = await menuOf($).catch(() => MENU_START)
     const up = PARENT[menu.level]
     if (e.origin.kind !== 'person' || !up) {
       const result = await next(e)
