@@ -120,8 +120,8 @@ const footerOf = async (pane: Pane) => (await pane.findAll({ type: 'Box', text: 
 // a clock that runs every timer at once, soonest first; `inHook` gets the
 // writes made before any timer ran. The test kit raises no `ui.close` for Esc
 // and doesn't report the mod's own ring moves. The hook is the one on the pane
-// `e` names, the menu's or the Sidebar's. With `refuse`, every state read
-// rejects with it, as a read another mod refused does.
+// `e` names, the menu's or the Sidebar's. With `refuse`, the first menu read,
+// the one a gate decides on, rejects with it, as a read another mod refused does.
 type MenuState = Menu
 type Focus = { requestId: string; key: string; opensBefore: number }
 type Recorders = { opens?: PaneOpenArgs[]; sets?: unknown[]; focuses?: Focus[]; inHook?: unknown[]; deny?: string; refuse?: string }
@@ -133,12 +133,16 @@ async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input' | 'ui.focus'
   }
   register(record as unknown as On, {})
   let now = 0
+  let refused = false
   const timers: { at: number; run: () => Promise<unknown> }[] = []
   const $ = {
     clock: { after: (ms: number, run: () => Promise<unknown>) => void timers.push({ at: now + ms, run }), now: async () => now, sleep: async () => undefined },
     state: {
-      get: async () => {
-        if (refuse !== undefined) throw new Error(refuse)
+      get: async ({ key }: { key: string }) => {
+        if (refuse !== undefined && key === 'menu' && !refused) {
+          refused = true
+          throw new Error(refuse)
+        }
         return { value: state.menu }
       },
       set: async (_: unknown, value: MenuState) => void (state.menu = value),
@@ -489,9 +493,9 @@ for (const level of ['themes', 'plugins'] as const) {
 test('with the menu read refused, Esc in a submenu closes the menu', async () => {
   const state: { menu?: MenuState } = { menu: { level: 'plugins', filter: '', picks: { top: 'plugins' } } }
   const closes: string[] = []
-  const answer = await callHook('ui.close', { id: 'ctui', origin: { kind: 'person' } }, () => void closes.push('ctui'), state, { refuse: 'refused by another mod' }).catch(() => undefined)
+  const close = () => (closes.push('ctui'), 'closed')
+  expect(await callHook('ui.close', { id: 'ctui', origin: { kind: 'person' } }, close, state, { refuse: 'refused by another mod' })).toBe('closed')
   expect(closes).toEqual(['ctui'])
-  expect(answer).not.toEqual({ deny: expect.any(String) })
 })
 
 // The Plugins screen (#176).
