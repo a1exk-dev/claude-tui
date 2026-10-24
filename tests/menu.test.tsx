@@ -269,6 +269,37 @@ test('a taken /ctui toasts once per session, and the Sidebar still draws', { opt
   expect(await sidebar.find({ type: 'Client', key: 'foldrow-context' })).toBeDefined()
 })
 
+// Another mod refusing ctui's menu read costs only a pending Plugins order.
+test('a refused menu read at session start still starts the session, ticks and draws the Sidebar', async ($, on) => {
+  const clock = mock.clock(on)
+  host(on)
+  mock.env(on, {})
+  // What the boot reads beneath the plugin, so the hook runs to its end.
+  on('session.cwd', () => ({ value: '/srv/x' }))
+  on('session.version', () => ({ value: { version: '2.1.300' } }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  on('tool.list', () => ({ value: [] }))
+  on('fs.exists', () => ({ value: false }))
+  // Only the one-second tick lists the agents.
+  let ticks = 0
+  on('agent.list', () => {
+    ticks++
+    return { value: [] }
+  })
+  on('state.get', async ($, e, next) => (e.key === 'menu' ? { deny: 'refused by acme' } : next(e)))
+  expect(await start($)).toEqual({ cwd: '/srv/x' })
+  await clock.advance(2000)
+  expect(ticks).toBe(2)
+  const sidebar = await $.ui.mount({
+    plugin: 'ctui',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'sidebar',
+    props: { title: 'Sidebar', isFocused: false, bodyColumns: 42, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} },
+  })
+  expect(await sidebar.find({ type: 'Client', key: 'foldrow-context' })).toBeDefined()
+})
+
 test('who holds /ctui, from the engine’s refusal', () => {
   expect(takenBy('"/ctui" refused: the plugin acme registered it already')).toBe('the acme plugin')
   expect(takenBy('"/ctui" refused: it is the user\'s /ctui')).toBe('your own /ctui')

@@ -893,8 +893,10 @@ export const register: Register = (on, options) => {
     void checkFloor($).catch(() => undefined)
     void registerMenu($).catch(() => undefined)
     // A written order stops waiting; one a reload from elsewhere (`/config`)
-    // left still waits for the menu's next write, Esc or close.
-    const { pending, ...menu } = await menuOf($)
+    // left still waits for the menu's next write, Esc or close. A refused read
+    // reads as an empty menu, so the session still starts and ticks: a moved
+    // order never saved stays waiting, as that reload already leaves it.
+    const { pending, ...menu } = await menuOf($).catch(() => MENU_START)
     if (pending?.join(',') === config.order.join(',')) await setMenu($, menu)
     await setTodoEnv($, config.todo.tools)
     // `tool.describe` answers are cached for the session: re-ask them, so the pin follows `todo_tools`.
