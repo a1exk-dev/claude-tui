@@ -2,6 +2,7 @@ import type { PluginOptions } from 'claude-code'
 
 import { plugins, sections } from '../plugins'
 import type { SidebarId } from '../plugins/plugin'
+import { MONTHLY_DEFAULT } from './monthly-default'
 
 // One Sidebar plugin's settings: `<id>_enable`, for a foldable one
 // `<id>_folded`, for `todo` `todo_tools`, and for `limits` `limits_cost` and
@@ -68,9 +69,10 @@ export function readConfig(options: PluginOptions): Config {
     agents: { ...sections.agents, toasts: options.agents_toasts !== false },
     limits: {
       ...sections.limits,
-      cost: options.limits_cost === 'on' || options.limits_cost === 'off' ? options.limits_cost : 'auto',
+      // Unset, the cost row is off: showing it reads this month's transcripts.
+      cost: options.limits_cost === 'on' || options.limits_cost === 'auto' ? options.limits_cost : 'off',
       // A non-number limit, possible only by hand-editing settings.json, reads as the default.
-      monthly: typeof options.limits_cost_monthly === 'number' ? options.limits_cost_monthly : 100,
+      monthly: typeof options.limits_cost_monthly === 'number' ? options.limits_cost_monthly : MONTHLY_DEFAULT,
     },
     todo: { ...sections.todo, tools: options.todo_tools !== false },
     theme: typeof options.theme === 'string' ? options.theme : 'inherit',

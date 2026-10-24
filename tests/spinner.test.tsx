@@ -1,9 +1,9 @@
 import type { ClientSurface } from 'claude-code'
 import { expect, test } from 'claude-code/testing'
 
-import Spinner from '../plugins/todo/spinner'
+import Spinner from '../hooks/spinner'
 
-// The Todo spinner's surface module, drawn in a test Pane through a surface
+// The Sidebar's sweep surface module (`hooks/spinner.tsx`), drawn in a test Pane through a surface
 // that holds its state and lets the test fire its `every` ticks.
 test('each every tick steps to the next frame and wraps after ⠲', async ($, on) => {
   const ticks: { ms: number; fn: () => void }[] = []

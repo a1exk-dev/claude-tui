@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FLOOR as floor } from '../ctui/hooks/floor.ts'
+import { MONTHLY_DEFAULT } from '../ctui/hooks/monthly-default.ts'
 import { ICON, png } from './icon.ts'
 import { claude, staged } from './stage.ts'
 import { outputs } from './themes.ts'
@@ -89,6 +90,12 @@ const themes = readdirSync('ctui/themes')
   .map((f) => f.replace(/\.json$/, ''))
   .sort()
 same('inherit plus the ctui/themes/*.json slugs A–Z and the theme options', ['inherit', ...themes].join(' '), manifest.userConfig.theme.options.join(' '))
+// The monthly cost default: the manifest declares it, and the settings reader and the Limits view read the constant.
+same(
+  'the limits_cost_monthly default in plugin.json and MONTHLY_DEFAULT in ctui/hooks/monthly-default.ts',
+  String(manifest.userConfig.limits_cost_monthly.default),
+  String(MONTHLY_DEFAULT),
+)
 
 // ctui/ holds only what ships: every tracked file is in ctui/package.json's `files` (npm adds package.json itself),
 // and every `files` entry names a tracked file. The directory scans the whole folder (#415).
@@ -103,6 +110,34 @@ if (unshipped.length > 0) error(`ctui/ tracks files ctui/package.json's files le
 const missing = shipped.filter((entry) => !tracked.some((path) => isUnder(path, entry)))
 if (missing.length > 0) error(`ctui/package.json's files names what ctui/ does not track: ${missing.join(' ')}`)
 
+// The `void` call closes with the handler: after it come only the closers of the expression around it,
+// and the call before it is whole, so the handler isn't inside its arguments.
+const endsInHandler = (line: string) => {
+  const call = /\bvoid\s+([\w$.]+\(.*)\.catch\(\(\) => undefined\)[)},;\s]*$/.exec(line)?.[1]
+  if (call === undefined) return false
+  let depth = 0
+  for (const char of call) if ((depth += char === '(' ? 1 : char === ')' ? -1 : 0) < 0) return false
+  return depth === 0
+}
+
+// The directory's Validate reads a `Client` only as an element written in a hook's own tree, from elements
+// destructured by name off `$.ui.resolve(e)`, with a string-literal `module` (MOD_IMPORT_DYNAMIC_COMPUTED, #428)
+// beside the hooks module, as `./<name>.tsx` (#433). `claude plugin validate` checks none of it. A Sidebar
+// plugin leaves a Client placeholder that register.tsx's render hook draws as its Client in its own body.
+for (const path of tracked.filter((path) => /\.tsx?$/.test(path)).map((path) => `ctui/${path}`)) {
+  const source = readFileSync(path, 'utf8')
+  if (/const \{[^}]*\.\.\.[^}]*\} = \$\.ui\.resolve\(/.test(source)) error(`${path} binds $.ui.resolve(e)'s elements with a rest pattern`)
+  const clients = [...source.matchAll(/<Client\b[^>]*>/g)].map((m) => m[0])
+  if (clients.length > 0 && path !== 'ctui/hooks/register.tsx') error(`${path} writes a <Client>: only register.tsx's hooks do`)
+  for (const tag of clients) if (!/ module="\.\/[a-z]+\.tsx"/.test(tag)) error(`${path} writes a <Client> whose module is not "./<name>.tsx": ${tag}`)
+  // An un-awaited call is one line ending in the one fixed handler, so a refusal from another mod
+  // never reaches the test runner as an unhandled rejection (#462). `void` in a type takes no call.
+  source.split('\n').forEach((line, index) => {
+    if (/\bvoid\s+[\w$.]+\(/.test(line) && !endsInHandler(line))
+      error(`${path}:${index + 1} leaves an un-awaited call that doesn't end in .catch(() => undefined)`)
+  })
+}
+
 // The pin and the support floor: both READMEs name them, the toast's constant
 // and the floor's vendored types name the floor.
 const pin: string = json('package.json').devDependencies['@anthropic-ai/claude-code']
@@ -111,8 +146,10 @@ if (!/^\d+\.\d+\.\d+$/.test(pin)) error(`the Claude Code pin must be an exact ve
 const floorWritten = /^\/\/ Written by Claude Code (\S+)\.$/m.exec(readFileSync('vendor/claude-code-types-floor/claude-code/index.d.ts', 'utf8'))?.[1] ?? ''
 same('the floor in ctui/hooks/floor.ts and the version that wrote vendor/claude-code-types-floor', floor, floorWritten)
 const supported = `Needs Claude Code ${floor} or later. Tested with ${pin}.`
-const readmeLines = (path: string) => readFileSync(path, 'utf8').split('\n')
-for (const readme of ['README.md', 'ctui/README.md']) {
+// Each README is read once.
+const readmes: Record<string, string> = Object.fromEntries(['README.md', 'ctui/README.md'].map((path) => [path, readFileSync(path, 'utf8')]))
+const readmeLines = (path: string) => readmes[path].split('\n')
+for (const readme of Object.keys(readmes)) {
   if (!readmeLines(readme).includes(supported)) error(`${readme} has no line "${supported}"`)
 }
 
@@ -121,6 +158,15 @@ const pluginCommands = (path: string) => readmeLines(path).filter((line) => line
 const ctuiInstall = pluginCommands('ctui/README.md')
 if (ctuiInstall.length === 0) error('ctui/README.md has no /plugin install lines')
 same('the /plugin lines in README.md and ctui/README.md', pluginCommands('README.md').join(' | '), ctuiInstall.join(' | '))
+
+// The directory policy asks the README for examples (§3E), support and a security contact (§3B),
+// privacy and data handling (§3A) and troubleshooting (§3C).
+const ctuiReadme = readmeLines('ctui/README.md')
+for (const section of ['## Examples', '## Support', '## Privacy and data', '## Troubleshooting']) {
+  if (!ctuiReadme.includes(section)) error(`ctui/README.md has no "${section}" section`)
+}
+const SECURITY = 'https://github.com/a1exk-dev/claude-tui/security/advisories/new'
+if (!readmes['ctui/README.md'].includes(SECURITY)) error(`ctui/README.md does not link ${SECURITY} for security reports`)
 
 // The engine-pinned expectations hold on one engine, so their MEMORY.md entry names the pin.
 const PINNED = 'Engine-pinned expectations hold only on the pinned Claude Code version'

@@ -59,7 +59,7 @@ The standard layout, with each component's default location, is at CC:plugins/ma
 **Official boilerplates.** There is no scaffold for mods. `claude plugin init` scaffolds a different kind of plugin, one built on command hooks (SKR L9). The closest official templates are:
 
 - `GH:po plugins/example-plugin`: a plain plugin with commands, skills and `.mcp.json`. It has no mod.
-- `GH:cc mods/{diff,agents-md,sec-default,telemetry}`: the built-in mods, written in TypeScript, with `tests/` and a shared `mods/tsconfig.json` and `mods/types/claude-code.d.ts`. The GitHub copy of the d.ts still says 2.1.277.
+- `GH:cc mods/{diff,agents-md,telemetry}`: the built-in mods, written in TypeScript, with `tests/` and a shared `mods/tsconfig.json` and `mods/types/claude-code.d.ts`. The GitHub copy of the d.ts still says 2.1.277.
 - `GH:pg claude-code/mods/{token-weather,blast-radius,replay-theater}`: single-file `.mjs` mods with a `.gitignore` that excludes `.claude-plugin/types/`, plus a `.claude-plugin/marketplace.json` at the folder root.
 - `GH:po plugins/code-modernization`: a large TypeScript mod with `hooks/register.ts`, `hooks/views/*.tsx`, `hooks/views/palette.ts`, `tests/*.test.ts` and a `tsconfig.json`.
 
