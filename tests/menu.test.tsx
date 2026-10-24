@@ -24,7 +24,7 @@ const THEME_ROW: ConfigRow = {
 const NAMES: Record<string, string> = { everforest: 'Everforest', 'tokyo-night': 'Tokyo Night', catppuccin: 'Catppuccin' }
 const OPTIONS = ['inherit', 'catppuccin', 'everforest', 'tokyo-night']
 
-type World = { rows?: ConfigRow[]; deny?: string; register?: string; toasts?: string[] }
+type World = { rows?: ConfigRow[]; list?: string; deny?: string; register?: string; toasts?: string[] }
 
 // The world beneath the plugin: files, `/config` rows (none under `claude -p`),
 // the writer, the command registry, toasts, and the panes opened and closed.
@@ -40,7 +40,7 @@ function host(on: On, world: World = {}) {
     if (slug) return { value: JSON.stringify({ name: NAMES[slug], base: 'dark', overrides: {} }) }
     return { value: JSON.stringify({ userConfig: { theme: { options: OPTIONS } } }) }
   })
-  on('config.list', () => ({ value: world.rows ?? [THEME_ROW] }))
+  on('config.list', () => (world.list === undefined ? { value: world.rows ?? [THEME_ROW] } : { deny: world.list }))
   on('config.set', (_, e) => {
     seen.sets.push({ key: e.key, value: e.value })
     return world.deny === undefined ? { value: e.value } : { deny: world.deny }
@@ -119,22 +119,32 @@ const footerOf = async (pane: Pane) => (await pane.findAll({ type: 'Box', text: 
 // `deny`, when given), the ring moves (each with the opens made before it) and
 // a clock that runs every timer at once, soonest first; `inHook` gets the
 // writes made before any timer ran. The test kit raises no `ui.close` for Esc
-// and doesn't report the mod's own ring moves.
+// and doesn't report the mod's own ring moves. The hook is the one on the pane
+// `e` names, the menu's or the Sidebar's. With `refuse`, the first menu read,
+// the one a gate decides on, rejects with it, as a read another mod refused does.
 type MenuState = Menu
 type Focus = { requestId: string; key: string; opensBefore: number }
-type Recorders = { opens?: PaneOpenArgs[]; sets?: unknown[]; focuses?: Focus[]; inHook?: unknown[]; deny?: string }
-async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input' | 'ui.focus', e: unknown, next: () => unknown, state: { menu?: MenuState }, { opens = [], sets = [], focuses = [], inHook = [], deny }: Recorders = {}) {
+type Recorders = { opens?: PaneOpenArgs[]; sets?: unknown[]; focuses?: Focus[]; inHook?: unknown[]; deny?: string; refuse?: string }
+async function callHook(event: 'ui.close' | 'ui.press' | 'ui.input' | 'ui.focus', e: unknown, next: () => unknown, state: { menu?: MenuState }, { opens = [], sets = [], focuses = [], inHook = [], deny, refuse }: Recorders = {}) {
+  const { id, requestId } = e as { id?: string; requestId?: string }
   let hook: ((...args: unknown[]) => unknown) | undefined
   const record = (name: string, matcher: { id?: string; requestId?: string }, run: (...args: unknown[]) => unknown) => {
-    if (name === event && (matcher.id ?? matcher.requestId) === 'ctui') hook = run
+    if (name === event && (matcher.id ?? matcher.requestId) === (id ?? requestId)) hook = run
   }
   register(record as unknown as On, {})
   let now = 0
+  let refused = false
   const timers: { at: number; run: () => Promise<unknown> }[] = []
   const $ = {
     clock: { after: (ms: number, run: () => Promise<unknown>) => void timers.push({ at: now + ms, run }), now: async () => now, sleep: async () => undefined },
     state: {
-      get: async () => ({ value: state.menu }),
+      get: async ({ key }: { key: string }) => {
+        if (refuse !== undefined && key === 'menu' && !refused) {
+          refused = true
+          throw new Error(refuse)
+        }
+        return { value: state.menu }
+      },
       set: async (_: unknown, value: MenuState) => void (state.menu = value),
     },
     ui: {
@@ -243,11 +253,35 @@ test('the ring never lands on the hidden hotkeys', async ($, on) => {
   }
 })
 
+// The ring gate and the Sidebar's close gate decide before any read, so
+// a refused read changes neither.
+test('with the menu read refused, the ring still never lands on the hidden hotkeys', async ($, on) => {
+  let refused = false
+  on('state.get', (_, e, next) => (refused && e.key === 'menu' ? { deny: 'refused by another mod' } : next(e)))
+  host(on)
+  await openPlugins($)
+  refused = true
+  for (const element of ['menu-toggle', 'menu-up', 'menu-down']) {
+    expect(await $.ui.focus({ component: 'Pane', requestId: 'ctui', plugin: 'ctui', element, origin: { kind: 'person' } })).toEqual({ deny: expect.any(String) })
+  }
+})
+
+test('with the menu read refused, the person still can’t close the Sidebar', async () => {
+  const answer = await callHook('ui.close', { id: 'sidebar', origin: { kind: 'person' } }, () => 'closed', {}, { refuse: 'refused by another mod' })
+  expect(answer).toEqual({ deny: expect.any(String) })
+})
+
+const NO_MENU = { text: "Can't open the ctui menu. Change ctui settings in /config in an interactive session." }
+
 test('under claude -p /ctui prints the fixed line and opens nothing', async ($, on) => {
   const seen = host(on, { rows: [] })
-  expect(await run($)).toEqual({
-    text: "Can't change ctui settings in claude -p. Use /config in an interactive session.",
-  })
+  expect(await run($)).toEqual(NO_MENU)
+  expect(seen.opens).toEqual([])
+})
+
+test('with the settings list refused, /ctui prints the same line and opens nothing', async ($, on) => {
+  const seen = host(on, { list: 'another mod refused config.list' })
+  expect(await run($)).toEqual(NO_MENU)
   expect(seen.opens).toEqual([])
 })
 
@@ -259,6 +293,50 @@ test('a taken /ctui toasts once per session, and the Sidebar still draws', { opt
   await start($) // a settings reload runs session.start again
   await clock.settle()
   expect(toasts).toEqual(['/ctui is taken by the acme plugin; change ctui settings in /config'])
+  const sidebar = await $.ui.mount({
+    plugin: 'ctui',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'sidebar',
+    props: { title: 'Sidebar', isFocused: false, bodyColumns: 42, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} },
+  })
+  expect(await sidebar.find({ type: 'Client', key: 'foldrow-context' })).toBeDefined()
+})
+
+// No tick registers `/ctui` again, only a settings reload. The kit keeps no
+// command registry, so the refused register is the `/ctui` the session lacks.
+test('a /ctui registration another mod refuses toasts once, naming /config', { options: { agents_toasts: false } }, async ($, on) => {
+  const clock = mock.clock(on)
+  const toasts: string[] = []
+  const seen = host(on, { register: 'blocked by acme', toasts })
+  await start($)
+  await start($) // a settings reload runs session.start again
+  await clock.settle()
+  expect(seen.registered).toHaveLength(2)
+  expect(toasts).toEqual(["Can't register /ctui; change ctui settings in /config"])
+})
+
+// Another mod refusing ctui's menu read costs only a pending Plugins order.
+test('a refused menu read at session start still starts the session, ticks and draws the Sidebar', async ($, on) => {
+  const clock = mock.clock(on)
+  host(on)
+  mock.env(on, {})
+  // What the boot reads beneath the plugin, so the hook runs to its end.
+  on('session.cwd', () => ({ value: '/srv/x' }))
+  on('session.version', () => ({ value: { version: '2.1.300' } }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  on('tool.list', () => ({ value: [] }))
+  on('fs.exists', () => ({ value: false }))
+  // Only the one-second tick lists the agents.
+  let ticks = 0
+  on('agent.list', () => {
+    ticks++
+    return { value: [] }
+  })
+  on('state.get', async ($, e, next) => (e.key === 'menu' ? { deny: 'refused by acme' } : next(e)))
+  expect(await start($)).toEqual({ cwd: '/srv/x' })
+  await clock.advance(2000)
+  expect(ticks).toBe(2)
   const sidebar = await $.ui.mount({
     plugin: 'ctui',
     surface: 'terminal',
@@ -409,6 +487,16 @@ for (const level of ['themes', 'plugins'] as const) {
     expect(await esc(state, { opens })).toBe('closed')
   })
 }
+
+// The menu's level can't be read, so Esc can't step back: the menu closes
+// rather than leave the person in a pane whose keys no longer work.
+test('with the menu read refused, Esc in a submenu closes the menu', async () => {
+  const state: { menu?: MenuState } = { menu: { level: 'plugins', filter: '', picks: { top: 'plugins' } } }
+  const closes: string[] = []
+  const close = () => (closes.push('ctui'), 'closed')
+  expect(await callHook('ui.close', { id: 'ctui', origin: { kind: 'person' } }, close, state, { refuse: 'refused by another mod' })).toBe('closed')
+  expect(closes).toEqual(['ctui'])
+})
 
 // The Plugins screen (#176).
 

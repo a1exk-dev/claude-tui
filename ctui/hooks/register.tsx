@@ -71,10 +71,10 @@ const DOCK_COLUMNS = 110
 const GAP = 2 // columns between the transcript rows ctui draws and the docked Sidebar's rule
 const widthFor = (terminalColumns: number) => (terminalColumns >= 160 ? 53 : 42)
 
-// The `/ctui` menu's pane, its model, and whether this session already toasted a taken `/ctui`.
+// The `/ctui` menu's pane, its model, and whether this session already toasted a taken or refused `/ctui`.
 const MENU_PANE = 'ctui'
 const MENU = { plugin: 'ctui', key: 'menu' } as const
-const MENU_TAKEN = { plugin: 'ctui', key: 'menuTaken' } as const
+const MENU_REFUSED = { plugin: 'ctui', key: 'menuRefused' } as const
 
 // Whether this session already toasted an engine below the support floor.
 const FLOOR_TOASTED = { plugin: 'ctui', key: 'floorToasted' } as const
@@ -224,6 +224,18 @@ async function refillUsage($: EngineInterface) {
 async function refillUsageAndMonth($: EngineInterface, monthCost: boolean, choice: Config['limits']['cost']) {
   await refillUsage($)
   if (monthCost) await refreshMonth($, choice)
+}
+
+// The session's first usage, then the `now` and month rows that read it, neither awaited.
+async function loadUsageAndMonth(
+  $: EngineInterface,
+  now: boolean,
+  monthCost: boolean,
+  choice: Config['limits']['cost'],
+) {
+  await loadUsage($)
+  if (now) void setNow($).catch(() => undefined)
+  if (monthCost) void refreshMonth($, choice).catch(() => undefined)
 }
 
 // `now` moves when a reset time shown would read differently.
@@ -647,6 +659,12 @@ async function tickTasks($: EngineInterface, timers: boolean) {
   if (timers && shown) await $.state.set(NOW, await $.clock.now())
 }
 
+// The tick's agent refresh, then its task share.
+async function refreshAgentsAndTasks($: EngineInterface, timers: boolean) {
+  await refreshAgents($)
+  await tickTasks($, timers)
+}
+
 function onNotification($: EngineInterface, text: string) {
   const note = parseTaskNotification(text)
   if (note) return updateTasks($, (tasks, now) => applyNotification(tasks, note, now))
@@ -684,7 +702,10 @@ async function themesOf($: EngineInterface) {
 
 // `claude -p` and the SDK list no `ctui.theme` row, and `$.config.set` throws there.
 async function hasConfig($: EngineInterface) {
-  return (await $.config.list()).some((row) => row.key === 'ctui.theme')
+  // A refused list reads as no settings: the person loses the menu for this
+  // `/ctui` and gets the fixed line that sends them to `/config`, not silence.
+  const rows = await $.config.list().catch(() => [])
+  return rows.some((row) => row.key === 'ctui.theme')
 }
 
 // MEMORY.md "`/ctui` is one instant menu; it survives each settings reload".
@@ -693,12 +714,16 @@ async function registerMenu($: EngineInterface) {
   try {
     await $.command.register({ name: 'ctui', description: 'ctui: Sidebar plugins and themes', immediate: true })
   } catch (error) {
-    // A taken name reads `"/ctui" refused: …`.
+    // Taken, or refused by another mod, the session has no `/ctui` until a
+    // settings reload registers it again: one toast sends the person to `/config`.
     const refusal = error instanceof Error ? error.message : String(error)
-    if (!refusal.includes('refused') || (await $.state.get(MENU_TAKEN)).value) return
-    await $.state.set(MENU_TAKEN, true)
-    const who = takenBy(refusal)
-    showToast($, { id: 'menu-taken', end: true, text: `/ctui is taken by ${who}; change ctui settings in /config` }, true)
+    if ((await $.state.get(MENU_REFUSED)).value) return
+    await $.state.set(MENU_REFUSED, true)
+    // A taken name reads `"/ctui" refused: …`, naming who holds it.
+    const text = refusal.includes('"/ctui" refused')
+      ? `/ctui is taken by ${takenBy(refusal)}; change ctui settings in /config`
+      : "Can't register /ctui; change ctui settings in /config"
+    showToast($, { id: 'menu-refused', end: true, text }, true)
   }
 }
 
@@ -893,39 +918,36 @@ export const register: Register = (on, options) => {
     void checkFloor($).catch(() => undefined)
     void registerMenu($).catch(() => undefined)
     // A written order stops waiting; one a reload from elsewhere (`/config`)
-    // left still waits for the menu's next write, Esc or close.
-    const { pending, ...menu } = await menuOf($)
+    // left still waits for the menu's next write, Esc or close. A refused read
+    // reads as an empty menu, so the session still starts and ticks: a moved
+    // order never saved stays waiting, as that reload already leaves it.
+    const { pending, ...menu } = await menuOf($).catch(() => MENU_START)
     if (pending?.join(',') === config.order.join(',')) await setMenu($, menu)
     await setTodoEnv($, config.todo.tools)
     // `tool.describe` answers are cached for the session: re-ask them, so the pin follows `todo_tools`.
     $.ui.invalidate('tool.describe')
     void refreshModel($).catch(() => undefined)
-    if (needs.has('todo')) void loadTodo($)
+    if (needs.has('todo')) void loadTodo($).catch(() => undefined)
     if (needs.has('skills')) void refillSkills($).catch(() => undefined)
-    if (needs.has('git')) void refreshGit($)
+    if (needs.has('git')) void refreshGit($).catch(() => undefined)
     if (needs.has('mcp')) void readMcpFiles($).catch(() => undefined)
-    if (needs.has('versions')) void loadVersions($, config.theme)
-    if (needs.has('usage')) {
-      void loadUsage($).then(() => {
-        if (needs.has('now')) void setNow($)
-        if (needs.has('monthCost')) void refreshMonth($, config.limits.cost).catch(() => undefined)
-      })
-    }
+    if (needs.has('versions')) void loadVersions($, config.theme).catch(() => undefined)
+    if (needs.has('usage')) void loadUsageAndMonth($, needs.has('now'), needs.has('monthCost'), config.limits.cost).catch(() => undefined)
     if (inherit) void refreshGlass($).catch(() => undefined)
     let ticks = 0
     tick?.cancel()
     tick = $.clock.every(1000, () => {
       ticks++
       void refreshModel($).catch(() => undefined)
-      if (ticks % 5 === 0 && needs.has('git')) void refreshGit($)
+      if (ticks % 5 === 0 && needs.has('git')) void refreshGit($).catch(() => undefined)
       if (needs.has('usage')) void refillUsageAndMonth($, needs.has('monthCost'), config.limits.cost).catch(() => undefined)
-      if (needs.has('versions')) void refillVersions($, config.theme)
-      if (needs.has('mcp')) void refreshMcp($)
-      if (needs.has('todo')) void refreshTodo($)
+      if (needs.has('versions')) void refillVersions($, config.theme).catch(() => undefined)
+      if (needs.has('mcp')) void refreshMcp($).catch(() => undefined)
+      if (needs.has('todo')) void refreshTodo($).catch(() => undefined)
       if (needs.has('skills')) void refillSkills($).catch(() => undefined)
-      if (needs.has('now')) void setNow($)
+      if (needs.has('now')) void setNow($).catch(() => undefined)
       if (inherit) void refreshGlass($).catch(() => undefined)
-      if (tracking) void refreshAgents($).then(() => tickTasks($, needs.has('now')))
+      if (tracking) void refreshAgentsAndTasks($, needs.has('now')).catch(() => undefined)
     })
     return next(e)
   })
@@ -995,16 +1017,16 @@ export const register: Register = (on, options) => {
     const server = needs.has('mcp') ? serverOfTool(e.tool) : undefined
     if (server) {
       mcpCalls = { ...mcpCalls, [server]: (mcpCalls[server] ?? 0) + 1 }
-      void writeMcpRows($)
+      void writeMcpRows($).catch(() => undefined)
     }
     try {
       return await next(e)
     } finally {
       if (server) {
         mcpCalls = { ...mcpCalls, [server]: Math.max((mcpCalls[server] ?? 1) - 1, 0) }
-        void writeMcpRows($)
+        void writeMcpRows($).catch(() => undefined)
       }
-      if (needs.has('git') && GIT_TOOLS.has(e.tool)) void refreshGit($)
+      if (needs.has('git') && GIT_TOOLS.has(e.tool)) void refreshGit($).catch(() => undefined)
     }
   })
 
@@ -1019,7 +1041,7 @@ export const register: Register = (on, options) => {
     const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
       await keepActiveForm($, done.result.task.id, e.activeForm)
-      void loadTodo($)
+      void loadTodo($).catch(() => undefined)
     }
     return done
   })
@@ -1028,7 +1050,7 @@ export const register: Register = (on, options) => {
     const done = hidesList(e.agentId) ? await ownCall($.tool.call(e)) : await next(e)
     if (needs.has('todo') && done.result && !done.isError) {
       await keepActiveForm($, e.taskId, e.activeForm)
-      void loadTodo($)
+      void loadTodo($).catch(() => undefined)
     }
     return done
   })
@@ -1224,7 +1246,7 @@ export const register: Register = (on, options) => {
 
   // An open from the person's prompt counts as asked: it docks from 110 columns.
   on('prompt.submit', ($, e, next) => {
-    if (waiting && e.origin.kind === 'composer') void openSidebar($, requested ?? widthFor(DOCK_COLUMNS))
+    if (waiting && e.origin.kind === 'composer') void openSidebar($, requested ?? widthFor(DOCK_COLUMNS)).catch(() => undefined)
     return next(e)
   })
 
@@ -1239,7 +1261,8 @@ export const register: Register = (on, options) => {
     const ui: SidebarUi = { Box, Text, Button, ...clientPlaceholders }
     setDock($, e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1)
     if (e.props.placement === 'inline') {
-      $.clock.after(0, () => void $.ui.close({ id: SIDEBAR }))
+      // A refused close costs nothing: the inline pane draws empty.
+      $.clock.after(0, () => void $.ui.close({ id: SIDEBAR }).catch(() => undefined))
       return <Box />
     }
     waiting = false
@@ -1248,7 +1271,9 @@ export const register: Register = (on, options) => {
       const columns = widthFor(e.viewport.columns + e.props.bodyColumns + 1)
       if (columns !== requested) {
         requested = columns
-        $.clock.after(0, () => void openSidebar($, columns))
+        // A refused open keeps the dock at its old width for the session: the
+        // width asked is already recorded, so no later draw asks again.
+        $.clock.after(0, () => void openSidebar($, columns).catch(() => undefined))
       }
     }
     const [folded, expanded, scroll, git, usage, month, now, mcp, todo, skills, versions, tasks, glass] = await Promise.all([
@@ -1295,7 +1320,7 @@ export const register: Register = (on, options) => {
       expanded: expanded.value ?? {},
       scroll: scroll.value ?? 0,
       focused: e.props.isFocused,
-      onControl: (control) => void toggle($, config, control),
+      onControl: (control) => void toggle($, config, control).catch(() => undefined),
     })
     maxScroll = drawn.maxScroll
     // Each Client placeholder the Sidebar left is built as its Client here, in
@@ -1420,7 +1445,7 @@ export const register: Register = (on, options) => {
     if (!turn && isFirstDraw && lastTurn && (await $.clock.now()) - lastTurn.at < FOOTER_MS) {
       turn = { ...lastTurn.turn, durationMs: e.props.durationMs }
       const alias = turn
-      $.clock.after(0, () => void addTurn($, alias))
+      $.clock.after(0, () => void addTurn($, alias).catch(() => undefined))
     }
     return next(turn ? { ...e, props: { ...e.props, word: turnWord(e.props.word, turn) } } : e)
   })
@@ -1642,7 +1667,12 @@ export const register: Register = (on, options) => {
   // landing then saves an order still waiting (`ui.focus`). At the top it
   // closes, saving that order here.
   on('ui.close', { id: MENU_PANE }, async ($, e, next) => {
-    const menu = await menuOf($)
+    // A refused read reads as the start, whose level has no parent, so Esc
+    // closes the menu: what a skipped hook did, now ctui's stated choice. The
+    // person loses the step back to the screen above; refusing instead would
+    // trap them in a pane whose state can't be read, and whose reopen would
+    // fail too.
+    const menu = await menuOf($).catch(() => MENU_START)
     const up = PARENT[menu.level]
     if (e.origin.kind !== 'person' || !up) {
       const result = await next(e)
