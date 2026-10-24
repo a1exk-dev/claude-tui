@@ -275,6 +275,19 @@ test('a taken /ctui toasts once per session, and the Sidebar still draws', { opt
   expect(await sidebar.find({ type: 'Client', key: 'foldrow-context' })).toBeDefined()
 })
 
+// No tick registers `/ctui` again, only a settings reload. The kit keeps no
+// command registry, so the refused register is the `/ctui` the session lacks.
+test('a /ctui registration another mod refuses toasts once, naming /config', { options: { agents_toasts: false } }, async ($, on) => {
+  const clock = mock.clock(on)
+  const toasts: string[] = []
+  const seen = host(on, { register: 'blocked by acme', toasts })
+  await start($)
+  await start($) // a settings reload runs session.start again
+  await clock.settle()
+  expect(seen.registered).toHaveLength(2)
+  expect(toasts).toEqual(["Can't register /ctui; change ctui settings in /config"])
+})
+
 // Another mod refusing ctui's menu read costs only a pending Plugins order.
 test('a refused menu read at session start still starts the session, ticks and draws the Sidebar', async ($, on) => {
   const clock = mock.clock(on)

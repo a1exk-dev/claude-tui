@@ -71,7 +71,7 @@ const DOCK_COLUMNS = 110
 const GAP = 2 // columns between the transcript rows ctui draws and the docked Sidebar's rule
 const widthFor = (terminalColumns: number) => (terminalColumns >= 160 ? 53 : 42)
 
-// The `/ctui` menu's pane, its model, and whether this session already toasted a taken `/ctui`.
+// The `/ctui` menu's pane, its model, and whether this session already toasted a taken or refused `/ctui`.
 const MENU_PANE = 'ctui'
 const MENU = { plugin: 'ctui', key: 'menu' } as const
 const MENU_TAKEN = { plugin: 'ctui', key: 'menuTaken' } as const
@@ -714,12 +714,16 @@ async function registerMenu($: EngineInterface) {
   try {
     await $.command.register({ name: 'ctui', description: 'ctui: Sidebar plugins and themes', immediate: true })
   } catch (error) {
-    // A taken name reads `"/ctui" refused: …`.
+    // Taken, or refused by another mod, the session has no `/ctui` until a
+    // settings reload registers it again: one toast sends the person to `/config`.
     const refusal = error instanceof Error ? error.message : String(error)
-    if (!refusal.includes('refused') || (await $.state.get(MENU_TAKEN)).value) return
+    if ((await $.state.get(MENU_TAKEN)).value) return
     await $.state.set(MENU_TAKEN, true)
-    const who = takenBy(refusal)
-    showToast($, { id: 'menu-taken', end: true, text: `/ctui is taken by ${who}; change ctui settings in /config` }, true)
+    // A taken name reads `"/ctui" refused: …`, naming who holds it.
+    const text = refusal.includes('"/ctui" refused')
+      ? `/ctui is taken by ${takenBy(refusal)}; change ctui settings in /config`
+      : "Can't register /ctui; change ctui settings in /config"
+    showToast($, { id: 'menu-taken', end: true, text }, true)
   }
 }
 
@@ -1257,6 +1261,7 @@ export const register: Register = (on, options) => {
     const ui: SidebarUi = { Box, Text, Button, ...clientPlaceholders }
     setDock($, e.props.placement === 'inline' ? 0 : e.props.bodyColumns + 1)
     if (e.props.placement === 'inline') {
+      // A refused close costs nothing: the inline pane draws empty.
       $.clock.after(0, () => void $.ui.close({ id: SIDEBAR }).catch(() => undefined))
       return <Box />
     }
@@ -1266,6 +1271,8 @@ export const register: Register = (on, options) => {
       const columns = widthFor(e.viewport.columns + e.props.bodyColumns + 1)
       if (columns !== requested) {
         requested = columns
+        // A refused open keeps the dock at its old width for the session: the
+        // width asked is already recorded, so no later draw asks again.
         $.clock.after(0, () => void openSidebar($, columns).catch(() => undefined))
       }
     }
