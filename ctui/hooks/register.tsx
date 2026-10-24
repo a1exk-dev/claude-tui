@@ -684,7 +684,10 @@ async function themesOf($: EngineInterface) {
 
 // `claude -p` and the SDK list no `ctui.theme` row, and `$.config.set` throws there.
 async function hasConfig($: EngineInterface) {
-  return (await $.config.list()).some((row) => row.key === 'ctui.theme')
+  // A refused list reads as no settings: the person loses the menu for this
+  // `/ctui` and gets the fixed line that sends them to `/config`, not silence.
+  const rows = await $.config.list().catch(() => [])
+  return rows.some((row) => row.key === 'ctui.theme')
 }
 
 // MEMORY.md "`/ctui` is one instant menu; it survives each settings reload".
